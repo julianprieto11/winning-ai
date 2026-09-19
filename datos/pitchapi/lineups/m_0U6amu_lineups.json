@@ -1,0 +1,451 @@
+{
+  "data": {
+    "match_id": "m_0U6amu",
+    "home_team": {
+      "id": "t_0rGDE4",
+      "name": "Gimnasia LP",
+      "image_url": "https://cdn.pitchapi.dev/images/teams/e9a92ce319ba0ab4c1301ec669b4810fb375679b4e8b1ad3fa0d68a8c1bb316f.webp"
+    },
+    "away_team": {
+      "id": "t_2RmaMX",
+      "name": "Racing Club",
+      "image_url": "https://cdn.pitchapi.dev/images/teams/99b68d315929c10c300d18fb9dc090a71258f15e2c0818ef04cacd02992bb430.webp"
+    },
+    "home": {
+      "formation": "4-2-3-1",
+      "confirmed": true,
+      "coach": {
+        "name": "Fernando Zaniratto"
+      },
+      "starters": [
+        {
+          "player_id": "p_1CvIxl",
+          "name": "Nelson Insfran",
+          "shirt_number": "23",
+          "position_id": 11,
+          "is_captain": false,
+          "pitch_x": 0.1,
+          "pitch_y": 0.5
+        },
+        {
+          "player_id": "p_1bUOsk",
+          "name": "Alexis Steimbach",
+          "shirt_number": "25",
+          "position_id": 32,
+          "is_captain": false,
+          "pitch_x": 0.292,
+          "pitch_y": 0.875
+        },
+        {
+          "player_id": "p_0URNSN",
+          "name": "Renzo Giampaoli",
+          "shirt_number": "4",
+          "position_id": 34,
+          "is_captain": false,
+          "pitch_x": 0.292,
+          "pitch_y": 0.625
+        },
+        {
+          "player_id": "p_40ubcR",
+          "name": "Enzo Martinez",
+          "shirt_number": "21",
+          "position_id": 36,
+          "is_captain": false,
+          "pitch_x": 0.292,
+          "pitch_y": 0.375
+        },
+        {
+          "player_id": "p_2ZvpgZ",
+          "name": "Pedro Silva Torrejon",
+          "shirt_number": "24",
+          "position_id": 38,
+          "is_captain": false,
+          "pitch_x": 0.292,
+          "pitch_y": 0.125
+        },
+        {
+          "player_id": "p_0AsvjF",
+          "name": "Augusto Max",
+          "shirt_number": "16",
+          "position_id": 64,
+          "is_captain": false,
+          "pitch_x": 0.485,
+          "pitch_y": 0.7
+        },
+        {
+          "player_id": "p_0naJM3",
+          "name": "Nicolas Barros Schelotto",
+          "shirt_number": "10",
+          "position_id": 66,
+          "is_captain": false,
+          "pitch_x": 0.485,
+          "pitch_y": 0.3
+        },
+        {
+          "player_id": "p_1OBnRG",
+          "name": "Franco Torres",
+          "shirt_number": "26",
+          "position_id": 83,
+          "is_captain": false,
+          "pitch_x": 0.678,
+          "pitch_y": 0.837
+        },
+        {
+          "player_id": "p_15wJtA",
+          "name": "Ignacio Fernandez",
+          "shirt_number": "8",
+          "position_id": 85,
+          "is_captain": false,
+          "pitch_x": 0.678,
+          "pitch_y": 0.5
+        },
+        {
+          "player_id": "p_2h5dHt",
+          "name": "Manuel Panaro",
+          "shirt_number": "7",
+          "position_id": 87,
+          "is_captain": false,
+          "pitch_x": 0.678,
+          "pitch_y": 0.163
+        },
+        {
+          "player_id": "p_042eAN",
+          "name": "Marcelo Torres",
+          "shirt_number": "32",
+          "position_id": 115,
+          "is_captain": false,
+          "pitch_x": 0.87,
+          "pitch_y": 0.5
+        }
+      ],
+      "subs": [
+        {
+          "player_id": "p_2QsqY3",
+          "name": "Alejo Gelsomino",
+          "shirt_number": "15",
+          "position_id": 1,
+          "is_captain": false,
+          "pitch_x": 0,
+          "pitch_y": 0
+        },
+        {
+          "player_id": "p_0VZwYw",
+          "name": "Lucas Nahuel Castro",
+          "shirt_number": "19",
+          "position_id": 2,
+          "is_captain": false,
+          "pitch_x": 0,
+          "pitch_y": 0
+        },
+        {
+          "player_id": "p_2wtzyq",
+          "name": "Santiago Villarreal",
+          "shirt_number": "42",
+          "position_id": 2,
+          "is_captain": false,
+          "pitch_x": 0,
+          "pitch_y": 0
+        },
+        {
+          "player_id": "p_3AOI3O",
+          "name": "Pablo Aguiar",
+          "shirt_number": "33",
+          "position_id": 2,
+          "is_captain": false,
+          "pitch_x": 0,
+          "pitch_y": 0
+        },
+        {
+          "player_id": "p_4bCUcN",
+          "name": "Agustin Auzmendi",
+          "shirt_number": "29",
+          "position_id": 3,
+          "is_captain": false,
+          "pitch_x": 0,
+          "pitch_y": 0
+        },
+        {
+          "player_id": "p_2AGsdf",
+          "name": "Julián Kadijevic",
+          "shirt_number": "27",
+          "position_id": 0,
+          "is_captain": false,
+          "pitch_x": 0,
+          "pitch_y": 0
+        },
+        {
+          "player_id": "p_3Na8Ca",
+          "name": "Diego Mastrangelo",
+          "shirt_number": "6",
+          "position_id": 1,
+          "is_captain": false,
+          "pitch_x": 0,
+          "pitch_y": 0
+        },
+        {
+          "player_id": "p_1tL0oC",
+          "name": "Gonzalo Errecalde",
+          "shirt_number": "14",
+          "position_id": 1,
+          "is_captain": false,
+          "pitch_x": 0,
+          "pitch_y": 0
+        },
+        {
+          "player_id": "p_1THzRF",
+          "name": "Gonzalo Gonzalez",
+          "shirt_number": "2",
+          "position_id": 1,
+          "is_captain": false,
+          "pitch_x": 0,
+          "pitch_y": 0
+        },
+        {
+          "player_id": "p_1zT5yZ",
+          "name": "Juan Cortazzo",
+          "shirt_number": "35",
+          "position_id": 1,
+          "is_captain": false,
+          "pitch_x": 0,
+          "pitch_y": 0
+        },
+        {
+          "player_id": "p_1o2WFf",
+          "name": "Jeremias Merlo",
+          "shirt_number": "11",
+          "position_id": 3,
+          "is_captain": false,
+          "pitch_x": 0,
+          "pitch_y": 0
+        },
+        {
+          "player_id": "p_0L0xAY",
+          "name": "Jorge de Asis",
+          "shirt_number": "30",
+          "position_id": 3,
+          "is_captain": false,
+          "pitch_x": 0,
+          "pitch_y": 0
+        }
+      ]
+    },
+    "away": {
+      "formation": "4-3-3",
+      "confirmed": true,
+      "coach": {
+        "name": "Gustavo Costas"
+      },
+      "starters": [
+        {
+          "player_id": "p_0Nf4Z8",
+          "name": "Facundo Cambeses",
+          "shirt_number": "25",
+          "position_id": 11,
+          "is_captain": false,
+          "pitch_x": 0.1,
+          "pitch_y": 0.5
+        },
+        {
+          "player_id": "p_1vpOnq",
+          "name": "Gaston Martirena",
+          "shirt_number": "15",
+          "position_id": 32,
+          "is_captain": false,
+          "pitch_x": 0.357,
+          "pitch_y": 0.875
+        },
+        {
+          "player_id": "p_0YyuFZ",
+          "name": "Nazareno Colombo",
+          "shirt_number": "23",
+          "position_id": 34,
+          "is_captain": false,
+          "pitch_x": 0.357,
+          "pitch_y": 0.625
+        },
+        {
+          "player_id": "p_3ywdkO",
+          "name": "Agustin Basso",
+          "shirt_number": "2",
+          "position_id": 36,
+          "is_captain": false,
+          "pitch_x": 0.357,
+          "pitch_y": 0.375
+        },
+        {
+          "player_id": "p_12npfJ",
+          "name": "Gabriel Rojas",
+          "shirt_number": "27",
+          "position_id": 38,
+          "is_captain": false,
+          "pitch_x": 0.357,
+          "pitch_y": 0.125
+        },
+        {
+          "player_id": "p_13nKVT",
+          "name": "Matko Miljevic",
+          "shirt_number": "10",
+          "position_id": 73,
+          "is_captain": false,
+          "pitch_x": 0.613,
+          "pitch_y": 0.79
+        },
+        {
+          "player_id": "p_0KHX0U",
+          "name": "Santiago Sosa",
+          "shirt_number": "13",
+          "position_id": 75,
+          "is_captain": false,
+          "pitch_x": 0.613,
+          "pitch_y": 0.5
+        },
+        {
+          "player_id": "p_3iObzN",
+          "name": "Juan Ignacio Nardoni",
+          "shirt_number": "5",
+          "position_id": 77,
+          "is_captain": false,
+          "pitch_x": 0.613,
+          "pitch_y": 0.21
+        },
+        {
+          "player_id": "p_4dBC4G",
+          "name": "Valentin Carboni",
+          "shirt_number": "21",
+          "position_id": 103,
+          "is_captain": false,
+          "pitch_x": 0.87,
+          "pitch_y": 0.79
+        },
+        {
+          "player_id": "p_1wbURI",
+          "name": "Adrian Martinez",
+          "shirt_number": "9",
+          "position_id": 105,
+          "is_captain": false,
+          "pitch_x": 0.87,
+          "pitch_y": 0.5
+        },
+        {
+          "player_id": "p_3EIBrG",
+          "name": "Duvan Vergara",
+          "shirt_number": "7",
+          "position_id": 107,
+          "is_captain": false,
+          "pitch_x": 0.87,
+          "pitch_y": 0.21
+        }
+      ],
+      "subs": [
+        {
+          "player_id": "p_0GThAu",
+          "name": "Matias Zaracho",
+          "shirt_number": "11",
+          "position_id": 2,
+          "is_captain": false,
+          "pitch_x": 0,
+          "pitch_y": 0
+        },
+        {
+          "player_id": "p_3pbQt4",
+          "name": "Santiago Solari",
+          "shirt_number": "28",
+          "position_id": 3,
+          "is_captain": false,
+          "pitch_x": 0,
+          "pitch_y": 0
+        },
+        {
+          "player_id": "p_3BbL1n",
+          "name": "Tomas Conechny",
+          "shirt_number": "17",
+          "position_id": 3,
+          "is_captain": false,
+          "pitch_x": 0,
+          "pitch_y": 0
+        },
+        {
+          "player_id": "p_2VZBmw",
+          "name": "Marco Di Cesare",
+          "shirt_number": "3",
+          "position_id": 1,
+          "is_captain": false,
+          "pitch_x": 0,
+          "pitch_y": 0
+        },
+        {
+          "player_id": "p_3cO9Zi",
+          "name": "Tobias Rubio",
+          "shirt_number": "34",
+          "position_id": 1,
+          "is_captain": false,
+          "pitch_x": 0,
+          "pitch_y": 0
+        },
+        {
+          "player_id": "p_2qvaMO",
+          "name": "Matias Tagliamonte",
+          "shirt_number": "30",
+          "position_id": 0,
+          "is_captain": false,
+          "pitch_x": 0,
+          "pitch_y": 0
+        },
+        {
+          "player_id": "p_4MG4bN",
+          "name": "Franco Pardo",
+          "shirt_number": "18",
+          "position_id": 1,
+          "is_captain": false,
+          "pitch_x": 0,
+          "pitch_y": 0
+        },
+        {
+          "player_id": "p_4CHdcB",
+          "name": "Alan Forneris",
+          "shirt_number": "8",
+          "position_id": 2,
+          "is_captain": false,
+          "pitch_x": 0,
+          "pitch_y": 0
+        },
+        {
+          "player_id": "p_0lXOYJ",
+          "name": "Baltasar Rodriguez",
+          "shirt_number": "20",
+          "position_id": 2,
+          "is_captain": false,
+          "pitch_x": 0,
+          "pitch_y": 0
+        },
+        {
+          "player_id": "p_36mBna",
+          "name": "Bruno Zuculini",
+          "shirt_number": "36",
+          "position_id": 2,
+          "is_captain": false,
+          "pitch_x": 0,
+          "pitch_y": 0
+        },
+        {
+          "player_id": "p_1tAEiS",
+          "name": "Gonzalo Sosa",
+          "shirt_number": "44",
+          "position_id": 2,
+          "is_captain": false,
+          "pitch_x": 0,
+          "pitch_y": 0
+        },
+        {
+          "player_id": "p_0fwM0U",
+          "name": "Ignacio Rodriguez",
+          "shirt_number": "19",
+          "position_id": 2,
+          "is_captain": false,
+          "pitch_x": 0,
+          "pitch_y": 0
+        }
+      ]
+    }
+  }
+}

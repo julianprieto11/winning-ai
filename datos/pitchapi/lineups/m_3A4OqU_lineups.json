@@ -1,0 +1,442 @@
+{
+  "data": {
+    "match_id": "m_3A4OqU",
+    "home_team": {
+      "id": "t_2Swqmw",
+      "name": "Club Atlético Platense",
+      "image_url": "https://cdn.pitchapi.dev/images/teams/35ad798440fa0aafcd372b1adc286deb66816f6e434128e30cf71b3ce2c98e3d.webp"
+    },
+    "away_team": {
+      "id": "t_0oa5Fc",
+      "name": "Unión",
+      "image_url": "https://cdn.pitchapi.dev/images/teams/490928db3569914d2b5bd8c8b866a233a5539438f07f07d050ef6996ab130afe.webp"
+    },
+    "home": {
+      "formation": "4-2-3-1",
+      "confirmed": true,
+      "coach": {
+        "name": "Walter Zunino"
+      },
+      "starters": [
+        {
+          "player_id": "p_3BgUGt",
+          "name": "Juan Cozzani",
+          "shirt_number": "30",
+          "position_id": 11,
+          "is_captain": false,
+          "pitch_x": 0.1,
+          "pitch_y": 0.5
+        },
+        {
+          "player_id": "p_4RpynC",
+          "name": "Agustín Lagos",
+          "shirt_number": "4",
+          "position_id": 32,
+          "is_captain": false,
+          "pitch_x": 0.292,
+          "pitch_y": 0.875
+        },
+        {
+          "player_id": "p_137tuu",
+          "name": "Ignacio Vázquez",
+          "shirt_number": "13",
+          "position_id": 34,
+          "is_captain": false,
+          "pitch_x": 0.292,
+          "pitch_y": 0.625
+        },
+        {
+          "player_id": "p_0CziMH",
+          "name": "Mateo Mendía",
+          "shirt_number": "34",
+          "position_id": 36,
+          "is_captain": false,
+          "pitch_x": 0.292,
+          "pitch_y": 0.375
+        },
+        {
+          "player_id": "p_0H4brP",
+          "name": "Tomás Silva",
+          "shirt_number": "3",
+          "position_id": 38,
+          "is_captain": false,
+          "pitch_x": 0.292,
+          "pitch_y": 0.125
+        },
+        {
+          "player_id": "p_0LPXZq",
+          "name": "Iván Gómez",
+          "shirt_number": "5",
+          "position_id": 64,
+          "is_captain": false,
+          "pitch_x": 0.485,
+          "pitch_y": 0.7
+        },
+        {
+          "player_id": "p_3yYguf",
+          "name": "Martín Barrios",
+          "shirt_number": "24",
+          "position_id": 66,
+          "is_captain": false,
+          "pitch_x": 0.485,
+          "pitch_y": 0.3
+        },
+        {
+          "player_id": "p_3S6c8L",
+          "name": "Guido Mainero",
+          "shirt_number": "7",
+          "position_id": 83,
+          "is_captain": false,
+          "pitch_x": 0.678,
+          "pitch_y": 0.837
+        },
+        {
+          "player_id": "p_2rodt6",
+          "name": "Nicolás Retamar",
+          "shirt_number": "43",
+          "position_id": 85,
+          "is_captain": false,
+          "pitch_x": 0.678,
+          "pitch_y": 0.5
+        },
+        {
+          "player_id": "p_103r5t",
+          "name": "Juan Gauto",
+          "shirt_number": "33",
+          "position_id": 87,
+          "is_captain": false,
+          "pitch_x": 0.678,
+          "pitch_y": 0.163
+        },
+        {
+          "player_id": "p_2nGaYr",
+          "name": "Leonardo Heredia",
+          "shirt_number": "23",
+          "position_id": 115,
+          "is_captain": false,
+          "pitch_x": 0.87,
+          "pitch_y": 0.5
+        }
+      ],
+      "subs": [
+        {
+          "player_id": "p_34cvdG",
+          "name": "Pablo Ferreira",
+          "shirt_number": "26",
+          "position_id": 2,
+          "is_captain": false,
+          "pitch_x": 0,
+          "pitch_y": 0
+        },
+        {
+          "player_id": "p_4QJLZt",
+          "name": "Nicolás López",
+          "shirt_number": "11",
+          "position_id": 3,
+          "is_captain": false,
+          "pitch_x": 0,
+          "pitch_y": 0
+        },
+        {
+          "player_id": "p_3dtvN3",
+          "name": "Bautista Merlini",
+          "shirt_number": "18",
+          "position_id": 2,
+          "is_captain": false,
+          "pitch_x": 0,
+          "pitch_y": 0
+        },
+        {
+          "player_id": "p_3R7Bq9",
+          "name": "Gonzalo Lencina",
+          "shirt_number": "99",
+          "position_id": 3,
+          "is_captain": false,
+          "pitch_x": 0,
+          "pitch_y": 0
+        },
+        {
+          "player_id": "p_2EKu08",
+          "name": "Felipe Bussio",
+          "shirt_number": "17",
+          "position_id": 2,
+          "is_captain": false,
+          "pitch_x": 0,
+          "pitch_y": 0
+        },
+        {
+          "player_id": "p_2Pu3Ap",
+          "name": "Nicolás Sumavil",
+          "shirt_number": "22",
+          "position_id": 0,
+          "is_captain": false,
+          "pitch_x": 0,
+          "pitch_y": 0
+        },
+        {
+          "player_id": "p_47E2rv",
+          "name": "Eugenio Raggio",
+          "shirt_number": "6",
+          "position_id": 1,
+          "is_captain": false,
+          "pitch_x": 0,
+          "pitch_y": 0
+        },
+        {
+          "player_id": "p_0ivFZd",
+          "name": "Juan Saborido",
+          "shirt_number": "25",
+          "position_id": 1,
+          "is_captain": false,
+          "pitch_x": 0,
+          "pitch_y": 0
+        },
+        {
+          "player_id": "p_3W8O98",
+          "name": "Santiago Quirós",
+          "shirt_number": "32",
+          "position_id": 1,
+          "is_captain": false,
+          "pitch_x": 0,
+          "pitch_y": 0
+        },
+        {
+          "player_id": "p_3KVLVx",
+          "name": "Héctor Bobadilla",
+          "shirt_number": "19",
+          "position_id": 2,
+          "is_captain": false,
+          "pitch_x": 0,
+          "pitch_y": 0
+        },
+        {
+          "player_id": "p_3b0CM3",
+          "name": "Manuel Tucker",
+          "shirt_number": "28",
+          "position_id": 3,
+          "is_captain": false,
+          "pitch_x": 0,
+          "pitch_y": 0
+        },
+        {
+          "player_id": "p_0i7rxV",
+          "name": "Santiago Dalmasso",
+          "shirt_number": "27",
+          "position_id": 3,
+          "is_captain": false,
+          "pitch_x": 0,
+          "pitch_y": 0
+        }
+      ]
+    },
+    "away": {
+      "formation": "4-4-2",
+      "confirmed": true,
+      "coach": {
+        "name": "Leonardo Madelón"
+      },
+      "starters": [
+        {
+          "player_id": "p_0yyPLQ",
+          "name": "Matías Mansilla",
+          "shirt_number": "21",
+          "position_id": 11,
+          "is_captain": false,
+          "pitch_x": 0.1,
+          "pitch_y": 0.5
+        },
+        {
+          "player_id": "p_1A84Jv",
+          "name": "Lautaro Vargas",
+          "shirt_number": "35",
+          "position_id": 32,
+          "is_captain": false,
+          "pitch_x": 0.357,
+          "pitch_y": 0.875
+        },
+        {
+          "player_id": "p_2fE7Zw",
+          "name": "Tomas Fagioli",
+          "shirt_number": "44",
+          "position_id": 34,
+          "is_captain": false,
+          "pitch_x": 0.357,
+          "pitch_y": 0.625
+        },
+        {
+          "player_id": "p_3c6pcI",
+          "name": "Juan Pablo Ludueña",
+          "shirt_number": "26",
+          "position_id": 36,
+          "is_captain": false,
+          "pitch_x": 0.357,
+          "pitch_y": 0.375
+        },
+        {
+          "player_id": "p_2P4QLN",
+          "name": "Lucas Ayala",
+          "shirt_number": "18",
+          "position_id": 38,
+          "is_captain": false,
+          "pitch_x": 0.357,
+          "pitch_y": 0.125
+        },
+        {
+          "player_id": "p_1h4yOi",
+          "name": "Julián Palacios",
+          "shirt_number": "20",
+          "position_id": 72,
+          "is_captain": false,
+          "pitch_x": 0.613,
+          "pitch_y": 0.875
+        },
+        {
+          "player_id": "p_0ZgxsX",
+          "name": "Lucas Menossi",
+          "shirt_number": "5",
+          "position_id": 74,
+          "is_captain": false,
+          "pitch_x": 0.613,
+          "pitch_y": 0.625
+        },
+        {
+          "player_id": "p_0CHQCV",
+          "name": "Emilio Giaccone",
+          "shirt_number": "8",
+          "position_id": 76,
+          "is_captain": false,
+          "pitch_x": 0.613,
+          "pitch_y": 0.375
+        },
+        {
+          "player_id": "p_43YxGe",
+          "name": "Brahian Cuello",
+          "shirt_number": "22",
+          "position_id": 78,
+          "is_captain": false,
+          "pitch_x": 0.613,
+          "pitch_y": 0.125
+        },
+        {
+          "player_id": "p_11jmli",
+          "name": "Misael Aguirre",
+          "shirt_number": "31",
+          "position_id": 104,
+          "is_captain": false,
+          "pitch_x": 0.87,
+          "pitch_y": 0.7
+        },
+        {
+          "player_id": "p_3woyik",
+          "name": "Cristian Alberto Tarragona",
+          "shirt_number": "25",
+          "position_id": 106,
+          "is_captain": false,
+          "pitch_x": 0.87,
+          "pitch_y": 0.3
+        }
+      ],
+      "subs": [
+        {
+          "player_id": "p_0sXQtM",
+          "name": "Santino Vera",
+          "shirt_number": "29",
+          "position_id": 2,
+          "is_captain": false,
+          "pitch_x": 0,
+          "pitch_y": 0
+        },
+        {
+          "player_id": "p_2yQG0l",
+          "name": "Valentín Cerrudo",
+          "shirt_number": "38",
+          "position_id": 3,
+          "is_captain": false,
+          "pitch_x": 0,
+          "pitch_y": 0
+        },
+        {
+          "player_id": "p_2msaJ0",
+          "name": "Bruno Pittón",
+          "shirt_number": "12",
+          "position_id": 1,
+          "is_captain": false,
+          "pitch_x": 0,
+          "pitch_y": 0
+        },
+        {
+          "player_id": "p_3rkznN",
+          "name": "Mateo Peresutti",
+          "shirt_number": "34",
+          "position_id": 2,
+          "is_captain": false,
+          "pitch_x": 0,
+          "pitch_y": 0
+        },
+        {
+          "player_id": "p_3AwrWn",
+          "name": "Lucas Meuli",
+          "shirt_number": "40",
+          "position_id": 0,
+          "is_captain": false,
+          "pitch_x": 0,
+          "pitch_y": 0
+        },
+        {
+          "player_id": "p_1FA6Fg",
+          "name": "Ignacio Isla",
+          "shirt_number": "33",
+          "position_id": 1,
+          "is_captain": false,
+          "pitch_x": 0,
+          "pitch_y": 0
+        },
+        {
+          "player_id": "p_4QyALL",
+          "name": "Mateo Aimar",
+          "shirt_number": "36",
+          "position_id": 1,
+          "is_captain": false,
+          "pitch_x": 0,
+          "pitch_y": 0
+        },
+        {
+          "player_id": "p_4aqigz",
+          "name": "Nazareno Fazzi",
+          "shirt_number": "32",
+          "position_id": 1,
+          "is_captain": false,
+          "pitch_x": 0,
+          "pitch_y": 0
+        },
+        {
+          "player_id": "p_2zRymQ",
+          "name": "Lucas Cacciabue",
+          "shirt_number": "16",
+          "position_id": 2,
+          "is_captain": false,
+          "pitch_x": 0,
+          "pitch_y": 0
+        },
+        {
+          "player_id": "p_4CnSQJ",
+          "name": "Ricardo Solbes",
+          "shirt_number": "45",
+          "position_id": 2,
+          "is_captain": false,
+          "pitch_x": 0,
+          "pitch_y": 0
+        },
+        {
+          "player_id": "p_2VZHxk",
+          "name": "Santiago Grella",
+          "shirt_number": "46",
+          "position_id": 2,
+          "is_captain": false,
+          "pitch_x": 0,
+          "pitch_y": 0
+        }
+      ]
+    }
+  }
+}
