@@ -1,0 +1,294 @@
+{
+  "data": {
+    "match_id": "m_2RNEop",
+    "events": [
+      {
+        "event_type": "yellowcard",
+        "minute": 24,
+        "minute_added": 0,
+        "period": "FirstHalf",
+        "team_id": "t_3qkV0m",
+        "player": {
+          "id": "p_1EQeWa",
+          "name": "Santiago Salle",
+          "position_id": null,
+          "image_url": "https://cdn.pitchapi.dev/images/players/5837e4d1c41fea73073a95a3576bdf42d63193cab12cd2be3baeebe67700d980.webp"
+        },
+        "is_own_goal": false,
+        "is_penalty": false
+      },
+      {
+        "event_type": "substitution",
+        "minute": 36,
+        "minute_added": 0,
+        "period": "FirstHalf",
+        "team_id": "t_3qkV0m",
+        "player": {
+          "id": "p_1vAkWz",
+          "name": "Agustin Seyral",
+          "position_id": null,
+          "image_url": "https://cdn.pitchapi.dev/images/players/cb711fd45c3f403b7ebc1e4b1647ba9857163afc673e4f77d12cb235ceaa5cea.webp"
+        },
+        "sub_in_player": {
+          "id": "p_03caFD",
+          "name": "Manuel García",
+          "position_id": null,
+          "image_url": "https://cdn.pitchapi.dev/images/players/ba628d335946d1c571695b112f1980f583dd6561e6d5e216d33e9e1fde678d74.webp"
+        },
+        "is_own_goal": false,
+        "is_penalty": false
+      },
+      {
+        "event_type": "goal",
+        "minute": 36,
+        "minute_added": 0,
+        "period": "FirstHalf",
+        "team_id": "t_2Ba0sx",
+        "player": {
+          "id": "p_3Boqdn",
+          "name": "Francisco González Metilli",
+          "position_id": null,
+          "image_url": "https://cdn.pitchapi.dev/images/players/4418426867fca79a8a7b2a16ff71d184cce8fbac84e559806ff8cef7bf0b5c54.webp"
+        },
+        "score_home": 0,
+        "score_away": 0,
+        "is_own_goal": false,
+        "is_penalty": false
+      },
+      {
+        "event_type": "yellowcard",
+        "minute": 39,
+        "minute_added": 0,
+        "period": "FirstHalf",
+        "team_id": "t_2Ba0sx",
+        "player": {
+          "id": "p_3nfcvs",
+          "name": "Agustín Falcón",
+          "position_id": null,
+          "image_url": "https://cdn.pitchapi.dev/images/players/f9248b638c9e1f177f564590069bbe00b846a8eafd27f141ea731e8dc0e6143f.webp"
+        },
+        "is_own_goal": false,
+        "is_penalty": false
+      },
+      {
+        "event_type": "goal",
+        "minute": 43,
+        "minute_added": 0,
+        "period": "FirstHalf",
+        "team_id": "t_2Ba0sx",
+        "player": {
+          "id": "p_0sdiQh",
+          "name": "Lucas Suárez",
+          "position_id": null,
+          "image_url": "https://cdn.pitchapi.dev/images/players/8b81c3cee0026aa8e154c116d90e4e259e19aac64dba227d15321b335d9c0e97.webp"
+        },
+        "score_home": 1,
+        "score_away": 0,
+        "is_own_goal": true,
+        "is_penalty": false
+      },
+      {
+        "event_type": "substitution",
+        "minute": 46,
+        "minute_added": 0,
+        "period": "SecondHalf",
+        "team_id": "t_3qkV0m",
+        "player": {
+          "id": "p_1TrZ51",
+          "name": "Pablo Magnín",
+          "position_id": null,
+          "image_url": "https://cdn.pitchapi.dev/images/players/17cc992edd2f829c4b8bb1123ef5e956de8a6fd5ed02b9e1d80f9371c4c39a8d.webp"
+        },
+        "sub_in_player": {
+          "id": "p_2skQe1",
+          "name": "Julián Contrera",
+          "position_id": null,
+          "image_url": "https://cdn.pitchapi.dev/images/players/40ad1112466a80285e4523ba6165e2390b5b04b4176235c29e8408f51c007bb0.webp"
+        },
+        "is_own_goal": false,
+        "is_penalty": false
+      },
+      {
+        "event_type": "goal",
+        "minute": 55,
+        "minute_added": 0,
+        "period": "SecondHalf",
+        "team_id": "t_2Ba0sx",
+        "player": {
+          "id": "p_0FN6nM",
+          "name": "Ramiro Hernandes",
+          "position_id": null,
+          "image_url": "https://cdn.pitchapi.dev/images/players/c194f0b9af293ce7247edd7c4793a73068059b537904dc90ab2d12343e8bbb06.webp"
+        },
+        "score_home": 2,
+        "score_away": 0,
+        "is_own_goal": false,
+        "is_penalty": false
+      },
+      {
+        "event_type": "substitution",
+        "minute": 65,
+        "minute_added": 0,
+        "period": "SecondHalf",
+        "team_id": "t_2Ba0sx",
+        "player": {
+          "id": "p_49U5oJ",
+          "name": "Emiliano Ariel Rigoni",
+          "position_id": null,
+          "image_url": "https://cdn.pitchapi.dev/images/players/3ed1ee9c315c6b72b96860e75dd728ac7688af9fd578af0f6e74015cc3c17a0c.webp"
+        },
+        "sub_in_player": {
+          "id": "p_3v2tAE",
+          "name": "Lucas Zelarayán",
+          "position_id": null,
+          "image_url": "https://cdn.pitchapi.dev/images/players/57fa33ee24c9d00c5f5154bda4a302673122cd51a14468c944474e273ead0e26.webp"
+        },
+        "is_own_goal": false,
+        "is_penalty": false
+      },
+      {
+        "event_type": "substitution",
+        "minute": 65,
+        "minute_added": 0,
+        "period": "SecondHalf",
+        "team_id": "t_2Ba0sx",
+        "player": {
+          "id": "p_2PNnZ9",
+          "name": "Santiago Longo",
+          "position_id": null,
+          "image_url": "https://cdn.pitchapi.dev/images/players/efb5f57c5db568dd516101c895b6492e4f37caef09b3432719947576d1ed7366.webp"
+        },
+        "sub_in_player": {
+          "id": "p_4g8d1N",
+          "name": "Franco Vázquez",
+          "position_id": null,
+          "image_url": "https://cdn.pitchapi.dev/images/players/6c2597b8a7164da28b6bf89c876ce7d4b7403f9224b945ba613b66ec8c4d99dd.webp"
+        },
+        "is_own_goal": false,
+        "is_penalty": false
+      },
+      {
+        "event_type": "substitution",
+        "minute": 65,
+        "minute_added": 0,
+        "period": "SecondHalf",
+        "team_id": "t_2Ba0sx",
+        "player": {
+          "id": "p_0FN6nM",
+          "name": "Ramiro Hernandes",
+          "position_id": null,
+          "image_url": "https://cdn.pitchapi.dev/images/players/c194f0b9af293ce7247edd7c4793a73068059b537904dc90ab2d12343e8bbb06.webp"
+        },
+        "sub_in_player": {
+          "id": "p_1hS0Fx",
+          "name": "Ramiro Tulián",
+          "position_id": null,
+          "image_url": null
+        },
+        "is_own_goal": false,
+        "is_penalty": false
+      },
+      {
+        "event_type": "substitution",
+        "minute": 71,
+        "minute_added": 0,
+        "period": "SecondHalf",
+        "team_id": "t_2Ba0sx",
+        "player": {
+          "id": "p_3MmYTU",
+          "name": "Lucas Passerini",
+          "position_id": null,
+          "image_url": "https://cdn.pitchapi.dev/images/players/6e296d4b20bcdee94a59689b4ae9129d84be02cc145ff903f4b76abc3f2cef78.webp"
+        },
+        "sub_in_player": {
+          "id": "p_09kVaG",
+          "name": "Nicolás Fernández",
+          "position_id": null,
+          "image_url": "https://cdn.pitchapi.dev/images/players/3c8b828557188f0e337a2696e65a377f9d893769a647ca3e79aeba211a8e7a07.webp"
+        },
+        "is_own_goal": false,
+        "is_penalty": false
+      },
+      {
+        "event_type": "substitution",
+        "minute": 71,
+        "minute_added": 0,
+        "period": "SecondHalf",
+        "team_id": "t_3qkV0m",
+        "player": {
+          "id": "p_2izVhL",
+          "name": "Thiago Santamaría",
+          "position_id": null,
+          "image_url": "https://cdn.pitchapi.dev/images/players/c35cb1de0cc94809b41b44e1b4b1bdbf2e791d4a2cb516ff48be2ba8367909ad.webp"
+        },
+        "sub_in_player": {
+          "id": "p_2rSGAo",
+          "name": "Juan Cabrera",
+          "position_id": null,
+          "image_url": "https://cdn.pitchapi.dev/images/players/661064b2669705e178b7c98708dc3decd71c6991d25eef13d1ee7b422df48923.webp"
+        },
+        "is_own_goal": false,
+        "is_penalty": false
+      },
+      {
+        "event_type": "substitution",
+        "minute": 72,
+        "minute_added": 0,
+        "period": "SecondHalf",
+        "team_id": "t_3qkV0m",
+        "player": {
+          "id": "p_1ymuBP",
+          "name": "Junior Marabel",
+          "position_id": null,
+          "image_url": "https://cdn.pitchapi.dev/images/players/6a517a217eb7fdf8741f2dbf49aeb73ba53670e093e73017b437a56bd823976d.webp"
+        },
+        "sub_in_player": {
+          "id": "p_3i5iMO",
+          "name": "Diego Churín",
+          "position_id": null,
+          "image_url": "https://cdn.pitchapi.dev/images/players/a5434022656482c055a5a8276b374e176d1e34611d0773fa65a2886969a5e015.webp"
+        },
+        "is_own_goal": false,
+        "is_penalty": false
+      },
+      {
+        "event_type": "substitution",
+        "minute": 79,
+        "minute_added": 0,
+        "period": "SecondHalf",
+        "team_id": "t_2Ba0sx",
+        "player": {
+          "id": "p_3nfcvs",
+          "name": "Agustín Falcón",
+          "position_id": null,
+          "image_url": "https://cdn.pitchapi.dev/images/players/f9248b638c9e1f177f564590069bbe00b846a8eafd27f141ea731e8dc0e6143f.webp"
+        },
+        "sub_in_player": {
+          "id": "p_1EMq3A",
+          "name": "Alcides Benítez",
+          "position_id": null,
+          "image_url": "https://cdn.pitchapi.dev/images/players/0941c66491c0255233747b342045f97000926d7f6a235dd8a2bbdc49c8dbd8c6.webp"
+        },
+        "is_own_goal": false,
+        "is_penalty": false
+      },
+      {
+        "event_type": "goal",
+        "minute": 86,
+        "minute_added": 0,
+        "period": "SecondHalf",
+        "team_id": "t_2Ba0sx",
+        "player": {
+          "id": "p_1hS0Fx",
+          "name": "Ramiro Tulián",
+          "position_id": null,
+          "image_url": null
+        },
+        "score_home": 3,
+        "score_away": 0,
+        "is_own_goal": false,
+        "is_penalty": false
+      }
+    ]
+  }
+}

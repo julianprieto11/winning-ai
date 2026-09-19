@@ -1,0 +1,28 @@
+{
+  "name": "winning-ai",
+  "version": "1.0.0",
+  "description": "Calculador de equipos para el fantasy de Winning de liga argentina.",
+  "main": "src/index.ts",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "jest"
+  },
+  "dependencies": {
+    "axios": "^0.21.1"
+  },
+  "devDependencies": {
+    "typescript": "^4.4.3",
+    "jest": "^27.0.6",
+    "@types/jest": "^27.0.2",
+    "ts-jest": "^27.0.3"
+  },
+  "keywords": [
+    "fantasy",
+    "football",
+    "winning",
+    "predictions"
+  ],
+  "author": "Tu Nombre",
+  "license": "MIT"
+}

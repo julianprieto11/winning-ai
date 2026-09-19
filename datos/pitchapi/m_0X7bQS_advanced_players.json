@@ -1,0 +1,2024 @@
+{
+  "data": {
+    "match_id": "m_0X7bQS",
+    "sorted_by": "possession_value.vaep_total",
+    "players": [
+      {
+        "player": {
+          "id": "p_4fbCCX",
+          "name": "Tomás Galván",
+          "shirt_number": 26
+        },
+        "team_id": "t_1Fzy5s",
+        "minutes_played": 83,
+        "actions": 71,
+        "possession_value": {
+          "xt_total": 0.1372,
+          "vaep_total": 2.1038,
+          "vaep_offensive": 2.1304,
+          "vaep_defensive": -0.0266,
+          "pv_total": 2.1175,
+          "pv_offensive": 2.1149,
+          "pv_defensive": 0.0025
+        },
+        "passing": {
+          "passes": 40,
+          "pass_accuracy": 87.5,
+          "progressive_passes": 4,
+          "progressive_pass_distance": 53.2,
+          "passes_into_box": 2,
+          "key_passes": 5,
+          "assists": 0,
+          "through_balls": 0,
+          "crosses": 1,
+          "switches": 0
+        },
+        "carrying": {
+          "carries": 12,
+          "carry_distance": 118.4,
+          "progressive_carries": 1,
+          "progressive_carry_distance": 59.3,
+          "carries_into_final_third": 2,
+          "carries_into_box": 0,
+          "take_ons": 1,
+          "take_ons_won": 0,
+          "miscontrols": 2,
+          "dispossessed": 0
+        },
+        "creation": {
+          "sca": 8,
+          "gca": 0,
+          "chances_created": 5,
+          "second_assists": 0,
+          "sca_breakdown": {
+            "pass_live": 6,
+            "pass_dead": 2
+          },
+          "xag": 0.7878,
+          "xg_chain": 2.2299,
+          "xg_buildup": 1.485
+        },
+        "defending": {
+          "tackles": 4,
+          "interceptions": 3,
+          "blocks": 0,
+          "clearances": 0,
+          "duels_won": 2,
+          "aerials": 1,
+          "aerials_won": 0
+        },
+        "goalkeeping": null
+      },
+      {
+        "player": {
+          "id": "p_2NHgvd",
+          "name": "Facundo Colidio",
+          "shirt_number": 11
+        },
+        "team_id": "t_1Fzy5s",
+        "minutes_played": 72,
+        "actions": 38,
+        "possession_value": {
+          "xt_total": -0.0165,
+          "vaep_total": 0.458,
+          "vaep_offensive": 0.4695,
+          "vaep_defensive": -0.0115,
+          "pv_total": 0.5089,
+          "pv_offensive": 0.5108,
+          "pv_defensive": -0.0019
+        },
+        "passing": {
+          "passes": 29,
+          "pass_accuracy": 75.9,
+          "progressive_passes": 0,
+          "progressive_pass_distance": 0,
+          "passes_into_box": 0,
+          "key_passes": 0,
+          "assists": 0,
+          "through_balls": 0,
+          "crosses": 0,
+          "switches": 1
+        },
+        "carrying": {
+          "carries": 3,
+          "carry_distance": 40.4,
+          "progressive_carries": 2,
+          "progressive_carry_distance": 29.2,
+          "carries_into_final_third": 1,
+          "carries_into_box": 0,
+          "take_ons": 0,
+          "take_ons_won": 0,
+          "miscontrols": 0,
+          "dispossessed": 1
+        },
+        "creation": {
+          "sca": 0,
+          "gca": 0,
+          "chances_created": 0,
+          "second_assists": 0,
+          "sca_breakdown": {},
+          "xag": 0,
+          "xg_chain": 0.6684,
+          "xg_buildup": 0.0265
+        },
+        "defending": {
+          "tackles": 2,
+          "interceptions": 0,
+          "blocks": 0,
+          "clearances": 0,
+          "duels_won": 1,
+          "aerials": 2,
+          "aerials_won": 1
+        },
+        "goalkeeping": null
+      },
+      {
+        "player": {
+          "id": "p_4HjiAr",
+          "name": "Santiago Beltrán",
+          "shirt_number": 41
+        },
+        "team_id": "t_1Fzy5s",
+        "minutes_played": 90,
+        "actions": 42,
+        "possession_value": {
+          "xt_total": 0.0238,
+          "vaep_total": 0.3198,
+          "vaep_offensive": 0.0973,
+          "vaep_defensive": 0.2225,
+          "pv_total": 0.1852,
+          "pv_offensive": 0.0238,
+          "pv_defensive": 0.1614
+        },
+        "passing": {
+          "passes": 23,
+          "pass_accuracy": 95.7,
+          "progressive_passes": 0,
+          "progressive_pass_distance": 0,
+          "passes_into_box": 0,
+          "key_passes": 0,
+          "assists": 0,
+          "through_balls": 0,
+          "crosses": 0,
+          "switches": 0
+        },
+        "carrying": {
+          "carries": 3,
+          "carry_distance": 35.3,
+          "progressive_carries": 0,
+          "progressive_carry_distance": 5.7,
+          "carries_into_final_third": 0,
+          "carries_into_box": 0,
+          "take_ons": 0,
+          "take_ons_won": 0,
+          "miscontrols": 0,
+          "dispossessed": 0
+        },
+        "creation": {
+          "sca": 0,
+          "gca": 0,
+          "chances_created": 0,
+          "second_assists": 0,
+          "sca_breakdown": {},
+          "xag": 0,
+          "xg_chain": 0.3834,
+          "xg_buildup": 0.3834
+        },
+        "defending": {
+          "tackles": 0,
+          "interceptions": 0,
+          "blocks": 0,
+          "clearances": 0,
+          "duels_won": 0,
+          "aerials": 2,
+          "aerials_won": 2
+        },
+        "goalkeeping": {
+          "claims": 0,
+          "claims_won": 0,
+          "claim_rate": null,
+          "sweeper_actions": 6,
+          "distributions": 30,
+          "launches": 6,
+          "launch_pct": 20,
+          "avg_pass_length": 27.8,
+          "distribution_accuracy": 80
+        }
+      },
+      {
+        "player": {
+          "id": "p_3Lt4mj",
+          "name": "Matías Viña",
+          "shirt_number": 18
+        },
+        "team_id": "t_1Fzy5s",
+        "minutes_played": 72,
+        "actions": 52,
+        "possession_value": {
+          "xt_total": 0.1213,
+          "vaep_total": 0.1794,
+          "vaep_offensive": 0.2006,
+          "vaep_defensive": -0.0212,
+          "pv_total": 0.2551,
+          "pv_offensive": 0.2561,
+          "pv_defensive": -0.001
+        },
+        "passing": {
+          "passes": 34,
+          "pass_accuracy": 70.6,
+          "progressive_passes": 7,
+          "progressive_pass_distance": 96.1,
+          "passes_into_box": 2,
+          "key_passes": 1,
+          "assists": 0,
+          "through_balls": 0,
+          "crosses": 2,
+          "switches": 1
+        },
+        "carrying": {
+          "carries": 6,
+          "carry_distance": 76.2,
+          "progressive_carries": 2,
+          "progressive_carry_distance": 51,
+          "carries_into_final_third": 1,
+          "carries_into_box": 1,
+          "take_ons": 2,
+          "take_ons_won": 1,
+          "miscontrols": 0,
+          "dispossessed": 1
+        },
+        "creation": {
+          "sca": 5,
+          "gca": 0,
+          "chances_created": 1,
+          "second_assists": 0,
+          "sca_breakdown": {
+            "pass_live": 4,
+            "take_on": 1
+          },
+          "xag": 0.1023,
+          "xg_chain": 1.1672,
+          "xg_buildup": 1.1672
+        },
+        "defending": {
+          "tackles": 2,
+          "interceptions": 0,
+          "blocks": 0,
+          "clearances": 1,
+          "duels_won": 3,
+          "aerials": 4,
+          "aerials_won": 2
+        },
+        "goalkeeping": null
+      },
+      {
+        "player": {
+          "id": "p_22Hl59",
+          "name": "Fausto Vera",
+          "shirt_number": 15
+        },
+        "team_id": "t_1Fzy5s",
+        "minutes_played": 90,
+        "actions": 111,
+        "possession_value": {
+          "xt_total": 0.0787,
+          "vaep_total": 0.1753,
+          "vaep_offensive": 0.1472,
+          "vaep_defensive": 0.028,
+          "pv_total": 0.1709,
+          "pv_offensive": 0.1298,
+          "pv_defensive": 0.0411
+        },
+        "passing": {
+          "passes": 73,
+          "pass_accuracy": 90.4,
+          "progressive_passes": 8,
+          "progressive_pass_distance": 155.2,
+          "passes_into_box": 1,
+          "key_passes": 1,
+          "assists": 0,
+          "through_balls": 1,
+          "crosses": 1,
+          "switches": 0
+        },
+        "carrying": {
+          "carries": 18,
+          "carry_distance": 154.6,
+          "progressive_carries": 1,
+          "progressive_carry_distance": 96.9,
+          "carries_into_final_third": 0,
+          "carries_into_box": 0,
+          "take_ons": 2,
+          "take_ons_won": 0,
+          "miscontrols": 2,
+          "dispossessed": 2
+        },
+        "creation": {
+          "sca": 3,
+          "gca": 0,
+          "chances_created": 1,
+          "second_assists": 0,
+          "sca_breakdown": {
+            "pass_live": 3
+          },
+          "xag": 0.0661,
+          "xg_chain": 1.1633,
+          "xg_buildup": 1.1633
+        },
+        "defending": {
+          "tackles": 6,
+          "interceptions": 0,
+          "blocks": 1,
+          "clearances": 3,
+          "duels_won": 5,
+          "aerials": 4,
+          "aerials_won": 2
+        },
+        "goalkeeping": null
+      },
+      {
+        "player": {
+          "id": "p_3v2tAE",
+          "name": "Lucas Zelarayán",
+          "shirt_number": 10
+        },
+        "team_id": "t_2Ba0sx",
+        "minutes_played": 90,
+        "actions": 52,
+        "possession_value": {
+          "xt_total": 0.1008,
+          "vaep_total": 0.1273,
+          "vaep_offensive": 0.1685,
+          "vaep_defensive": -0.0412,
+          "pv_total": 0.1332,
+          "pv_offensive": 0.1353,
+          "pv_defensive": -0.0022
+        },
+        "passing": {
+          "passes": 29,
+          "pass_accuracy": 65.5,
+          "progressive_passes": 4,
+          "progressive_pass_distance": 64.8,
+          "passes_into_box": 2,
+          "key_passes": 2,
+          "assists": 0,
+          "through_balls": 0,
+          "crosses": 2,
+          "switches": 0
+        },
+        "carrying": {
+          "carries": 7,
+          "carry_distance": 79.6,
+          "progressive_carries": 1,
+          "progressive_carry_distance": 52,
+          "carries_into_final_third": 1,
+          "carries_into_box": 0,
+          "take_ons": 5,
+          "take_ons_won": 3,
+          "miscontrols": 3,
+          "dispossessed": 2
+        },
+        "creation": {
+          "sca": 7,
+          "gca": 0,
+          "chances_created": 2,
+          "second_assists": 0,
+          "sca_breakdown": {
+            "pass_live": 5,
+            "pass_dead": 1,
+            "take_on": 1
+          },
+          "xag": 0.1197,
+          "xg_chain": 0.6471,
+          "xg_buildup": 0.6471
+        },
+        "defending": {
+          "tackles": 0,
+          "interceptions": 2,
+          "blocks": 0,
+          "clearances": 0,
+          "duels_won": 3,
+          "aerials": 2,
+          "aerials_won": 0
+        },
+        "goalkeeping": null
+      },
+      {
+        "player": {
+          "id": "p_1FISj1",
+          "name": "Fabricio Bustos",
+          "shirt_number": 16
+        },
+        "team_id": "t_1Fzy5s",
+        "minutes_played": 90,
+        "actions": 72,
+        "possession_value": {
+          "xt_total": 0.0659,
+          "vaep_total": 0.1265,
+          "vaep_offensive": 0.1172,
+          "vaep_defensive": 0.0093,
+          "pv_total": 0.0454,
+          "pv_offensive": 0.0518,
+          "pv_defensive": -0.0064
+        },
+        "passing": {
+          "passes": 51,
+          "pass_accuracy": 94.1,
+          "progressive_passes": 5,
+          "progressive_pass_distance": 81.3,
+          "passes_into_box": 1,
+          "key_passes": 1,
+          "assists": 0,
+          "through_balls": 0,
+          "crosses": 0,
+          "switches": 0
+        },
+        "carrying": {
+          "carries": 10,
+          "carry_distance": 185.7,
+          "progressive_carries": 2,
+          "progressive_carry_distance": 87.8,
+          "carries_into_final_third": 0,
+          "carries_into_box": 0,
+          "take_ons": 0,
+          "take_ons_won": 0,
+          "miscontrols": 0,
+          "dispossessed": 0
+        },
+        "creation": {
+          "sca": 3,
+          "gca": 0,
+          "chances_created": 1,
+          "second_assists": 1,
+          "sca_breakdown": {
+            "pass_live": 3
+          },
+          "xag": 0.0154,
+          "xg_chain": 1.1513,
+          "xg_buildup": 1.1359
+        },
+        "defending": {
+          "tackles": 1,
+          "interceptions": 1,
+          "blocks": 0,
+          "clearances": 3,
+          "duels_won": 1,
+          "aerials": 0,
+          "aerials_won": 0
+        },
+        "goalkeeping": null
+      },
+      {
+        "player": {
+          "id": "p_0ujJJG",
+          "name": "Thiago Cardozo",
+          "shirt_number": 25
+        },
+        "team_id": "t_2Ba0sx",
+        "minutes_played": 90,
+        "actions": 35,
+        "possession_value": {
+          "xt_total": 0.0159,
+          "vaep_total": 0.1195,
+          "vaep_offensive": 0.0783,
+          "vaep_defensive": 0.0413,
+          "pv_total": 0.1109,
+          "pv_offensive": 0.0149,
+          "pv_defensive": 0.096
+        },
+        "passing": {
+          "passes": 13,
+          "pass_accuracy": 61.5,
+          "progressive_passes": 0,
+          "progressive_pass_distance": 0,
+          "passes_into_box": 0,
+          "key_passes": 0,
+          "assists": 0,
+          "through_balls": 0,
+          "crosses": 0,
+          "switches": 0
+        },
+        "carrying": {
+          "carries": 4,
+          "carry_distance": 32.1,
+          "progressive_carries": 0,
+          "progressive_carry_distance": 20.5,
+          "carries_into_final_third": 0,
+          "carries_into_box": 0,
+          "take_ons": 0,
+          "take_ons_won": 0,
+          "miscontrols": 0,
+          "dispossessed": 0
+        },
+        "creation": {
+          "sca": 0,
+          "gca": 0,
+          "chances_created": 0,
+          "second_assists": 0,
+          "sca_breakdown": {},
+          "xag": 0,
+          "xg_chain": 0,
+          "xg_buildup": 0
+        },
+        "defending": {
+          "tackles": 0,
+          "interceptions": 0,
+          "blocks": 0,
+          "clearances": 1,
+          "duels_won": 0,
+          "aerials": 0,
+          "aerials_won": 0
+        },
+        "goalkeeping": {
+          "claims": 0,
+          "claims_won": 0,
+          "claim_rate": null,
+          "sweeper_actions": 5,
+          "distributions": 26,
+          "launches": 19,
+          "launch_pct": 73.1,
+          "avg_pass_length": 48.6,
+          "distribution_accuracy": 50
+        }
+      },
+      {
+        "player": {
+          "id": "p_43D8up",
+          "name": "Adrián Sánchez",
+          "shirt_number": 21
+        },
+        "team_id": "t_2Ba0sx",
+        "minutes_played": 90,
+        "actions": 38,
+        "possession_value": {
+          "xt_total": 0.0133,
+          "vaep_total": 0.0749,
+          "vaep_offensive": 0.0676,
+          "vaep_defensive": 0.0073,
+          "pv_total": 0.04,
+          "pv_offensive": 0.029,
+          "pv_defensive": 0.011
+        },
+        "passing": {
+          "passes": 28,
+          "pass_accuracy": 78.6,
+          "progressive_passes": 0,
+          "progressive_pass_distance": 0,
+          "passes_into_box": 1,
+          "key_passes": 0,
+          "assists": 0,
+          "through_balls": 0,
+          "crosses": 0,
+          "switches": 1
+        },
+        "carrying": {
+          "carries": 1,
+          "carry_distance": 14.4,
+          "progressive_carries": 0,
+          "progressive_carry_distance": 0.6,
+          "carries_into_final_third": 0,
+          "carries_into_box": 0,
+          "take_ons": 1,
+          "take_ons_won": 0,
+          "miscontrols": 1,
+          "dispossessed": 1
+        },
+        "creation": {
+          "sca": 0,
+          "gca": 0,
+          "chances_created": 0,
+          "second_assists": 0,
+          "sca_breakdown": {},
+          "xag": 0,
+          "xg_chain": 0.1893,
+          "xg_buildup": 0.1893
+        },
+        "defending": {
+          "tackles": 1,
+          "interceptions": 1,
+          "blocks": 0,
+          "clearances": 0,
+          "duels_won": 1,
+          "aerials": 3,
+          "aerials_won": 2
+        },
+        "goalkeeping": null
+      },
+      {
+        "player": {
+          "id": "p_49U5oJ",
+          "name": "Emiliano Ariel Rigoni",
+          "shirt_number": 24
+        },
+        "team_id": "t_2Ba0sx",
+        "minutes_played": 77,
+        "actions": 27,
+        "possession_value": {
+          "xt_total": 0.0053,
+          "vaep_total": 0.0586,
+          "vaep_offensive": 0.0399,
+          "vaep_defensive": 0.0187,
+          "pv_total": 0.0219,
+          "pv_offensive": 0.0244,
+          "pv_defensive": -0.0025
+        },
+        "passing": {
+          "passes": 14,
+          "pass_accuracy": 50,
+          "progressive_passes": 1,
+          "progressive_pass_distance": 9.5,
+          "passes_into_box": 1,
+          "key_passes": 0,
+          "assists": 0,
+          "through_balls": 0,
+          "crosses": 1,
+          "switches": 0
+        },
+        "carrying": {
+          "carries": 5,
+          "carry_distance": 45.3,
+          "progressive_carries": 0,
+          "progressive_carry_distance": 25.3,
+          "carries_into_final_third": 0,
+          "carries_into_box": 0,
+          "take_ons": 1,
+          "take_ons_won": 0,
+          "miscontrols": 1,
+          "dispossessed": 1
+        },
+        "creation": {
+          "sca": 1,
+          "gca": 0,
+          "chances_created": 0,
+          "second_assists": 0,
+          "sca_breakdown": {
+            "pass_live": 1
+          },
+          "xag": 0,
+          "xg_chain": 0.3853,
+          "xg_buildup": 0.3853
+        },
+        "defending": {
+          "tackles": 2,
+          "interceptions": 0,
+          "blocks": 0,
+          "clearances": 1,
+          "duels_won": 2,
+          "aerials": 2,
+          "aerials_won": 2
+        },
+        "goalkeeping": null
+      },
+      {
+        "player": {
+          "id": "p_1JvZlr",
+          "name": "Juan Meza",
+          "shirt_number": 24
+        },
+        "team_id": "t_1Fzy5s",
+        "minutes_played": 39,
+        "actions": 32,
+        "possession_value": {
+          "xt_total": 0.1432,
+          "vaep_total": 0.0571,
+          "vaep_offensive": 0.0595,
+          "vaep_defensive": -0.0024,
+          "pv_total": 0.0567,
+          "pv_offensive": 0.0569,
+          "pv_defensive": -0.0003
+        },
+        "passing": {
+          "passes": 20,
+          "pass_accuracy": 70,
+          "progressive_passes": 1,
+          "progressive_pass_distance": 7.6,
+          "passes_into_box": 0,
+          "key_passes": 2,
+          "assists": 1,
+          "through_balls": 0,
+          "crosses": 2,
+          "switches": 0
+        },
+        "carrying": {
+          "carries": 4,
+          "carry_distance": 45.1,
+          "progressive_carries": 1,
+          "progressive_carry_distance": 22,
+          "carries_into_final_third": 1,
+          "carries_into_box": 0,
+          "take_ons": 3,
+          "take_ons_won": 1,
+          "miscontrols": 0,
+          "dispossessed": 1
+        },
+        "creation": {
+          "sca": 4,
+          "gca": 2,
+          "chances_created": 2,
+          "second_assists": 0,
+          "sca_breakdown": {
+            "pass_live": 4
+          },
+          "xag": 0.5443,
+          "xg_chain": 0.8984,
+          "xg_buildup": 0.8213
+        },
+        "defending": {
+          "tackles": 2,
+          "interceptions": 0,
+          "blocks": 0,
+          "clearances": 0,
+          "duels_won": 3,
+          "aerials": 0,
+          "aerials_won": 0
+        },
+        "goalkeeping": null
+      },
+      {
+        "player": {
+          "id": "p_0FN6nM",
+          "name": "Ramiro Hernandes",
+          "shirt_number": 51
+        },
+        "team_id": "t_2Ba0sx",
+        "minutes_played": 13,
+        "actions": 11,
+        "possession_value": {
+          "xt_total": 0.0359,
+          "vaep_total": 0.0496,
+          "vaep_offensive": 0.0576,
+          "vaep_defensive": -0.008,
+          "pv_total": 0.0415,
+          "pv_offensive": 0.0457,
+          "pv_defensive": -0.0042
+        },
+        "passing": {
+          "passes": 8,
+          "pass_accuracy": 87.5,
+          "progressive_passes": 2,
+          "progressive_pass_distance": 28.2,
+          "passes_into_box": 0,
+          "key_passes": 0,
+          "assists": 0,
+          "through_balls": 0,
+          "crosses": 0,
+          "switches": 0
+        },
+        "carrying": {
+          "carries": 1,
+          "carry_distance": 8.5,
+          "progressive_carries": 0,
+          "progressive_carry_distance": 7.9,
+          "carries_into_final_third": 0,
+          "carries_into_box": 1,
+          "take_ons": 1,
+          "take_ons_won": 0,
+          "miscontrols": 0,
+          "dispossessed": 0
+        },
+        "creation": {
+          "sca": 0,
+          "gca": 0,
+          "chances_created": 0,
+          "second_assists": 0,
+          "sca_breakdown": {},
+          "xag": 0,
+          "xg_chain": 0.1425,
+          "xg_buildup": 0.1425
+        },
+        "defending": {
+          "tackles": 1,
+          "interceptions": 0,
+          "blocks": 0,
+          "clearances": 0,
+          "duels_won": 0,
+          "aerials": 0,
+          "aerials_won": 0
+        },
+        "goalkeeping": null
+      },
+      {
+        "player": {
+          "id": "p_2Dj6gK",
+          "name": "Aníbal Moreno",
+          "shirt_number": 6
+        },
+        "team_id": "t_1Fzy5s",
+        "minutes_played": 90,
+        "actions": 77,
+        "possession_value": {
+          "xt_total": 0.0904,
+          "vaep_total": 0.0384,
+          "vaep_offensive": 0.2398,
+          "vaep_defensive": -0.2015,
+          "pv_total": 0.1938,
+          "pv_offensive": 0.2326,
+          "pv_defensive": -0.0388
+        },
+        "passing": {
+          "passes": 55,
+          "pass_accuracy": 81.8,
+          "progressive_passes": 2,
+          "progressive_pass_distance": 59.7,
+          "passes_into_box": 2,
+          "key_passes": 1,
+          "assists": 1,
+          "through_balls": 1,
+          "crosses": 0,
+          "switches": 1
+        },
+        "carrying": {
+          "carries": 8,
+          "carry_distance": 67.3,
+          "progressive_carries": 0,
+          "progressive_carry_distance": 24.3,
+          "carries_into_final_third": 2,
+          "carries_into_box": 0,
+          "take_ons": 1,
+          "take_ons_won": 0,
+          "miscontrols": 1,
+          "dispossessed": 0
+        },
+        "creation": {
+          "sca": 4,
+          "gca": 1,
+          "chances_created": 1,
+          "second_assists": 0,
+          "sca_breakdown": {
+            "pass_live": 3,
+            "shot": 1
+          },
+          "xag": 0.125,
+          "xg_chain": 1.5216,
+          "xg_buildup": 1.5216
+        },
+        "defending": {
+          "tackles": 3,
+          "interceptions": 4,
+          "blocks": 0,
+          "clearances": 0,
+          "duels_won": 2,
+          "aerials": 2,
+          "aerials_won": 1
+        },
+        "goalkeeping": null
+      },
+      {
+        "player": {
+          "id": "p_3Boqdn",
+          "name": "Francisco González Metilli",
+          "shirt_number": 11
+        },
+        "team_id": "t_2Ba0sx",
+        "minutes_played": 77,
+        "actions": 41,
+        "possession_value": {
+          "xt_total": 0.1361,
+          "vaep_total": 0.0137,
+          "vaep_offensive": 0.0244,
+          "vaep_defensive": -0.0107,
+          "pv_total": -0.0832,
+          "pv_offensive": -0.0028,
+          "pv_defensive": -0.0804
+        },
+        "passing": {
+          "passes": 23,
+          "pass_accuracy": 73.9,
+          "progressive_passes": 1,
+          "progressive_pass_distance": 9.7,
+          "passes_into_box": 0,
+          "key_passes": 1,
+          "assists": 0,
+          "through_balls": 0,
+          "crosses": 2,
+          "switches": 0
+        },
+        "carrying": {
+          "carries": 10,
+          "carry_distance": 144.9,
+          "progressive_carries": 2,
+          "progressive_carry_distance": 65.1,
+          "carries_into_final_third": 0,
+          "carries_into_box": 1,
+          "take_ons": 1,
+          "take_ons_won": 1,
+          "miscontrols": 1,
+          "dispossessed": 1
+        },
+        "creation": {
+          "sca": 2,
+          "gca": 0,
+          "chances_created": 1,
+          "second_assists": 0,
+          "sca_breakdown": {
+            "pass_live": 1,
+            "take_on": 1
+          },
+          "xag": 0.0354,
+          "xg_chain": 0.5146,
+          "xg_buildup": 0.2738
+        },
+        "defending": {
+          "tackles": 2,
+          "interceptions": 1,
+          "blocks": 0,
+          "clearances": 2,
+          "duels_won": 2,
+          "aerials": 1,
+          "aerials_won": 0
+        },
+        "goalkeeping": null
+      },
+      {
+        "player": {
+          "id": "p_20d5BY",
+          "name": "Facundo González",
+          "shirt_number": 31
+        },
+        "team_id": "t_1Fzy5s",
+        "minutes_played": 18,
+        "actions": 18,
+        "possession_value": {
+          "xt_total": 0.0114,
+          "vaep_total": 0.0136,
+          "vaep_offensive": 0.0075,
+          "vaep_defensive": 0.0061,
+          "pv_total": 0.0197,
+          "pv_offensive": 0.0167,
+          "pv_defensive": 0.003
+        },
+        "passing": {
+          "passes": 12,
+          "pass_accuracy": 91.7,
+          "progressive_passes": 0,
+          "progressive_pass_distance": 0,
+          "passes_into_box": 0,
+          "key_passes": 0,
+          "assists": 0,
+          "through_balls": 0,
+          "crosses": 0,
+          "switches": 0
+        },
+        "carrying": {
+          "carries": 4,
+          "carry_distance": 29.5,
+          "progressive_carries": 0,
+          "progressive_carry_distance": 8.8,
+          "carries_into_final_third": 0,
+          "carries_into_box": 0,
+          "take_ons": 0,
+          "take_ons_won": 0,
+          "miscontrols": 0,
+          "dispossessed": 0
+        },
+        "creation": {
+          "sca": 0,
+          "gca": 0,
+          "chances_created": 0,
+          "second_assists": 0,
+          "sca_breakdown": {},
+          "xag": 0,
+          "xg_chain": 0.0154,
+          "xg_buildup": 0.0154
+        },
+        "defending": {
+          "tackles": 0,
+          "interceptions": 1,
+          "blocks": 0,
+          "clearances": 0,
+          "duels_won": 0,
+          "aerials": 0,
+          "aerials_won": 0
+        },
+        "goalkeeping": null
+      },
+      {
+        "player": {
+          "id": "p_09kVaG",
+          "name": "Nicolás Fernández",
+          "shirt_number": 22
+        },
+        "team_id": "t_2Ba0sx",
+        "minutes_played": 13,
+        "actions": 5,
+        "possession_value": {
+          "xt_total": 0.0094,
+          "vaep_total": 0.0132,
+          "vaep_offensive": 0.0133,
+          "vaep_defensive": -0.0002,
+          "pv_total": 0.0102,
+          "pv_offensive": 0.0095,
+          "pv_defensive": 0.0007
+        },
+        "passing": {
+          "passes": 4,
+          "pass_accuracy": 75,
+          "progressive_passes": 1,
+          "progressive_pass_distance": 17.5,
+          "passes_into_box": 0,
+          "key_passes": 0,
+          "assists": 0,
+          "through_balls": 0,
+          "crosses": 0,
+          "switches": 0
+        },
+        "carrying": {
+          "carries": 1,
+          "carry_distance": 16.6,
+          "progressive_carries": 0,
+          "progressive_carry_distance": 9.6,
+          "carries_into_final_third": 1,
+          "carries_into_box": 0,
+          "take_ons": 0,
+          "take_ons_won": 0,
+          "miscontrols": 0,
+          "dispossessed": 1
+        },
+        "creation": {
+          "sca": 0,
+          "gca": 0,
+          "chances_created": 0,
+          "second_assists": 0,
+          "sca_breakdown": {},
+          "xag": 0,
+          "xg_chain": 0,
+          "xg_buildup": 0
+        },
+        "defending": {
+          "tackles": 0,
+          "interceptions": 0,
+          "blocks": 0,
+          "clearances": 0,
+          "duels_won": 0,
+          "aerials": 0,
+          "aerials_won": 0
+        },
+        "goalkeeping": null
+      },
+      {
+        "player": {
+          "id": "p_1hr765",
+          "name": "Juan Velázquez",
+          "shirt_number": 53
+        },
+        "team_id": "t_2Ba0sx",
+        "minutes_played": 24,
+        "actions": 16,
+        "possession_value": {
+          "xt_total": 0.1176,
+          "vaep_total": 0.0107,
+          "vaep_offensive": 0.0155,
+          "vaep_defensive": -0.0047,
+          "pv_total": 0.0166,
+          "pv_offensive": 0.0158,
+          "pv_defensive": 0.0008
+        },
+        "passing": {
+          "passes": 12,
+          "pass_accuracy": 83.3,
+          "progressive_passes": 2,
+          "progressive_pass_distance": 24.8,
+          "passes_into_box": 1,
+          "key_passes": 1,
+          "assists": 0,
+          "through_balls": 0,
+          "crosses": 2,
+          "switches": 0
+        },
+        "carrying": {
+          "carries": 2,
+          "carry_distance": 12.1,
+          "progressive_carries": 0,
+          "progressive_carry_distance": 4.8,
+          "carries_into_final_third": 1,
+          "carries_into_box": 0,
+          "take_ons": 1,
+          "take_ons_won": 0,
+          "miscontrols": 0,
+          "dispossessed": 0
+        },
+        "creation": {
+          "sca": 1,
+          "gca": 0,
+          "chances_created": 1,
+          "second_assists": 0,
+          "sca_breakdown": {
+            "pass_live": 1
+          },
+          "xag": 0.0254,
+          "xg_chain": 0.1679,
+          "xg_buildup": 0.1679
+        },
+        "defending": {
+          "tackles": 0,
+          "interceptions": 0,
+          "blocks": 0,
+          "clearances": 0,
+          "duels_won": 0,
+          "aerials": 0,
+          "aerials_won": 0
+        },
+        "goalkeeping": null
+      },
+      {
+        "player": {
+          "id": "p_1qKkWG",
+          "name": "Lautaro Pereyra",
+          "shirt_number": 25
+        },
+        "team_id": "t_1Fzy5s",
+        "minutes_played": 7,
+        "actions": 5,
+        "possession_value": {
+          "xt_total": -0.0002,
+          "vaep_total": 0.0103,
+          "vaep_offensive": 0.0068,
+          "vaep_defensive": 0.0035,
+          "pv_total": 0.0009,
+          "pv_offensive": 0.0001,
+          "pv_defensive": 0.0008
+        },
+        "passing": {
+          "passes": 4,
+          "pass_accuracy": 100,
+          "progressive_passes": 0,
+          "progressive_pass_distance": 0,
+          "passes_into_box": 0,
+          "key_passes": 0,
+          "assists": 0,
+          "through_balls": 0,
+          "crosses": 0,
+          "switches": 0
+        },
+        "carrying": {
+          "carries": 1,
+          "carry_distance": 12.9,
+          "progressive_carries": 0,
+          "progressive_carry_distance": 12.1,
+          "carries_into_final_third": 0,
+          "carries_into_box": 0,
+          "take_ons": 0,
+          "take_ons_won": 0,
+          "miscontrols": 0,
+          "dispossessed": 0
+        },
+        "creation": {
+          "sca": 0,
+          "gca": 0,
+          "chances_created": 0,
+          "second_assists": 0,
+          "sca_breakdown": {},
+          "xag": 0,
+          "xg_chain": 0.0154,
+          "xg_buildup": 0.0154
+        },
+        "defending": {
+          "tackles": 0,
+          "interceptions": 0,
+          "blocks": 0,
+          "clearances": 0,
+          "duels_won": 0,
+          "aerials": 0,
+          "aerials_won": 0
+        },
+        "goalkeeping": null
+      },
+      {
+        "player": {
+          "id": "p_2N66aZ",
+          "name": "Joaquín Freitas",
+          "shirt_number": 35
+        },
+        "team_id": "t_1Fzy5s",
+        "minutes_played": 7,
+        "actions": 3,
+        "possession_value": {
+          "xt_total": 0.0007,
+          "vaep_total": -0.0087,
+          "vaep_offensive": -0.0088,
+          "vaep_defensive": 0.0002,
+          "pv_total": -0.0128,
+          "pv_offensive": -0.0129,
+          "pv_defensive": 0.0001
+        },
+        "passing": {
+          "passes": 2,
+          "pass_accuracy": 100,
+          "progressive_passes": 0,
+          "progressive_pass_distance": 0,
+          "passes_into_box": 0,
+          "key_passes": 0,
+          "assists": 0,
+          "through_balls": 0,
+          "crosses": 0,
+          "switches": 0
+        },
+        "carrying": {
+          "carries": 0,
+          "carry_distance": 0,
+          "progressive_carries": 0,
+          "progressive_carry_distance": 0,
+          "carries_into_final_third": 0,
+          "carries_into_box": 0,
+          "take_ons": 0,
+          "take_ons_won": 0,
+          "miscontrols": 0,
+          "dispossessed": 0
+        },
+        "creation": {
+          "sca": 0,
+          "gca": 0,
+          "chances_created": 0,
+          "second_assists": 0,
+          "sca_breakdown": {},
+          "xag": 0,
+          "xg_chain": 0.0154,
+          "xg_buildup": 0.0154
+        },
+        "defending": {
+          "tackles": 0,
+          "interceptions": 0,
+          "blocks": 0,
+          "clearances": 0,
+          "duels_won": 0,
+          "aerials": 0,
+          "aerials_won": 0
+        },
+        "goalkeeping": null
+      },
+      {
+        "player": {
+          "id": "p_4OBdka",
+          "name": "Federico Ricca",
+          "shirt_number": 16
+        },
+        "team_id": "t_2Ba0sx",
+        "minutes_played": 90,
+        "actions": 55,
+        "possession_value": {
+          "xt_total": 0.0296,
+          "vaep_total": -0.0225,
+          "vaep_offensive": 0.0464,
+          "vaep_defensive": -0.0689,
+          "pv_total": -0.021,
+          "pv_offensive": 0.0196,
+          "pv_defensive": -0.0406
+        },
+        "passing": {
+          "passes": 27,
+          "pass_accuracy": 66.7,
+          "progressive_passes": 2,
+          "progressive_pass_distance": 13.7,
+          "passes_into_box": 0,
+          "key_passes": 2,
+          "assists": 0,
+          "through_balls": 0,
+          "crosses": 2,
+          "switches": 0
+        },
+        "carrying": {
+          "carries": 8,
+          "carry_distance": 57.8,
+          "progressive_carries": 0,
+          "progressive_carry_distance": 7.8,
+          "carries_into_final_third": 1,
+          "carries_into_box": 0,
+          "take_ons": 0,
+          "take_ons_won": 0,
+          "miscontrols": 2,
+          "dispossessed": 0
+        },
+        "creation": {
+          "sca": 3,
+          "gca": 0,
+          "chances_created": 2,
+          "second_assists": 0,
+          "sca_breakdown": {
+            "pass_live": 3
+          },
+          "xag": 0.2072,
+          "xg_chain": 0.3348,
+          "xg_buildup": 0.0939
+        },
+        "defending": {
+          "tackles": 2,
+          "interceptions": 2,
+          "blocks": 0,
+          "clearances": 1,
+          "duels_won": 2,
+          "aerials": 1,
+          "aerials_won": 0
+        },
+        "goalkeeping": null
+      },
+      {
+        "player": {
+          "id": "p_2ho6O3",
+          "name": "Lucas Martínez Quarta",
+          "shirt_number": 28
+        },
+        "team_id": "t_1Fzy5s",
+        "minutes_played": 90,
+        "actions": 98,
+        "possession_value": {
+          "xt_total": 0.0531,
+          "vaep_total": -0.0259,
+          "vaep_offensive": 0.025,
+          "vaep_defensive": -0.0509,
+          "pv_total": -0.0693,
+          "pv_offensive": -0.0615,
+          "pv_defensive": -0.0078
+        },
+        "passing": {
+          "passes": 59,
+          "pass_accuracy": 86.4,
+          "progressive_passes": 1,
+          "progressive_pass_distance": 27.9,
+          "passes_into_box": 0,
+          "key_passes": 0,
+          "assists": 0,
+          "through_balls": 0,
+          "crosses": 0,
+          "switches": 1
+        },
+        "carrying": {
+          "carries": 20,
+          "carry_distance": 230.1,
+          "progressive_carries": 0,
+          "progressive_carry_distance": 147.4,
+          "carries_into_final_third": 0,
+          "carries_into_box": 0,
+          "take_ons": 0,
+          "take_ons_won": 0,
+          "miscontrols": 3,
+          "dispossessed": 0
+        },
+        "creation": {
+          "sca": 0,
+          "gca": 0,
+          "chances_created": 0,
+          "second_assists": 0,
+          "sca_breakdown": {},
+          "xag": 0,
+          "xg_chain": 1.0121,
+          "xg_buildup": 1.0121
+        },
+        "defending": {
+          "tackles": 0,
+          "interceptions": 5,
+          "blocks": 1,
+          "clearances": 4,
+          "duels_won": 0,
+          "aerials": 1,
+          "aerials_won": 0
+        },
+        "goalkeeping": null
+      },
+      {
+        "player": {
+          "id": "p_4e3a9Y",
+          "name": "Juan Quintero",
+          "shirt_number": 10
+        },
+        "team_id": "t_1Fzy5s",
+        "minutes_played": 18,
+        "actions": 20,
+        "possession_value": {
+          "xt_total": 0.017,
+          "vaep_total": -0.0476,
+          "vaep_offensive": -0.0251,
+          "vaep_defensive": -0.0225,
+          "pv_total": -0.0265,
+          "pv_offensive": -0.0116,
+          "pv_defensive": -0.0149
+        },
+        "passing": {
+          "passes": 14,
+          "pass_accuracy": 85.7,
+          "progressive_passes": 2,
+          "progressive_pass_distance": 39.9,
+          "passes_into_box": 0,
+          "key_passes": 0,
+          "assists": 0,
+          "through_balls": 0,
+          "crosses": 0,
+          "switches": 3
+        },
+        "carrying": {
+          "carries": 3,
+          "carry_distance": 22.4,
+          "progressive_carries": 0,
+          "progressive_carry_distance": 17.6,
+          "carries_into_final_third": 0,
+          "carries_into_box": 0,
+          "take_ons": 0,
+          "take_ons_won": 0,
+          "miscontrols": 1,
+          "dispossessed": 0
+        },
+        "creation": {
+          "sca": 1,
+          "gca": 1,
+          "chances_created": 0,
+          "second_assists": 1,
+          "sca_breakdown": {
+            "pass_live": 1
+          },
+          "xag": 0,
+          "xg_chain": 0.1404,
+          "xg_buildup": 0.125
+        },
+        "defending": {
+          "tackles": 0,
+          "interceptions": 0,
+          "blocks": 0,
+          "clearances": 0,
+          "duels_won": 0,
+          "aerials": 0,
+          "aerials_won": 0
+        },
+        "goalkeeping": null
+      },
+      {
+        "player": {
+          "id": "p_1EMq3A",
+          "name": "Alcides Benítez",
+          "shirt_number": 26
+        },
+        "team_id": "t_2Ba0sx",
+        "minutes_played": 90,
+        "actions": 53,
+        "possession_value": {
+          "xt_total": 0.1871,
+          "vaep_total": -0.0507,
+          "vaep_offensive": -0.0255,
+          "vaep_defensive": -0.0251,
+          "pv_total": 0.1975,
+          "pv_offensive": 0.1022,
+          "pv_defensive": 0.0953
+        },
+        "passing": {
+          "passes": 19,
+          "pass_accuracy": 73.7,
+          "progressive_passes": 4,
+          "progressive_pass_distance": 77.6,
+          "passes_into_box": 1,
+          "key_passes": 1,
+          "assists": 0,
+          "through_balls": 0,
+          "crosses": 1,
+          "switches": 0
+        },
+        "carrying": {
+          "carries": 11,
+          "carry_distance": 113.6,
+          "progressive_carries": 3,
+          "progressive_carry_distance": 81,
+          "carries_into_final_third": 2,
+          "carries_into_box": 0,
+          "take_ons": 1,
+          "take_ons_won": 1,
+          "miscontrols": 4,
+          "dispossessed": 1
+        },
+        "creation": {
+          "sca": 1,
+          "gca": 0,
+          "chances_created": 1,
+          "second_assists": 0,
+          "sca_breakdown": {
+            "pass_live": 1
+          },
+          "xag": 0.1444,
+          "xg_chain": 0.4163,
+          "xg_buildup": 0.3808
+        },
+        "defending": {
+          "tackles": 6,
+          "interceptions": 2,
+          "blocks": 0,
+          "clearances": 1,
+          "duels_won": 6,
+          "aerials": 2,
+          "aerials_won": 1
+        },
+        "goalkeeping": null
+      },
+      {
+        "player": {
+          "id": "p_1lrNAx",
+          "name": "Lautaro Gutierrez",
+          "shirt_number": 37
+        },
+        "team_id": "t_2Ba0sx",
+        "minutes_played": 24,
+        "actions": 15,
+        "possession_value": {
+          "xt_total": 0.0393,
+          "vaep_total": -0.0527,
+          "vaep_offensive": -0.0429,
+          "vaep_defensive": -0.0098,
+          "pv_total": -0.036,
+          "pv_offensive": -0.0346,
+          "pv_defensive": -0.0014
+        },
+        "passing": {
+          "passes": 8,
+          "pass_accuracy": 75,
+          "progressive_passes": 1,
+          "progressive_pass_distance": 5.9,
+          "passes_into_box": 1,
+          "key_passes": 0,
+          "assists": 0,
+          "through_balls": 0,
+          "crosses": 0,
+          "switches": 0
+        },
+        "carrying": {
+          "carries": 2,
+          "carry_distance": 17.9,
+          "progressive_carries": 0,
+          "progressive_carry_distance": 4.7,
+          "carries_into_final_third": 1,
+          "carries_into_box": 0,
+          "take_ons": 1,
+          "take_ons_won": 0,
+          "miscontrols": 0,
+          "dispossessed": 1
+        },
+        "creation": {
+          "sca": 1,
+          "gca": 0,
+          "chances_created": 0,
+          "second_assists": 0,
+          "sca_breakdown": {
+            "pass_live": 1
+          },
+          "xag": 0,
+          "xg_chain": 0.1679,
+          "xg_buildup": 0.1679
+        },
+        "defending": {
+          "tackles": 0,
+          "interceptions": 1,
+          "blocks": 0,
+          "clearances": 1,
+          "duels_won": 0,
+          "aerials": 3,
+          "aerials_won": 3
+        },
+        "goalkeeping": null
+      },
+      {
+        "player": {
+          "id": "p_4d8JFW",
+          "name": "Ian Subiabre",
+          "shirt_number": 38
+        },
+        "team_id": "t_1Fzy5s",
+        "minutes_played": 51,
+        "actions": 40,
+        "possession_value": {
+          "xt_total": 0.0828,
+          "vaep_total": -0.0661,
+          "vaep_offensive": -0.0575,
+          "vaep_defensive": -0.0086,
+          "pv_total": -0.0429,
+          "pv_offensive": -0.0524,
+          "pv_defensive": 0.0095
+        },
+        "passing": {
+          "passes": 17,
+          "pass_accuracy": 58.8,
+          "progressive_passes": 2,
+          "progressive_pass_distance": 30.5,
+          "passes_into_box": 2,
+          "key_passes": 0,
+          "assists": 0,
+          "through_balls": 0,
+          "crosses": 2,
+          "switches": 0
+        },
+        "carrying": {
+          "carries": 10,
+          "carry_distance": 93.3,
+          "progressive_carries": 1,
+          "progressive_carry_distance": 44.6,
+          "carries_into_final_third": 0,
+          "carries_into_box": 0,
+          "take_ons": 4,
+          "take_ons_won": 3,
+          "miscontrols": 2,
+          "dispossessed": 3
+        },
+        "creation": {
+          "sca": 2,
+          "gca": 0,
+          "chances_created": 0,
+          "second_assists": 0,
+          "sca_breakdown": {
+            "pass_live": 2
+          },
+          "xag": 0,
+          "xg_chain": 0.4008,
+          "xg_buildup": 0.4008
+        },
+        "defending": {
+          "tackles": 1,
+          "interceptions": 1,
+          "blocks": 0,
+          "clearances": 1,
+          "duels_won": 4,
+          "aerials": 0,
+          "aerials_won": 0
+        },
+        "goalkeeping": null
+      },
+      {
+        "player": {
+          "id": "p_4g8d1N",
+          "name": "Franco Vázquez",
+          "shirt_number": 20
+        },
+        "team_id": "t_2Ba0sx",
+        "minutes_played": 66,
+        "actions": 31,
+        "possession_value": {
+          "xt_total": 0.0131,
+          "vaep_total": -0.0689,
+          "vaep_offensive": -0.0366,
+          "vaep_defensive": -0.0323,
+          "pv_total": -0.0506,
+          "pv_offensive": -0.0449,
+          "pv_defensive": -0.0057
+        },
+        "passing": {
+          "passes": 16,
+          "pass_accuracy": 87.5,
+          "progressive_passes": 1,
+          "progressive_pass_distance": 17.8,
+          "passes_into_box": 0,
+          "key_passes": 0,
+          "assists": 0,
+          "through_balls": 0,
+          "crosses": 1,
+          "switches": 0
+        },
+        "carrying": {
+          "carries": 8,
+          "carry_distance": 118.8,
+          "progressive_carries": 1,
+          "progressive_carry_distance": 83.2,
+          "carries_into_final_third": 1,
+          "carries_into_box": 0,
+          "take_ons": 3,
+          "take_ons_won": 0,
+          "miscontrols": 1,
+          "dispossessed": 1
+        },
+        "creation": {
+          "sca": 0,
+          "gca": 0,
+          "chances_created": 0,
+          "second_assists": 0,
+          "sca_breakdown": {},
+          "xag": 0,
+          "xg_chain": 0.2384,
+          "xg_buildup": 0.2384
+        },
+        "defending": {
+          "tackles": 0,
+          "interceptions": 0,
+          "blocks": 0,
+          "clearances": 0,
+          "duels_won": 0,
+          "aerials": 1,
+          "aerials_won": 1
+        },
+        "goalkeeping": null
+      },
+      {
+        "player": {
+          "id": "p_3MmYTU",
+          "name": "Lucas Passerini",
+          "shirt_number": 9
+        },
+        "team_id": "t_2Ba0sx",
+        "minutes_played": 66,
+        "actions": 31,
+        "possession_value": {
+          "xt_total": -0.0119,
+          "vaep_total": -0.081,
+          "vaep_offensive": -0.0921,
+          "vaep_defensive": 0.0111,
+          "pv_total": -0.0779,
+          "pv_offensive": -0.0956,
+          "pv_defensive": 0.0177
+        },
+        "passing": {
+          "passes": 10,
+          "pass_accuracy": 80,
+          "progressive_passes": 0,
+          "progressive_pass_distance": 0,
+          "passes_into_box": 0,
+          "key_passes": 0,
+          "assists": 0,
+          "through_balls": 0,
+          "crosses": 0,
+          "switches": 0
+        },
+        "carrying": {
+          "carries": 6,
+          "carry_distance": 67.3,
+          "progressive_carries": 0,
+          "progressive_carry_distance": 20.9,
+          "carries_into_final_third": 0,
+          "carries_into_box": 0,
+          "take_ons": 3,
+          "take_ons_won": 2,
+          "miscontrols": 4,
+          "dispossessed": 3
+        },
+        "creation": {
+          "sca": 0,
+          "gca": 0,
+          "chances_created": 0,
+          "second_assists": 0,
+          "sca_breakdown": {},
+          "xag": 0,
+          "xg_chain": 0.4301,
+          "xg_buildup": 0.4301
+        },
+        "defending": {
+          "tackles": 1,
+          "interceptions": 1,
+          "blocks": 1,
+          "clearances": 4,
+          "duels_won": 2,
+          "aerials": 3,
+          "aerials_won": 0
+        },
+        "goalkeeping": null
+      },
+      {
+        "player": {
+          "id": "p_3u6zLG",
+          "name": "Leonardo Morales",
+          "shirt_number": 14
+        },
+        "team_id": "t_2Ba0sx",
+        "minutes_played": 90,
+        "actions": 41,
+        "possession_value": {
+          "xt_total": 0.0205,
+          "vaep_total": -0.0844,
+          "vaep_offensive": 0.023,
+          "vaep_defensive": -0.1074,
+          "pv_total": 0.0324,
+          "pv_offensive": 0.0137,
+          "pv_defensive": 0.0188
+        },
+        "passing": {
+          "passes": 26,
+          "pass_accuracy": 53.8,
+          "progressive_passes": 2,
+          "progressive_pass_distance": 39.6,
+          "passes_into_box": 0,
+          "key_passes": 0,
+          "assists": 0,
+          "through_balls": 0,
+          "crosses": 0,
+          "switches": 0
+        },
+        "carrying": {
+          "carries": 4,
+          "carry_distance": 43.6,
+          "progressive_carries": 0,
+          "progressive_carry_distance": 0,
+          "carries_into_final_third": 0,
+          "carries_into_box": 0,
+          "take_ons": 0,
+          "take_ons_won": 0,
+          "miscontrols": 1,
+          "dispossessed": 0
+        },
+        "creation": {
+          "sca": 0,
+          "gca": 0,
+          "chances_created": 0,
+          "second_assists": 0,
+          "sca_breakdown": {},
+          "xag": 0,
+          "xg_chain": 0.0703,
+          "xg_buildup": 0.0703
+        },
+        "defending": {
+          "tackles": 1,
+          "interceptions": 4,
+          "blocks": 1,
+          "clearances": 3,
+          "duels_won": 1,
+          "aerials": 0,
+          "aerials_won": 0
+        },
+        "goalkeeping": null
+      },
+      {
+        "player": {
+          "id": "p_28SEJq",
+          "name": "Alexis Maldonado",
+          "shirt_number": 2
+        },
+        "team_id": "t_2Ba0sx",
+        "minutes_played": 90,
+        "actions": 28,
+        "possession_value": {
+          "xt_total": 0.0273,
+          "vaep_total": -0.1009,
+          "vaep_offensive": -0.0369,
+          "vaep_defensive": -0.064,
+          "pv_total": -0.063,
+          "pv_offensive": -0.0861,
+          "pv_defensive": 0.0231
+        },
+        "passing": {
+          "passes": 13,
+          "pass_accuracy": 76.9,
+          "progressive_passes": 2,
+          "progressive_pass_distance": 43.5,
+          "passes_into_box": 1,
+          "key_passes": 0,
+          "assists": 0,
+          "through_balls": 0,
+          "crosses": 0,
+          "switches": 0
+        },
+        "carrying": {
+          "carries": 0,
+          "carry_distance": 0,
+          "progressive_carries": 0,
+          "progressive_carry_distance": 0,
+          "carries_into_final_third": 0,
+          "carries_into_box": 0,
+          "take_ons": 0,
+          "take_ons_won": 0,
+          "miscontrols": 1,
+          "dispossessed": 0
+        },
+        "creation": {
+          "sca": 1,
+          "gca": 0,
+          "chances_created": 0,
+          "second_assists": 0,
+          "sca_breakdown": {
+            "pass_live": 1
+          },
+          "xag": 0,
+          "xg_chain": 0.6217,
+          "xg_buildup": 0.3808
+        },
+        "defending": {
+          "tackles": 1,
+          "interceptions": 1,
+          "blocks": 2,
+          "clearances": 4,
+          "duels_won": 1,
+          "aerials": 2,
+          "aerials_won": 1
+        },
+        "goalkeeping": null
+      },
+      {
+        "player": {
+          "id": "p_3PsjP7",
+          "name": "Lautaro Rivero",
+          "shirt_number": 13
+        },
+        "team_id": "t_1Fzy5s",
+        "minutes_played": 90,
+        "actions": 97,
+        "possession_value": {
+          "xt_total": 0.0644,
+          "vaep_total": -0.1738,
+          "vaep_offensive": -0.1438,
+          "vaep_defensive": -0.03,
+          "pv_total": -0.217,
+          "pv_offensive": -0.1849,
+          "pv_defensive": -0.0321
+        },
+        "passing": {
+          "passes": 59,
+          "pass_accuracy": 86.4,
+          "progressive_passes": 3,
+          "progressive_pass_distance": 49.8,
+          "passes_into_box": 0,
+          "key_passes": 0,
+          "assists": 0,
+          "through_balls": 0,
+          "crosses": 0,
+          "switches": 1
+        },
+        "carrying": {
+          "carries": 25,
+          "carry_distance": 352.7,
+          "progressive_carries": 4,
+          "progressive_carry_distance": 227,
+          "carries_into_final_third": 1,
+          "carries_into_box": 0,
+          "take_ons": 0,
+          "take_ons_won": 0,
+          "miscontrols": 2,
+          "dispossessed": 0
+        },
+        "creation": {
+          "sca": 1,
+          "gca": 0,
+          "chances_created": 0,
+          "second_assists": 0,
+          "sca_breakdown": {
+            "pass_live": 1
+          },
+          "xag": 0,
+          "xg_chain": 1.0969,
+          "xg_buildup": 1.0969
+        },
+        "defending": {
+          "tackles": 1,
+          "interceptions": 1,
+          "blocks": 0,
+          "clearances": 2,
+          "duels_won": 1,
+          "aerials": 3,
+          "aerials_won": 2
+        },
+        "goalkeeping": null
+      },
+      {
+        "player": {
+          "id": "p_2aHbDR",
+          "name": "Sebastián Driussi",
+          "shirt_number": 9
+        },
+        "team_id": "t_1Fzy5s",
+        "minutes_played": 83,
+        "actions": 50,
+        "possession_value": {
+          "xt_total": -0.0223,
+          "vaep_total": -0.2131,
+          "vaep_offensive": -0.2183,
+          "vaep_defensive": 0.0052,
+          "pv_total": -0.1944,
+          "pv_offensive": -0.2093,
+          "pv_defensive": 0.0149
+        },
+        "passing": {
+          "passes": 25,
+          "pass_accuracy": 88,
+          "progressive_passes": 2,
+          "progressive_pass_distance": 20.6,
+          "passes_into_box": 1,
+          "key_passes": 1,
+          "assists": 0,
+          "through_balls": 0,
+          "crosses": 0,
+          "switches": 0
+        },
+        "carrying": {
+          "carries": 9,
+          "carry_distance": 103,
+          "progressive_carries": 2,
+          "progressive_carry_distance": 56.8,
+          "carries_into_final_third": 0,
+          "carries_into_box": 0,
+          "take_ons": 4,
+          "take_ons_won": 1,
+          "miscontrols": 1,
+          "dispossessed": 0
+        },
+        "creation": {
+          "sca": 4,
+          "gca": 2,
+          "chances_created": 1,
+          "second_assists": 0,
+          "sca_breakdown": {
+            "pass_live": 3,
+            "shot": 1
+          },
+          "xag": 0.0243,
+          "xg_chain": 1.1242,
+          "xg_buildup": 0.6757
+        },
+        "defending": {
+          "tackles": 0,
+          "interceptions": 0,
+          "blocks": 0,
+          "clearances": 2,
+          "duels_won": 1,
+          "aerials": 1,
+          "aerials_won": 0
+        },
+        "goalkeeping": null
+      }
+    ]
+  }
+}

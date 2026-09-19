@@ -1,0 +1,2012 @@
+{
+  "event": {
+    "event": {
+      "eventState": {},
+      "tournament": {
+        "name": "Liga Profesional, Clausura",
+        "slug": "primera-lpf-clausura",
+        "category": {
+          "name": "Argentina",
+          "slug": "argentina",
+          "sport": {
+            "name": "Football",
+            "slug": "football",
+            "id": 1
+          },
+          "priority": 0,
+          "country": {
+            "alpha2": "AR",
+            "alpha3": "ARG",
+            "name": "Argentina",
+            "slug": "argentina"
+          },
+          "id": 48,
+          "flag": "argentina",
+          "alpha2": "AR",
+          "fieldTranslations": {
+            "nameTranslation": {
+              "ar": "الأرجنتين",
+              "ru": "Аргентина"
+            },
+            "shortNameTranslation": {}
+          }
+        },
+        "uniqueTournament": {
+          "name": "Liga Profesional de Fútbol",
+          "slug": "liga-profesional-de-futbol",
+          "primaryColorHex": "#0cbad8",
+          "secondaryColorHex": "#daa813",
+          "category": {
+            "name": "Argentina",
+            "slug": "argentina",
+            "sport": {
+              "name": "Football",
+              "slug": "football",
+              "id": 1
+            },
+            "priority": 0,
+            "country": {
+              "alpha2": "AR",
+              "alpha3": "ARG",
+              "name": "Argentina",
+              "slug": "argentina"
+            },
+            "id": 48,
+            "flag": "argentina",
+            "alpha2": "AR",
+            "fieldTranslations": {
+              "nameTranslation": {
+                "ar": "الأرجنتين",
+                "ru": "Аргентина"
+              },
+              "shortNameTranslation": {}
+            }
+          },
+          "userCount": 69257,
+          "hasPerformanceGraphFeature": false,
+          "country": {},
+          "id": 155,
+          "hasEventPlayerStatistics": true,
+          "displayInverseHomeAwayTeams": false,
+          "fieldTranslations": {
+            "nameTranslation": {
+              "ar": "دوري كرة القدم للمحترفين",
+              "bn": "লীগা প্রোফেশনাল ডে ফুটবল",
+              "hi": "लीगा प्रोफेशनल डी फुटबॉल",
+              "ru": "Профессиональная лига футбола"
+            },
+            "shortNameTranslation": {}
+          }
+        },
+        "priority": 0,
+        "isGroup": false,
+        "id": 156467,
+        "fieldTranslations": {
+          "nameTranslation": {
+            "ar": "الدوري الاحترافي، الإغلاق",
+            "ru": "Профессиональная Лига, Клаусура"
+          },
+          "shortNameTranslation": {}
+        }
+      },
+      "season": {
+        "name": "Primera LPF 2026",
+        "year": "2026",
+        "editor": false,
+        "seasonCoverageInfo": {},
+        "id": 87913
+      },
+      "roundInfo": {
+        "round": 10
+      },
+      "customId": "fobsuob",
+      "status": {
+        "code": 0,
+        "description": "Not started",
+        "type": "notstarted"
+      },
+      "homeTeam": {
+        "name": "Gimnasia y Esgrima",
+        "slug": "gimnasia-y-esgrima",
+        "shortName": "Gimnasia",
+        "gender": "M",
+        "sport": {
+          "name": "Football",
+          "slug": "football",
+          "id": 1
+        },
+        "userCount": 17116,
+        "nameCode": "GLP",
+        "disabled": false,
+        "national": false,
+        "type": 0,
+        "country": {
+          "alpha2": "AR",
+          "alpha3": "ARG",
+          "name": "Argentina",
+          "slug": "argentina"
+        },
+        "id": 3205,
+        "subTeams": [],
+        "teamColors": {
+          "primary": "#ffffff",
+          "secondary": "#000033",
+          "text": "#000033"
+        },
+        "fieldTranslations": {
+          "nameTranslation": {
+            "ar": "خيميناسيا وإسغريما",
+            "ru": "Химнасия и Эсгрима Ла Плата"
+          },
+          "shortNameTranslation": {
+            "ar": "خيميناسيا"
+          }
+        }
+      },
+      "awayTeam": {
+        "name": "Banfield",
+        "slug": "banfield",
+        "shortName": "Banfield",
+        "gender": "M",
+        "sport": {
+          "name": "Football",
+          "slug": "football",
+          "id": 1
+        },
+        "userCount": 19385,
+        "nameCode": "BAN",
+        "disabled": false,
+        "national": false,
+        "type": 0,
+        "country": {
+          "alpha2": "AR",
+          "alpha3": "ARG",
+          "name": "Argentina",
+          "slug": "argentina"
+        },
+        "id": 3219,
+        "subTeams": [],
+        "teamColors": {
+          "primary": "#009900",
+          "secondary": "#ffffff",
+          "text": "#ffffff"
+        },
+        "fieldTranslations": {
+          "nameTranslation": {
+            "ar": "بانفيلد",
+            "ru": "КА Банфилд"
+          },
+          "shortNameTranslation": {
+            "ar": "بانفيلد"
+          }
+        }
+      },
+      "homeScore": {},
+      "awayScore": {},
+      "time": {},
+      "changes": {
+        "changeTimestamp": 0
+      },
+      "hasGlobalHighlights": false,
+      "detailId": 1,
+      "crowdsourcingDataDisplayEnabled": false,
+      "id": 16667328,
+      "slug": "banfield-gimnasia-y-esgrima",
+      "startTimestamp": 1789839000,
+      "finalResultOnly": false,
+      "feedLocked": true,
+      "isEditor": false,
+      "eventFilters": {
+        "category": [
+          "club"
+        ],
+        "level": [
+          "top-competitions",
+          "pro"
+        ],
+        "gender": [
+          "M"
+        ]
+      }
+    }
+  },
+  "lineups": {
+    "confirmed": false,
+    "home": {
+      "players": [
+        {
+          "avgRating": 7.05,
+          "seasonRatingBreakdown": {
+            "pass": {
+              "value": 0.07,
+              "expectedAssists": 0,
+              "accuratePassesPerGame": 12.96,
+              "keyPassesPerGame": 0.04
+            },
+            "dribble": {
+              "value": -0.01,
+              "successfulDribblesPerGame": 0,
+              "touchesPerGame": 30.48
+            },
+            "defending": {
+              "value": 0.06,
+              "defensiveContributionsPerGame": 0.6,
+              "duelsWonPerGame": 0.2
+            },
+            "goalkeeping": {
+              "value": 0.15,
+              "goalsPrevented": -0.4761,
+              "savesPerGame": 2.96
+            }
+          },
+          "player": {
+            "name": "Nelson Insfrán",
+            "firstName": "Nelson",
+            "lastName": "Insfran",
+            "slug": "nelson-insfran",
+            "shortName": "N. Insfrán",
+            "position": "G",
+            "jerseyNumber": "23",
+            "height": 179,
+            "userCount": 88,
+            "gender": "M",
+            "sofascoreId": "bfe-pgq",
+            "country": {
+              "alpha2": "AR",
+              "alpha3": "ARG",
+              "name": "Argentina",
+              "slug": "argentina"
+            },
+            "id": 875481,
+            "marketValueCurrency": "EUR",
+            "dateOfBirthTimestamp": 801273600,
+            "proposedMarketValueRaw": {
+              "value": 2100000,
+              "currency": "EUR"
+            },
+            "fieldTranslations": {
+              "nameTranslation": {
+                "ar": "نيلسون إنسفرا",
+                "ru": "Нельсон Инсфран"
+              },
+              "shortNameTranslation": {
+                "ar": "ن. إنسفرا",
+                "ru": "Н. Инсфран"
+              }
+            }
+          },
+          "teamId": 3205,
+          "shirtNumber": 23,
+          "jerseyNumber": "23",
+          "position": "G",
+          "substitute": false
+        },
+        {
+          "avgRating": 6.56,
+          "seasonRatingBreakdown": {
+            "shot": {
+              "value": 0.1,
+              "expectedGoals": 0.07,
+              "expectedGoalsOnTarget": 0.08,
+              "totalShotsPerGame": 0.25,
+              "shotsOnTargetPerGame": 0.08
+            },
+            "pass": {
+              "value": 0.19,
+              "expectedAssists": 0.07,
+              "accuratePassesPerGame": 12.42,
+              "keyPassesPerGame": 1.08
+            },
+            "dribble": {
+              "value": 0.05,
+              "successfulDribblesPerGame": 0,
+              "touchesPerGame": 35.58
+            },
+            "defending": {
+              "value": -0.2,
+              "defensiveContributionsPerGame": 4.75,
+              "duelsWonPerGame": 2.58
+            }
+          },
+          "player": {
+            "name": "Bautista Barros Schelotto",
+            "firstName": "Bautista Barros Schelotto",
+            "lastName": "",
+            "slug": "bautista-barros-schelotto",
+            "shortName": "B. B. Schelotto",
+            "position": "D",
+            "jerseyNumber": "31",
+            "height": 181,
+            "userCount": 69,
+            "gender": "M",
+            "sofascoreId": "8js-d88",
+            "country": {
+              "alpha2": "AR",
+              "alpha3": "ARG",
+              "name": "Argentina",
+              "slug": "argentina"
+            },
+            "id": 1085929,
+            "marketValueCurrency": "EUR",
+            "dateOfBirthTimestamp": 947721600,
+            "proposedMarketValueRaw": {
+              "value": 160000,
+              "currency": "EUR"
+            },
+            "fieldTranslations": {
+              "nameTranslation": {
+                "ar": "باوتيستا باروس شيلوتو",
+                "ru": "Баутиста Баррос Шелотто"
+              },
+              "shortNameTranslation": {
+                "ar": "ب. شيلوتو",
+                "ru": "Б. Шелотто"
+              }
+            }
+          },
+          "teamId": 3205,
+          "shirtNumber": 31,
+          "jerseyNumber": "31",
+          "position": "D",
+          "substitute": false
+        },
+        {
+          "avgRating": 6.9,
+          "seasonRatingBreakdown": {
+            "shot": {
+              "value": 0.07,
+              "expectedGoals": 0.08,
+              "expectedGoalsOnTarget": 0.08,
+              "totalShotsPerGame": 0.44,
+              "shotsOnTargetPerGame": 0.33
+            },
+            "pass": {
+              "value": 0.08,
+              "expectedAssists": 0,
+              "accuratePassesPerGame": 19.11,
+              "keyPassesPerGame": 0.11
+            },
+            "dribble": {
+              "value": 0,
+              "successfulDribblesPerGame": 0,
+              "touchesPerGame": 36.56
+            },
+            "defending": {
+              "value": 0.2,
+              "defensiveContributionsPerGame": 10,
+              "duelsWonPerGame": 4
+            }
+          },
+          "player": {
+            "name": "Germán Conti",
+            "slug": "german-conti",
+            "shortName": "G. Conti",
+            "position": "D",
+            "jerseyNumber": "13",
+            "height": 192,
+            "userCount": 248,
+            "gender": "M",
+            "sofascoreId": "c34-hjg",
+            "country": {
+              "alpha2": "AR",
+              "alpha3": "ARG",
+              "name": "Argentina",
+              "slug": "argentina"
+            },
+            "id": 320917,
+            "marketValueCurrency": "EUR",
+            "dateOfBirthTimestamp": 770601600,
+            "proposedMarketValueRaw": {
+              "value": 145000,
+              "currency": "EUR"
+            },
+            "fieldTranslations": {
+              "nameTranslation": {
+                "ar": "جيرمان كونتي",
+                "ru": "Херман Контии"
+              },
+              "shortNameTranslation": {
+                "ar": "ج. كونتي",
+                "ru": "Х. Контии"
+              }
+            }
+          },
+          "teamId": 3205,
+          "shirtNumber": 13,
+          "jerseyNumber": "13",
+          "position": "D",
+          "substitute": false
+        },
+        {
+          "avgRating": 6.95,
+          "seasonRatingBreakdown": {
+            "shot": {
+              "value": -0.04,
+              "expectedGoals": 0.01,
+              "expectedGoalsOnTarget": 0.01,
+              "totalShotsPerGame": 0.58,
+              "shotsOnTargetPerGame": 0.21
+            },
+            "pass": {
+              "value": 0.18,
+              "expectedAssists": 0,
+              "accuratePassesPerGame": 30.08,
+              "keyPassesPerGame": 0.08
+            },
+            "dribble": {
+              "value": 0.08,
+              "successfulDribblesPerGame": 0.21,
+              "touchesPerGame": 55.08
+            },
+            "defending": {
+              "value": 0.01,
+              "defensiveContributionsPerGame": 10.88,
+              "duelsWonPerGame": 5
+            }
+          },
+          "player": {
+            "name": "Enzo Martínez",
+            "firstName": "",
+            "lastName": "",
+            "slug": "enzo-martinez",
+            "shortName": "E. Martínez",
+            "position": "D",
+            "jerseyNumber": "21",
+            "height": 183,
+            "userCount": 116,
+            "gender": "M",
+            "sofascoreId": "cei-s88",
+            "country": {
+              "alpha2": "UY",
+              "alpha3": "URY",
+              "name": "Uruguay",
+              "slug": "uruguay"
+            },
+            "id": 932234,
+            "marketValueCurrency": "EUR",
+            "dateOfBirthTimestamp": 893808000,
+            "proposedMarketValueRaw": {
+              "value": 1400000,
+              "currency": "EUR"
+            },
+            "fieldTranslations": {
+              "nameTranslation": {
+                "ar": "إنزو مارتينيز",
+                "ru": "Энцо Мартинес"
+              },
+              "shortNameTranslation": {
+                "ar": "إ. مارتينيز",
+                "ru": "Э. Мартинес"
+              }
+            }
+          },
+          "teamId": 3205,
+          "shirtNumber": 21,
+          "jerseyNumber": "21",
+          "position": "D",
+          "substitute": false
+        },
+        {
+          "avgRating": 6.83,
+          "seasonRatingBreakdown": {
+            "shot": {
+              "value": -0.21,
+              "expectedGoals": 0.03,
+              "expectedGoalsOnTarget": 0,
+              "totalShotsPerGame": 0.59,
+              "shotsOnTargetPerGame": 0.15
+            },
+            "pass": {
+              "value": 0.16,
+              "expectedAssists": 0.05,
+              "accuratePassesPerGame": 21.22,
+              "keyPassesPerGame": 0.7
+            },
+            "dribble": {
+              "value": 0.03,
+              "successfulDribblesPerGame": 0.52,
+              "touchesPerGame": 52.67
+            },
+            "defending": {
+              "value": -0.05,
+              "defensiveContributionsPerGame": 5.96,
+              "duelsWonPerGame": 4.26
+            }
+          },
+          "player": {
+            "name": "Pedro Silva",
+            "firstName": "Pedro",
+            "lastName": "Silva",
+            "slug": "pedro-silva",
+            "shortName": "P. S. Torrejón",
+            "position": "D",
+            "jerseyNumber": "24",
+            "height": 174,
+            "userCount": 99,
+            "gender": "M",
+            "sofascoreId": "dtt-i7f",
+            "country": {
+              "alpha2": "AR",
+              "alpha3": "ARG",
+              "name": "Argentina",
+              "slug": "argentina"
+            },
+            "id": 830710,
+            "marketValueCurrency": "EUR",
+            "dateOfBirthTimestamp": 854150400,
+            "proposedMarketValueRaw": {
+              "value": 1100000,
+              "currency": "EUR"
+            },
+            "fieldTranslations": {
+              "nameTranslation": {
+                "ar": "بيدرو سيلفا",
+                "ru": "Педро Силва"
+              },
+              "shortNameTranslation": {
+                "ar": "ب. سيلفا",
+                "ru": "П. Силва"
+              }
+            }
+          },
+          "teamId": 3205,
+          "shirtNumber": 24,
+          "jerseyNumber": "24",
+          "position": "D",
+          "substitute": false
+        },
+        {
+          "avgRating": 6.95,
+          "seasonRatingBreakdown": {
+            "shot": {
+              "value": -0.05,
+              "expectedGoals": 0.03,
+              "expectedGoalsOnTarget": 0.02,
+              "totalShotsPerGame": 0.59,
+              "shotsOnTargetPerGame": 0.18
+            },
+            "pass": {
+              "value": 0.18,
+              "expectedAssists": 0.06,
+              "accuratePassesPerGame": 30.09,
+              "keyPassesPerGame": 0.64
+            },
+            "dribble": {
+              "value": 0.16,
+              "successfulDribblesPerGame": 0.77,
+              "touchesPerGame": 53.77
+            },
+            "defending": {
+              "value": 0,
+              "defensiveContributionsPerGame": 4.77,
+              "duelsWonPerGame": 5.27
+            }
+          },
+          "player": {
+            "name": "Ignacio Miramón",
+            "firstName": "Ignacio",
+            "lastName": "Miramon",
+            "slug": "ignacio-miramon",
+            "shortName": "I. Miramón",
+            "position": "M",
+            "jerseyNumber": "5",
+            "height": 179,
+            "userCount": 814,
+            "gender": "M",
+            "sofascoreId": "iwm-qbq",
+            "country": {
+              "alpha2": "AR",
+              "alpha3": "ARG",
+              "name": "Argentina",
+              "slug": "argentina"
+            },
+            "id": 1090319,
+            "marketValueCurrency": "EUR",
+            "dateOfBirthTimestamp": 1055376000,
+            "proposedMarketValueRaw": {
+              "value": 1600000,
+              "currency": "EUR"
+            },
+            "fieldTranslations": {
+              "nameTranslation": {
+                "ar": "إغناسيو ميرامون",
+                "bn": "ইগনাসিও মিরামন",
+                "hi": "इग्नासियो मिरामोन",
+                "ru": "Игнасио Мирамон"
+              },
+              "shortNameTranslation": {
+                "ar": "إ. ميرامون",
+                "bn": "আই. মিরামন",
+                "hi": "आई. मिरामोन",
+                "ru": "И. Мирамон"
+              }
+            }
+          },
+          "teamId": 3205,
+          "shirtNumber": 5,
+          "jerseyNumber": "5",
+          "position": "M",
+          "substitute": false
+        },
+        {
+          "avgRating": 6.68,
+          "seasonRatingBreakdown": {
+            "shot": {
+              "value": -0.04,
+              "expectedGoals": 0.01,
+              "expectedGoalsOnTarget": 0,
+              "totalShotsPerGame": 0.31,
+              "shotsOnTargetPerGame": 0.15
+            },
+            "pass": {
+              "value": 0.06,
+              "expectedAssists": 0.01,
+              "accuratePassesPerGame": 16.85,
+              "keyPassesPerGame": 0.15
+            },
+            "dribble": {
+              "value": 0.04,
+              "successfulDribblesPerGame": 0.23,
+              "touchesPerGame": 29.23
+            },
+            "defending": {
+              "value": -0.05,
+              "defensiveContributionsPerGame": 3.92,
+              "duelsWonPerGame": 2.62
+            }
+          },
+          "player": {
+            "name": "Mateo Seoane",
+            "firstName": "Mateo",
+            "lastName": "Seoane",
+            "slug": "mateo-seoane",
+            "shortName": "M. Seoane",
+            "position": "M",
+            "jerseyNumber": "18",
+            "height": 178,
+            "userCount": 102,
+            "gender": "M",
+            "sofascoreId": "cev-a2f",
+            "country": {
+              "alpha2": "AR",
+              "alpha3": "ARG",
+              "name": "Argentina",
+              "slug": "argentina"
+            },
+            "id": 1186698,
+            "marketValueCurrency": "EUR",
+            "dateOfBirthTimestamp": 1076284800,
+            "proposedMarketValueRaw": {
+              "value": 465000,
+              "currency": "EUR"
+            },
+            "fieldTranslations": {
+              "nameTranslation": {
+                "ar": "سيوان، ماتييو",
+                "ru": "Матео Сеоане"
+              },
+              "shortNameTranslation": {
+                "ar": "م. سيوان",
+                "ru": "М. Сеоане"
+              }
+            }
+          },
+          "teamId": 3205,
+          "shirtNumber": 18,
+          "jerseyNumber": "18",
+          "position": "M",
+          "substitute": false
+        },
+        {
+          "avgRating": 6.7,
+          "seasonRatingBreakdown": {
+            "shot": {
+              "value": -0.13,
+              "expectedGoals": 0.1,
+              "expectedGoalsOnTarget": 0.08,
+              "totalShotsPerGame": 2.08,
+              "shotsOnTargetPerGame": 0.58
+            },
+            "pass": {
+              "value": 0.06,
+              "expectedAssists": 0.09,
+              "accuratePassesPerGame": 7.67,
+              "keyPassesPerGame": 0.5
+            },
+            "dribble": {
+              "value": 0.13,
+              "successfulDribblesPerGame": 1,
+              "touchesPerGame": 22.58
+            },
+            "defending": {
+              "value": 0.02,
+              "defensiveContributionsPerGame": 1.33,
+              "duelsWonPerGame": 2.25
+            }
+          },
+          "player": {
+            "name": "Maximiliano Zalazar",
+            "firstName": "Maximiliano Zalazar",
+            "lastName": "",
+            "slug": "maximiliano-zalazar",
+            "shortName": "M. Zalazar",
+            "position": "F",
+            "jerseyNumber": "9",
+            "height": 172,
+            "userCount": 217,
+            "gender": "M",
+            "sofascoreId": "zb7-uzg",
+            "country": {
+              "alpha2": "AR",
+              "alpha3": "ARG",
+              "name": "Argentina",
+              "slug": "argentina"
+            },
+            "id": 1067653,
+            "marketValueCurrency": "EUR",
+            "dateOfBirthTimestamp": 984009600,
+            "proposedMarketValueRaw": {
+              "value": 385000,
+              "currency": "EUR"
+            },
+            "fieldTranslations": {
+              "nameTranslation": {
+                "ar": "ماكسيميليانو زالازار",
+                "ru": "Максимилиано Залазар"
+              },
+              "shortNameTranslation": {
+                "ar": "م. زالازار",
+                "ru": "М. Залазар"
+              }
+            }
+          },
+          "teamId": 3205,
+          "shirtNumber": 9,
+          "jerseyNumber": "9",
+          "position": "F",
+          "substitute": false
+        },
+        {
+          "avgRating": 7.08,
+          "seasonRatingBreakdown": {
+            "shot": {
+              "value": -0.12,
+              "expectedGoals": 0.07,
+              "expectedGoalsOnTarget": 0.06,
+              "totalShotsPerGame": 1.4,
+              "shotsOnTargetPerGame": 0.52
+            },
+            "pass": {
+              "value": 0.3,
+              "expectedAssists": 0.1,
+              "accuratePassesPerGame": 31.24,
+              "keyPassesPerGame": 1.8
+            },
+            "dribble": {
+              "value": 0.2,
+              "successfulDribblesPerGame": 1,
+              "touchesPerGame": 62.24
+            },
+            "defending": {
+              "value": -0.05,
+              "defensiveContributionsPerGame": 4.72,
+              "duelsWonPerGame": 7.16
+            }
+          },
+          "player": {
+            "name": "Nacho Fernández",
+            "slug": "nacho-fernandez",
+            "shortName": "I. Fernández",
+            "position": "M",
+            "jerseyNumber": "8",
+            "height": 182,
+            "userCount": 1393,
+            "gender": "M",
+            "sofascoreId": "kdb-y7j",
+            "country": {
+              "alpha2": "AR",
+              "alpha3": "ARG",
+              "name": "Argentina",
+              "slug": "argentina"
+            },
+            "id": 340861,
+            "marketValueCurrency": "EUR",
+            "dateOfBirthTimestamp": 632102400,
+            "proposedMarketValueRaw": {
+              "value": 220000,
+              "currency": "EUR"
+            },
+            "fieldTranslations": {
+              "nameTranslation": {
+                "ar": "ناشو فرنانديز",
+                "ru": "Начо Фернандес"
+              },
+              "shortNameTranslation": {
+                "ar": "ن. فرنانديز",
+                "ru": "Н. Фернандес"
+              }
+            }
+          },
+          "teamId": 3205,
+          "shirtNumber": 8,
+          "jerseyNumber": "8",
+          "position": "M",
+          "substitute": false
+        },
+        {
+          "avgRating": 6.6,
+          "seasonRatingBreakdown": {
+            "shot": {
+              "value": -0.28,
+              "expectedGoals": 0.14,
+              "expectedGoalsOnTarget": 0,
+              "totalShotsPerGame": 1.44,
+              "shotsOnTargetPerGame": 0.33
+            },
+            "pass": {
+              "value": 0.02,
+              "expectedAssists": 0.04,
+              "accuratePassesPerGame": 11.11,
+              "keyPassesPerGame": 0.44
+            },
+            "dribble": {
+              "value": 0.03,
+              "successfulDribblesPerGame": 0.78,
+              "touchesPerGame": 25.89
+            },
+            "defending": {
+              "value": 0.03,
+              "defensiveContributionsPerGame": 1.78,
+              "duelsWonPerGame": 4.67
+            }
+          },
+          "player": {
+            "name": "Lucas Janson",
+            "firstName": "Lucas",
+            "lastName": "Janson",
+            "slug": "lucas-janson",
+            "shortName": "L. Janson",
+            "position": "F",
+            "jerseyNumber": "17",
+            "height": 171,
+            "userCount": 701,
+            "gender": "M",
+            "sofascoreId": "up9-uyn",
+            "country": {
+              "alpha2": "AR",
+              "alpha3": "ARG",
+              "name": "Argentina",
+              "slug": "argentina"
+            },
+            "id": 249843,
+            "marketValueCurrency": "EUR",
+            "dateOfBirthTimestamp": 776995200,
+            "proposedMarketValueRaw": {
+              "value": 210000,
+              "currency": "EUR"
+            },
+            "fieldTranslations": {
+              "nameTranslation": {
+                "ar": "لوكاس يانسون",
+                "ru": "Лукас Янсон"
+              },
+              "shortNameTranslation": {
+                "ar": "ل. يانسون",
+                "ru": "Л. Янсон"
+              }
+            }
+          },
+          "teamId": 3205,
+          "shirtNumber": 17,
+          "jerseyNumber": "17",
+          "position": "F",
+          "substitute": false
+        },
+        {
+          "avgRating": 6.77,
+          "seasonRatingBreakdown": {
+            "shot": {
+              "value": -0.1,
+              "expectedGoals": 0.18,
+              "expectedGoalsOnTarget": 0.16,
+              "totalShotsPerGame": 1.52,
+              "shotsOnTargetPerGame": 0.7
+            },
+            "pass": {
+              "value": -0.05,
+              "expectedAssists": 0.05,
+              "accuratePassesPerGame": 7.74,
+              "keyPassesPerGame": 0.78
+            },
+            "dribble": {
+              "value": 0.04,
+              "successfulDribblesPerGame": 0.26,
+              "touchesPerGame": 23.26
+            },
+            "defending": {
+              "value": 0.09,
+              "defensiveContributionsPerGame": 1.63,
+              "duelsWonPerGame": 4.07
+            }
+          },
+          "player": {
+            "name": "Agustín Auzmendi",
+            "firstName": "Agustín Auzmendi",
+            "lastName": "",
+            "slug": "agustin-auzmendi",
+            "shortName": "A. Auzmendi",
+            "position": "F",
+            "jerseyNumber": "29",
+            "height": 180,
+            "userCount": 338,
+            "gender": "M",
+            "sofascoreId": "8jn-zfx",
+            "country": {
+              "alpha2": "AR",
+              "alpha3": "ARG",
+              "name": "Argentina",
+              "slug": "argentina"
+            },
+            "id": 1173824,
+            "marketValueCurrency": "EUR",
+            "dateOfBirthTimestamp": 854755200,
+            "proposedMarketValueRaw": {
+              "value": 1200000,
+              "currency": "EUR"
+            },
+            "fieldTranslations": {
+              "nameTranslation": {
+                "ar": "بوكسا س / جيانغ ش.",
+                "ru": "Агустин Аузменди"
+              },
+              "shortNameTranslation": {
+                "ar": "أ. أوزميندي",
+                "ru": "А. Аузменди"
+              }
+            }
+          },
+          "teamId": 3205,
+          "shirtNumber": 29,
+          "jerseyNumber": "29",
+          "position": "F",
+          "substitute": false
+        }
+      ],
+      "supportStaff": [],
+      "formation": "4-2-3-1",
+      "playerColor": {
+        "primary": "ffffff",
+        "number": "1b2f44",
+        "outline": "ffffff",
+        "fancyNumber": "222226"
+      },
+      "goalkeeperColor": {
+        "primary": "3ef028",
+        "number": "ffffff",
+        "outline": "3ef028",
+        "fancyNumber": "222226"
+      },
+      "missingPlayers": [
+        {
+          "player": {
+            "name": "Gonzalo Errecalde",
+            "firstName": "Gonzalo Errecalde",
+            "lastName": "",
+            "slug": "gonzalo-errecalde",
+            "shortName": "G. Errecalde",
+            "position": "D",
+            "jerseyNumber": "14",
+            "height": 185,
+            "userCount": 24,
+            "gender": "M",
+            "sofascoreId": "km3-i3z",
+            "country": {
+              "alpha2": "AR",
+              "alpha3": "ARG",
+              "name": "Argentina",
+              "slug": "argentina"
+            },
+            "id": 1067805,
+            "marketValueCurrency": "EUR",
+            "dateOfBirthTimestamp": 954374400,
+            "proposedMarketValueRaw": {
+              "value": 160000,
+              "currency": "EUR"
+            },
+            "fieldTranslations": {
+              "nameTranslation": {
+                "ar": "غونزالو إيرريكالدي",
+                "ru": "Гонсало Эррекаальде"
+              },
+              "shortNameTranslation": {
+                "ar": "غ. إيرريكالدي",
+                "ru": "Г. Эррекаальде"
+              }
+            }
+          },
+          "type": "missing",
+          "reason": 1,
+          "description": "Ankle Injury",
+          "externalType": 114,
+          "expectedEndDate": "2026-09-30T00:00:00+00:00"
+        },
+        {
+          "player": {
+            "name": "Harlen Castillo",
+            "firstName": "Harlen",
+            "lastName": "Castillo",
+            "slug": "harlen-castillo",
+            "shortName": "H. Castillo",
+            "position": "G",
+            "jerseyNumber": "15",
+            "height": 188,
+            "userCount": 261,
+            "gender": "M",
+            "sofascoreId": "vu3-u4i",
+            "country": {
+              "alpha2": "CO",
+              "alpha3": "COL",
+              "name": "Colombia",
+              "slug": "colombia"
+            },
+            "id": 924907,
+            "marketValueCurrency": "EUR",
+            "dateOfBirthTimestamp": 745545600,
+            "proposedMarketValueRaw": {
+              "value": 330000,
+              "currency": "EUR"
+            },
+            "fieldTranslations": {
+              "nameTranslation": {
+                "ar": "هارلن كاستيلو",
+                "ru": "Харлен Кастильо"
+              },
+              "shortNameTranslation": {
+                "ar": "ه. كاستيلو",
+                "ru": "Х. Кастильо"
+              }
+            }
+          },
+          "type": "missing",
+          "reason": 1,
+          "description": "Meniscus Injury",
+          "externalType": 114,
+          "expectedEndDate": "2026-10-20T00:00:00+00:00"
+        },
+        {
+          "player": {
+            "name": "Jeremías Merlo",
+            "firstName": "Jeremias Merlo",
+            "slug": "jeremias-merlo",
+            "shortName": "J. D. Merlo",
+            "position": "M",
+            "jerseyNumber": "11",
+            "height": 170,
+            "userCount": 88,
+            "gender": "M",
+            "sofascoreId": "ejk-qkc",
+            "country": {
+              "alpha2": "AR",
+              "alpha3": "ARG",
+              "name": "Argentina",
+              "slug": "argentina"
+            },
+            "id": 1893228,
+            "marketValueCurrency": "EUR",
+            "dateOfBirthTimestamp": 1150761600,
+            "proposedMarketValueRaw": {
+              "value": 680000,
+              "currency": "EUR"
+            },
+            "fieldTranslations": {
+              "nameTranslation": {
+                "ar": "جيريمياز ميرلو",
+                "ru": "Херемияс Мерло"
+              },
+              "shortNameTranslation": {
+                "ar": "ج. ميرلو",
+                "ru": "Х. Мерло"
+              }
+            }
+          },
+          "type": "missing",
+          "reason": 1,
+          "description": "Hamstring Injury",
+          "externalType": 114,
+          "expectedEndDate": "2026-09-30T00:00:00+00:00"
+        },
+        {
+          "player": {
+            "name": "Juan Cruz Cortazzo",
+            "slug": "juan-cruz-cortazzo",
+            "shortName": "J. C. Cortazzo",
+            "position": "D",
+            "jerseyNumber": "35",
+            "height": 191,
+            "userCount": 53,
+            "gender": "M",
+            "sofascoreId": "tdv-dpj",
+            "country": {
+              "alpha2": "AR",
+              "alpha3": "ARG",
+              "name": "Argentina",
+              "slug": "argentina"
+            },
+            "id": 1639642,
+            "marketValueCurrency": "EUR",
+            "dateOfBirthTimestamp": 1129593600,
+            "proposedMarketValueRaw": {
+              "value": 54000,
+              "currency": "EUR"
+            },
+            "fieldTranslations": {
+              "nameTranslation": {
+                "ar": "خوان كروز كورتازو",
+                "ru": "Хуан Крус Кортассо"
+              },
+              "shortNameTranslation": {
+                "ar": "خ. كورتازو",
+                "ru": "Х. Кортассо"
+              }
+            }
+          },
+          "type": "missing",
+          "reason": 1,
+          "description": "Hamstring Injury",
+          "externalType": 114,
+          "expectedEndDate": "2026-09-30T00:00:00+00:00"
+        }
+      ]
+    },
+    "away": {
+      "players": [
+        {
+          "avgRating": 7.07,
+          "seasonRatingBreakdown": {
+            "pass": {
+              "value": 0.05,
+              "expectedAssists": 0,
+              "accuratePassesPerGame": 18,
+              "keyPassesPerGame": 0
+            },
+            "dribble": {
+              "value": 0,
+              "successfulDribblesPerGame": 0,
+              "touchesPerGame": 35
+            },
+            "defending": {
+              "value": -0.2,
+              "defensiveContributionsPerGame": 1,
+              "duelsWonPerGame": 0.33
+            },
+            "goalkeeping": {
+              "value": 0.2,
+              "goalsPrevented": -2.2441,
+              "savesPerGame": 4.67
+            }
+          },
+          "player": {
+            "name": "Diego Rodríguez",
+            "slug": "diego-rodriguez",
+            "shortName": "D. Rodríguez",
+            "position": "G",
+            "jerseyNumber": "50",
+            "height": 184,
+            "userCount": 71,
+            "gender": "M",
+            "sofascoreId": "td9-s65",
+            "country": {
+              "alpha2": "AR",
+              "alpha3": "ARG",
+              "name": "Argentina",
+              "slug": "argentina"
+            },
+            "id": 38266,
+            "marketValueCurrency": "EUR",
+            "dateOfBirthTimestamp": 614736000,
+            "proposedMarketValueRaw": {
+              "value": 195000,
+              "currency": "EUR"
+            },
+            "fieldTranslations": {
+              "nameTranslation": {
+                "ar": "دييغو رودريغيز",
+                "bn": "দিয়েগো রদ্রিগেজ",
+                "hi": "डिएगो रोड्रिग्ज",
+                "ru": "Диего Родригес"
+              },
+              "shortNameTranslation": {
+                "ar": "د. رودريغيز",
+                "bn": "ডি. রদ্রিগেজ",
+                "hi": "डी. रोड्रिग्ज",
+                "ru": "Д. Родригес"
+              }
+            }
+          },
+          "teamId": 3219,
+          "shirtNumber": 50,
+          "jerseyNumber": "50",
+          "position": "G",
+          "substitute": false
+        },
+        {
+          "avgRating": 6.65,
+          "seasonRatingBreakdown": {
+            "shot": {
+              "value": -0.01,
+              "expectedGoals": 0.01,
+              "expectedGoalsOnTarget": 0,
+              "totalShotsPerGame": 0.25,
+              "shotsOnTargetPerGame": 0
+            },
+            "pass": {
+              "value": 0.1,
+              "expectedAssists": 0.01,
+              "accuratePassesPerGame": 20.5,
+              "keyPassesPerGame": 0
+            },
+            "dribble": {
+              "value": 0.13,
+              "successfulDribblesPerGame": 0.63,
+              "touchesPerGame": 49.38
+            },
+            "defending": {
+              "value": -0.09,
+              "defensiveContributionsPerGame": 7.13,
+              "duelsWonPerGame": 5.38
+            }
+          },
+          "player": {
+            "name": "Brandon Oviedo",
+            "firstName": "Brandon Oviedo",
+            "slug": "brandon-oviedo",
+            "shortName": "B. Oviedo",
+            "position": "D",
+            "jerseyNumber": "13",
+            "height": 183,
+            "userCount": 49,
+            "gender": "M",
+            "sofascoreId": "pa6-9gg",
+            "country": {
+              "alpha2": "AR",
+              "alpha3": "ARG",
+              "name": "Argentina",
+              "slug": "argentina"
+            },
+            "id": 1997214,
+            "marketValueCurrency": "EUR",
+            "dateOfBirthTimestamp": 1106611200,
+            "proposedMarketValueRaw": {
+              "value": 145000,
+              "currency": "EUR"
+            },
+            "fieldTranslations": {
+              "nameTranslation": {
+                "ar": "براندون أوفييدو",
+                "ru": "Брэндон Овьедо"
+              },
+              "shortNameTranslation": {
+                "ar": "ب. أوفييدو",
+                "ru": "Б. Овьедо"
+              }
+            }
+          },
+          "teamId": 3219,
+          "shirtNumber": 13,
+          "jerseyNumber": "13",
+          "position": "D",
+          "substitute": false
+        },
+        {
+          "avgRating": 6.92,
+          "seasonRatingBreakdown": {
+            "shot": {
+              "value": -0.07,
+              "expectedGoals": 0.07,
+              "expectedGoalsOnTarget": 0.07,
+              "totalShotsPerGame": 0.5,
+              "shotsOnTargetPerGame": 0.2
+            },
+            "pass": {
+              "value": 0.11,
+              "expectedAssists": 0,
+              "accuratePassesPerGame": 15,
+              "keyPassesPerGame": 0.1
+            },
+            "dribble": {
+              "value": 0.07,
+              "successfulDribblesPerGame": 0,
+              "touchesPerGame": 35.5
+            },
+            "defending": {
+              "value": 0.22,
+              "defensiveContributionsPerGame": 10.6,
+              "duelsWonPerGame": 5
+            }
+          },
+          "player": {
+            "name": "Santiago Daniele",
+            "firstName": "Santiago Daniele",
+            "slug": "santiago-daniele",
+            "shortName": "S. Daniele",
+            "position": "D",
+            "jerseyNumber": "2",
+            "height": 183,
+            "userCount": 49,
+            "gender": "M",
+            "sofascoreId": "6ig-n9z",
+            "country": {
+              "alpha2": "AR",
+              "alpha3": "ARG",
+              "name": "Argentina",
+              "slug": "argentina"
+            },
+            "id": 1891111,
+            "marketValueCurrency": "EUR",
+            "dateOfBirthTimestamp": 1132617600,
+            "proposedMarketValueRaw": {
+              "value": 53000,
+              "currency": "EUR"
+            },
+            "fieldTranslations": {
+              "nameTranslation": {
+                "ar": "سانتياغو دانييل",
+                "ru": "Сантьяго Даниеле"
+              },
+              "shortNameTranslation": {
+                "ar": "س. دانييل",
+                "ru": "С. Даниеле"
+              }
+            }
+          },
+          "teamId": 3219,
+          "shirtNumber": 2,
+          "jerseyNumber": "2",
+          "position": "D",
+          "substitute": false
+        },
+        {
+          "avgRating": 6.63,
+          "seasonRatingBreakdown": {
+            "shot": {
+              "value": -0.07,
+              "expectedGoals": 0.04,
+              "expectedGoalsOnTarget": 0.07,
+              "totalShotsPerGame": 0.57,
+              "shotsOnTargetPerGame": 0.19
+            },
+            "pass": {
+              "value": 0.17,
+              "expectedAssists": 0.02,
+              "accuratePassesPerGame": 18.76,
+              "keyPassesPerGame": 0.24
+            },
+            "dribble": {
+              "value": 0.04,
+              "successfulDribblesPerGame": 0.1,
+              "touchesPerGame": 40.9
+            },
+            "defending": {
+              "value": -0.01,
+              "defensiveContributionsPerGame": 9.52,
+              "duelsWonPerGame": 3.62
+            }
+          },
+          "player": {
+            "name": "Nicolás Meriano",
+            "firstName": "Nicolás Meriano",
+            "lastName": "",
+            "slug": "nicolas-meriano",
+            "shortName": "N. Meriano",
+            "position": "D",
+            "jerseyNumber": "6",
+            "height": 191,
+            "userCount": 92,
+            "gender": "M",
+            "sofascoreId": "zb9-eg2",
+            "country": {
+              "alpha2": "AR",
+              "alpha3": "ARG",
+              "name": "Argentina",
+              "slug": "argentina"
+            },
+            "id": 1117093,
+            "marketValueCurrency": "EUR",
+            "dateOfBirthTimestamp": 973728000,
+            "proposedMarketValueRaw": {
+              "value": 410000,
+              "currency": "EUR"
+            },
+            "fieldTranslations": {
+              "nameTranslation": {
+                "ar": "نيكولاس ميريانو",
+                "ru": "Николас Мериано"
+              },
+              "shortNameTranslation": {
+                "ar": "ن. ميريانو",
+                "ru": "Н. Мериано"
+              }
+            }
+          },
+          "teamId": 3219,
+          "shirtNumber": 6,
+          "jerseyNumber": "6",
+          "position": "D",
+          "substitute": false
+        },
+        {
+          "avgRating": 6.89,
+          "seasonRatingBreakdown": {
+            "shot": {
+              "value": 0.07,
+              "expectedGoals": 0,
+              "expectedGoalsOnTarget": 0,
+              "totalShotsPerGame": 0.48,
+              "shotsOnTargetPerGame": 0.16
+            },
+            "pass": {
+              "value": 0.18,
+              "expectedAssists": 0.05,
+              "accuratePassesPerGame": 21.48,
+              "keyPassesPerGame": 1.2
+            },
+            "dribble": {
+              "value": 0.17,
+              "successfulDribblesPerGame": 0.64,
+              "touchesPerGame": 53.8
+            },
+            "defending": {
+              "value": -0.15,
+              "defensiveContributionsPerGame": 5.92,
+              "duelsWonPerGame": 4.68
+            }
+          },
+          "player": {
+            "name": "Santiago López Garcia",
+            "slug": "santiago-lopez-garcia",
+            "shortName": "S. L. Garcia",
+            "position": "D",
+            "jerseyNumber": "24",
+            "height": 180,
+            "userCount": 57,
+            "gender": "M",
+            "sofascoreId": "g88-4mf",
+            "country": {
+              "alpha2": "AR",
+              "alpha3": "ARG",
+              "name": "Argentina",
+              "slug": "argentina"
+            },
+            "id": 974657,
+            "marketValueCurrency": "EUR",
+            "dateOfBirthTimestamp": 881193600,
+            "proposedMarketValueRaw": {
+              "value": 1700000,
+              "currency": "EUR"
+            },
+            "fieldTranslations": {
+              "nameTranslation": {
+                "ar": "سانتياغو لوبيز غارسيا",
+                "ru": "Сантьяго Лопес Гарсия"
+              },
+              "shortNameTranslation": {
+                "ar": "س. غارسيا",
+                "ru": "С. Гарсия"
+              }
+            }
+          },
+          "teamId": 3219,
+          "shirtNumber": 24,
+          "jerseyNumber": "24",
+          "position": "D",
+          "substitute": false
+        },
+        {
+          "avgRating": 6.81,
+          "seasonRatingBreakdown": {
+            "shot": {
+              "value": 0.14,
+              "expectedGoals": 0.01,
+              "expectedGoalsOnTarget": 0.02,
+              "totalShotsPerGame": 0.61,
+              "shotsOnTargetPerGame": 0.35
+            },
+            "pass": {
+              "value": 0.04,
+              "expectedAssists": 0.01,
+              "accuratePassesPerGame": 6.74,
+              "keyPassesPerGame": 0.52
+            },
+            "dribble": {
+              "value": 0.13,
+              "successfulDribblesPerGame": 0.83,
+              "touchesPerGame": 23.83
+            },
+            "defending": {
+              "value": -0.04,
+              "defensiveContributionsPerGame": 2.22,
+              "duelsWonPerGame": 3.83
+            }
+          },
+          "player": {
+            "name": "Lautaro Gomez",
+            "firstName": "Lautaro Gómez",
+            "slug": "gomez-lautaro",
+            "shortName": "L. Gómez",
+            "position": "M",
+            "jerseyNumber": "10",
+            "height": 166,
+            "userCount": 77,
+            "gender": "M",
+            "sofascoreId": "wmj-fjw",
+            "country": {
+              "alpha2": "AR",
+              "alpha3": "ARG",
+              "name": "Argentina",
+              "slug": "argentina"
+            },
+            "id": 1859565,
+            "marketValueCurrency": "EUR",
+            "dateOfBirthTimestamp": 1060300800,
+            "proposedMarketValueRaw": {
+              "value": 390000,
+              "currency": "EUR"
+            },
+            "fieldTranslations": {
+              "nameTranslation": {
+                "ar": "لاوتارو غوميز",
+                "ru": "Лаутаро Гомес"
+              },
+              "shortNameTranslation": {
+                "ar": "ل. غوميز",
+                "ru": "Л. Гомес"
+              }
+            }
+          },
+          "teamId": 3219,
+          "shirtNumber": 10,
+          "jerseyNumber": "10",
+          "position": "M",
+          "substitute": false
+        },
+        {
+          "avgRating": 6.66,
+          "seasonRatingBreakdown": {
+            "shot": {
+              "value": -0.05,
+              "expectedGoalsOnTarget": 0,
+              "totalShotsPerGame": 0.27,
+              "shotsOnTargetPerGame": 0
+            },
+            "pass": {
+              "value": 0.09,
+              "expectedAssists": 0.03,
+              "accuratePassesPerGame": 14.6,
+              "keyPassesPerGame": 0.33
+            },
+            "dribble": {
+              "value": 0.11,
+              "successfulDribblesPerGame": 0.47,
+              "touchesPerGame": 28.27
+            },
+            "defending": {
+              "value": 0.01,
+              "defensiveContributionsPerGame": 3.67,
+              "duelsWonPerGame": 3.4
+            }
+          },
+          "player": {
+            "name": "Santiago Esquivel",
+            "firstName": "Santiago Esquivel",
+            "slug": "santiago-esquivel",
+            "shortName": "S. Esquivel",
+            "position": "M",
+            "jerseyNumber": "5",
+            "height": 175,
+            "userCount": 40,
+            "gender": "M",
+            "sofascoreId": "pa2-t9i",
+            "country": {
+              "alpha2": "AR",
+              "alpha3": "ARG",
+              "name": "Argentina",
+              "slug": "argentina"
+            },
+            "id": 1958558,
+            "marketValueCurrency": "EUR",
+            "dateOfBirthTimestamp": 1073001600,
+            "proposedMarketValueRaw": {
+              "value": 340000,
+              "currency": "EUR"
+            },
+            "fieldTranslations": {
+              "nameTranslation": {
+                "ar": "سانتياغو إسكويفيل",
+                "ru": "Сантьяго Эскивель"
+              },
+              "shortNameTranslation": {
+                "ar": "س. إسكويفيل",
+                "ru": "С. Эскивель"
+              }
+            }
+          },
+          "teamId": 3219,
+          "shirtNumber": 5,
+          "jerseyNumber": "5",
+          "position": "M",
+          "substitute": false
+        },
+        {
+          "avgRating": 6.87,
+          "seasonRatingBreakdown": {
+            "shot": {
+              "value": -0.13,
+              "expectedGoals": 0.03,
+              "expectedGoalsOnTarget": 0.01,
+              "totalShotsPerGame": 1.53,
+              "shotsOnTargetPerGame": 0.37
+            },
+            "pass": {
+              "value": 0.18,
+              "expectedAssists": 0.02,
+              "accuratePassesPerGame": 15.58,
+              "keyPassesPerGame": 1.05
+            },
+            "dribble": {
+              "value": 0.09,
+              "successfulDribblesPerGame": 0.89,
+              "touchesPerGame": 37.32
+            },
+            "defending": {
+              "value": 0.02,
+              "defensiveContributionsPerGame": 3.79,
+              "duelsWonPerGame": 6.16
+            }
+          },
+          "player": {
+            "name": "Tomas Adoryan",
+            "firstName": "Tomás Adoryan",
+            "slug": "adoryan-tomas",
+            "shortName": "T. Adoryan",
+            "position": "M",
+            "jerseyNumber": "20",
+            "height": 177,
+            "userCount": 198,
+            "gender": "M",
+            "sofascoreId": "xz9-7xj",
+            "country": {
+              "alpha2": "AM",
+              "alpha3": "ARM",
+              "name": "Armenia",
+              "slug": "armenia"
+            },
+            "id": 1199319,
+            "marketValueCurrency": "EUR",
+            "dateOfBirthTimestamp": 1001116800,
+            "proposedMarketValueRaw": {
+              "value": 365000,
+              "currency": "EUR"
+            },
+            "fieldTranslations": {
+              "nameTranslation": {
+                "ar": "توماس أدوريان",
+                "ru": "Томас Адорян"
+              },
+              "shortNameTranslation": {
+                "ar": "ت. أدوريان",
+                "ru": "Т. Адорян"
+              }
+            }
+          },
+          "teamId": 3219,
+          "shirtNumber": 20,
+          "jerseyNumber": "20",
+          "position": "M",
+          "substitute": false
+        },
+        {
+          "avgRating": 6.96,
+          "seasonRatingBreakdown": {
+            "shot": {
+              "value": -0.1,
+              "expectedGoals": 0.01,
+              "expectedGoalsOnTarget": 0,
+              "totalShotsPerGame": 0.58,
+              "shotsOnTargetPerGame": 0.21
+            },
+            "pass": {
+              "value": 0.32,
+              "expectedAssists": 0.05,
+              "accuratePassesPerGame": 15.17,
+              "keyPassesPerGame": 1.13
+            },
+            "dribble": {
+              "value": 0.1,
+              "successfulDribblesPerGame": 0.71,
+              "touchesPerGame": 51.54
+            },
+            "defending": {
+              "value": -0.07,
+              "defensiveContributionsPerGame": 5.71,
+              "duelsWonPerGame": 4.25
+            }
+          },
+          "player": {
+            "name": "Ignacio Abraham",
+            "firstName": "",
+            "lastName": "",
+            "slug": "luis-abraham",
+            "shortName": "L. Abraham",
+            "position": "D",
+            "jerseyNumber": "27",
+            "height": 174,
+            "userCount": 205,
+            "gender": "M",
+            "sofascoreId": "n57-km3",
+            "country": {
+              "alpha2": "SY",
+              "alpha3": "SYR",
+              "name": "Syria",
+              "slug": "syria"
+            },
+            "id": 1183794,
+            "marketValueCurrency": "EUR",
+            "dateOfBirthTimestamp": 884563200,
+            "proposedMarketValueRaw": {
+              "value": 1500000,
+              "currency": "EUR"
+            },
+            "fieldTranslations": {
+              "nameTranslation": {
+                "ar": "مارتينا ريكويردا كورال",
+                "ru": "Игнасио Абрахам"
+              },
+              "shortNameTranslation": {
+                "ar": "إ. أبراهام",
+                "ru": "И. Абрахам"
+              }
+            }
+          },
+          "teamId": 3219,
+          "shirtNumber": 27,
+          "jerseyNumber": "27",
+          "position": "D",
+          "substitute": false
+        },
+        {
+          "avgRating": 7,
+          "seasonRatingBreakdown": {
+            "shot": {
+              "value": -0.03,
+              "expectedGoals": 0.07,
+              "expectedGoalsOnTarget": 0.05,
+              "totalShotsPerGame": 2,
+              "shotsOnTargetPerGame": 1
+            },
+            "pass": {
+              "value": 0.05,
+              "expectedAssists": 0.21,
+              "accuratePassesPerGame": 7,
+              "keyPassesPerGame": 1
+            },
+            "dribble": {
+              "value": 0.22,
+              "successfulDribblesPerGame": 1,
+              "touchesPerGame": 28
+            },
+            "defending": {
+              "value": -0.01,
+              "defensiveContributionsPerGame": 5,
+              "duelsWonPerGame": 8
+            }
+          },
+          "player": {
+            "name": "Adrián Balboa",
+            "slug": "adrian-balboa",
+            "shortName": "A. Balboa",
+            "position": "F",
+            "jerseyNumber": "9",
+            "height": 184,
+            "userCount": 384,
+            "gender": "M",
+            "sofascoreId": "fig-grb",
+            "country": {
+              "alpha2": "UY",
+              "alpha3": "URY",
+              "name": "Uruguay",
+              "slug": "uruguay"
+            },
+            "id": 368422,
+            "marketValueCurrency": "EUR",
+            "dateOfBirthTimestamp": 758937600,
+            "proposedMarketValueRaw": {
+              "value": 460000,
+              "currency": "EUR"
+            },
+            "fieldTranslations": {
+              "nameTranslation": {
+                "ar": "أدريان بالبوآ",
+                "ru": "Адриан Бальбоа"
+              },
+              "shortNameTranslation": {
+                "ar": "أ. بالبوآ",
+                "ru": "А. Бальбоа"
+              }
+            }
+          },
+          "teamId": 3219,
+          "shirtNumber": 9,
+          "jerseyNumber": "9",
+          "position": "F",
+          "substitute": false
+        },
+        {
+          "avgRating": 6.72,
+          "seasonRatingBreakdown": {
+            "shot": {
+              "value": 0.01,
+              "expectedGoals": 0.2,
+              "expectedGoalsOnTarget": 0.21,
+              "totalShotsPerGame": 1.8,
+              "shotsOnTargetPerGame": 0.6
+            },
+            "pass": {
+              "value": 0.07,
+              "expectedAssists": 0.04,
+              "accuratePassesPerGame": 7.6,
+              "keyPassesPerGame": 0.8
+            },
+            "dribble": {
+              "value": -0.15,
+              "successfulDribblesPerGame": 0,
+              "touchesPerGame": 23.4
+            },
+            "defending": {
+              "value": 0.12,
+              "defensiveContributionsPerGame": 2,
+              "duelsWonPerGame": 4
+            }
+          },
+          "player": {
+            "name": "Alexander Machado",
+            "firstName": "Alexander",
+            "lastName": "Machado",
+            "slug": "alexander-machado",
+            "shortName": "A. Machado",
+            "position": "M",
+            "jerseyNumber": "22",
+            "height": 179,
+            "userCount": 182,
+            "gender": "M",
+            "sofascoreId": "xzz-xg9",
+            "country": {
+              "alpha2": "UY",
+              "alpha3": "URY",
+              "name": "Uruguay",
+              "slug": "uruguay"
+            },
+            "id": 982647,
+            "marketValueCurrency": "EUR",
+            "dateOfBirthTimestamp": 1022544000,
+            "proposedMarketValueRaw": {
+              "value": 375000,
+              "currency": "EUR"
+            },
+            "fieldTranslations": {
+              "nameTranslation": {
+                "ar": "ألكسندر ماتشادو",
+                "ru": "Александр Мачадо"
+              },
+              "shortNameTranslation": {
+                "ar": "أ. ماتشادو",
+                "ru": "А. Мачадо"
+              }
+            }
+          },
+          "teamId": 3219,
+          "shirtNumber": 22,
+          "jerseyNumber": "22",
+          "position": "M",
+          "substitute": false
+        }
+      ],
+      "supportStaff": [],
+      "formation": "3-5-2",
+      "playerColor": {
+        "primary": "1e201f",
+        "number": "417a59",
+        "outline": "ffffff",
+        "fancyNumber": "222226"
+      },
+      "goalkeeperColor": {
+        "primary": "2beee4",
+        "number": "ffffff",
+        "outline": "2beee4",
+        "fancyNumber": "222226"
+      },
+      "missingPlayers": [
+        {
+          "player": {
+            "name": "Manuel Arteaga",
+            "firstName": "Manuel",
+            "lastName": "Arteaga",
+            "slug": "manuel-arteaga",
+            "shortName": "M. Arteaga",
+            "position": "M",
+            "jerseyNumber": "70",
+            "height": 167,
+            "userCount": 27,
+            "gender": "M",
+            "sofascoreId": "88e-giw",
+            "country": {
+              "alpha2": "CO",
+              "alpha3": "COL",
+              "name": "Colombia",
+              "slug": "colombia"
+            },
+            "id": 922464,
+            "marketValueCurrency": "EUR",
+            "dateOfBirthTimestamp": 919987200,
+            "proposedMarketValueRaw": {
+              "value": 155000,
+              "currency": "EUR"
+            },
+            "fieldTranslations": {
+              "nameTranslation": {
+                "ar": "مانويل أرتياغا",
+                "ru": "Мануэль Артеага"
+              },
+              "shortNameTranslation": {
+                "ar": "م. أرتياغا",
+                "ru": "М. Артеага"
+              }
+            }
+          },
+          "type": "missing",
+          "reason": 1,
+          "description": "Groin Injury",
+          "externalType": 114,
+          "expectedEndDate": "2026-10-10T00:00:00+00:00"
+        }
+      ]
+    },
+    "statisticalVersion": 3
+  },
+  "incidents": {
+    "incidents": [],
+    "home": {
+      "goalkeeperColor": {
+        "primary": "3ef028",
+        "number": "ffffff",
+        "outline": "3ef028",
+        "fancyNumber": "222226"
+      },
+      "playerColor": {
+        "primary": "ffffff",
+        "number": "1b2f44",
+        "outline": "ffffff",
+        "fancyNumber": "222226"
+      }
+    },
+    "away": {
+      "goalkeeperColor": {
+        "primary": "2beee4",
+        "number": "ffffff",
+        "outline": "2beee4",
+        "fancyNumber": "222226"
+      },
+      "playerColor": {
+        "primary": "1e201f",
+        "number": "417a59",
+        "outline": "ffffff",
+        "fancyNumber": "222226"
+      }
+    }
+  },
+  "statistics": {
+    "error": {
+      "code": 404,
+      "message": "Not Found"
+    }
+  }
+}

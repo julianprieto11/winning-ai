@@ -1,0 +1,28 @@
+# Entorno virtual
+venv/
+.venv/
+
+# Variables de entorno y API keys
+.env
+.env.*
+!.env.example
+
+# Cachés de Python
+__pycache__/
+*.py[cod]
+
+# Base de datos y archivos temporales
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+
+# Configuración local de VS Code
+.vscode/
+
+# Archivos temporales
+*.tmp
+*.bak
+.DS_Store
