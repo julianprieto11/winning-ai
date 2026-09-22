@@ -1,1302 +1,3939 @@
-from pathlib import Path
-import math
+﻿import json
+import glob
+import os
+import random
 import numpy as np
 import pandas as pd
-
 
 # ============================================================
 # CONFIGURACIÓN
 # ============================================================
 
-BASE_DIR = Path(__file__).resolve().parent
-DATASET = BASE_DIR / "datos" / "dataset_winning_pitchapi.csv"
-SALIDA_DIR = BASE_DIR / "datos"
-
 FECHA_OBJETIVO = 10
-FECHA_INICIO_FECHA10 = pd.Timestamp("2026-03-10")
+COMPETENCIA_OBJETIVO = "Clausura"
 
-MIN_PARTIDOS_PRINCIPALES = 8
-MIN_TITULARIDADES_ULTIMOS_3 = 2
+# Último partido histórico disponible antes de Fecha 10:
+# 15/09/2026
+CORTE_HISTORICO = pd.Timestamp("2026-09-16")
 
-ULTIMOS_PARTIDOS = 3
-PARTIDOS_FORMA = 5
+HISTORICO_FILE = "datos/dataset_winning_pitchapi.csv"
 
-SIMULACIONES = 10000
+CONTEXTO_EQUIPOS_FILE = "datos/contexto_equipos.csv"
+FORMA_RECIENTE_FILE = "datos/forma_reciente_equipos.csv"
+FORMA_LOCAL_VISITANTE_FILE = "datos/forma_local_visitante_equipos.csv"
+RENDIMIENTO_RECIENTE_FILE = "datos/rendimiento_reciente_equipos.csv"
 
-np.random.seed(42)
+LINEUPS_DIR = "datos/pitchapi/lineups"
+PARTIDOS_DIR = "datos/partidos"
 
+SALIDA_CANDIDATOS = "datos/candidatos_fecha10_final.csv"
+SALIDA_EQUIPOS = "datos/fecha10_equipos_predichos.csv"
+SALIDA_EQUIPOS_EXCEL = "datos/fecha10_equipos_predichos_excel.csv"
+SALIDA_SIMULACIONES = "datos/fecha10_simulaciones.csv"
+
+N_SIMULACIONES = 10000
 
 # ============================================================
-# FUNCIONES
+# DIVERSIDAD ENTRE LOS 3 EQUIPOS
+# ============================================================
+
+PENALIZACION_REPETICION = {
+    "SEGURO": 0.00,
+    "INTERMEDIO": 0.18,
+    "ARRIESGADO": 0.28,
+}
+
+# ============================================================
+# FLEX
+# ============================================================
+
+# Si un jugador ya fue utilizado como FLEX en un equipo,
+# NO puede volver a aparecer como FLEX en otro equipo.
+
+# Si ya fue titular del MISMO equipo que estamos armando FLEX,
+# no se bloquea: recibe una penalización fuerte.
+PENALIZACION_FLEX_TITULAR_MISMO = 0.70
+
+# Si fue titular de otro de los equipos, recibe una
+# penalización dependiendo del perfil.
+PENALIZACION_FLEX_TITULAR_OTRO = {
+    "SEGURO": 0.00,
+    "INTERMEDIO": 0.18,
+    "ARRIESGADO": 0.30,
+}
+
+# ============================================================
+# UTILIDADES
 # ============================================================
 
 def normalizar_texto(valor):
+
     if pd.isna(valor):
         return ""
 
+    return str(valor).strip().lower()
+
+
+def convertir_fecha(valor):
+
+    try:
+        return pd.to_datetime(valor)
+    except Exception:
+        return pd.NaT
+
+
+def safe_float(valor, default=0.0):
+
+    try:
+
+        if pd.isna(valor):
+            return default
+
+        return float(valor)
+
+    except Exception:
+
+        return default
+
+
+# ============================================================
+# CARGAR PARTIDOS FECHA 10 DESDE SOFASCORE
+# ============================================================
+
+def cargar_partidos_fecha10():
+
+    partidos = []
+
+    archivos = glob.glob(
+        os.path.join(
+            PARTIDOS_DIR,
+            "*.json"
+        )
+    )
+
+    for archivo in archivos:
+
+        try:
+
+            with open(
+                archivo,
+                "r",
+                encoding="utf-8"
+            ) as f:
+
+                data = json.load(f)
+
+        except Exception:
+
+            continue
+
+        event = data.get(
+            "event",
+            {}
+        ).get(
+            "event",
+            data
+        )
+
+        round_info = event.get(
+            "roundInfo",
+            {}
+        ) or {}
+
+        round_num = round_info.get(
+            "round"
+        )
+
+        if round_num != FECHA_OBJETIVO:
+            continue
+
+        torneo = event.get(
+            "tournament",
+            {}
+        ) or {}
+
+        temporada = event.get(
+            "season",
+            {}
+        ) or {}
+
+        texto_competencia = (
+            str(
+                torneo.get(
+                    "name",
+                    ""
+                )
+            )
+            + " "
+            +
+            str(
+                temporada.get(
+                    "name",
+                    ""
+                )
+            )
+        ).lower()
+
+        if (
+            COMPETENCIA_OBJETIVO.lower()
+            not in texto_competencia
+        ):
+
+            continue
+
+        partidos.append(
+            {
+                "sofascore_id": str(
+                    event.get("id")
+                ),
+
+                "fecha": pd.to_datetime(
+                    event.get(
+                        "startTimestamp"
+                    ),
+                    unit="s",
+                    errors="coerce",
+                ),
+
+                "home_team_id": str(
+                    (
+                        event.get(
+                            "homeTeam"
+                        )
+                        or {}
+                    ).get(
+                        "id",
+                        ""
+                    )
+                ),
+
+                "home_team_name": (
+                    (
+                        event.get(
+                            "homeTeam"
+                        )
+                        or {}
+                    ).get(
+                        "name",
+                        ""
+                    )
+                ),
+
+                "away_team_id": str(
+                    (
+                        event.get(
+                            "awayTeam"
+                        )
+                        or {}
+                    ).get(
+                        "id",
+                        ""
+                    )
+                ),
+
+                "away_team_name": (
+                    (
+                        event.get(
+                            "awayTeam"
+                        )
+                        or {}
+                    ).get(
+                        "name",
+                        ""
+                    )
+                ),
+            }
+        )
+
+    df = pd.DataFrame(partidos)
+
+    if df.empty:
+
+        print(
+            "ERROR: no se encontraron partidos de Fecha 10."
+        )
+
+        return df
+
+    df = (
+        df
+        .sort_values("fecha")
+        .reset_index(drop=True)
+    )
+
+    print()
+    print("=" * 70)
+    print(
+        "PARTIDOS FECHA 10 ENCONTRADOS:",
+        len(df)
+    )
+    print("=" * 70)
+
+    for _, fila in df.iterrows():
+
+        print(
+            fila["fecha"].strftime("%d/%m/%Y")
+            if not pd.isna(
+                fila["fecha"]
+            )
+            else "SIN FECHA",
+
+            "|",
+
+            fila["home_team_name"],
+
+            "-",
+
+            fila["away_team_name"],
+
+            "| SofaScore:",
+
+            fila["sofascore_id"],
+        )
+
+    return df
+
+
+# ============================================================
+# MAPEO SOFASCORE -> PITCHAPI
+# ============================================================
+
+MAPEO_PITCHAPI = {
+
+    "16667329": "m_2S2kkL",
+    "16667338": "m_1ABSM7",
+    "16667328": "m_1rGQaB",
+    "16667336": "m_11PYwu",
+    "16667325": "m_17fjdr",
+    "16667327": "m_0Z63wJ",
+    "16667333": "m_0BTFn7",
+    "16667340": "m_0jdOYm",
+    "16667330": "m_2EhjDn",
+    "16667332": "m_0sbdux",
+    "16667326": "m_0MCwqI",
+    "16671623": "m_0el541",
+    "16667335": "m_0bU15M",
+    "16667331": "m_0MXtuT",
+    "16667337": "m_0Feldm",
+}
+
+
+# ============================================================
+# CARGAR LINEUPS PITCHAPI
+# ============================================================
+
+def cargar_lineups_fecha10():
+
+    lineups = {}
+
+    archivos = glob.glob(
+        os.path.join(
+            LINEUPS_DIR,
+            "*_lineups.json"
+        )
+    )
+
+    ids_objetivo = set(
+        MAPEO_PITCHAPI.values()
+    )
+
+    for archivo in archivos:
+
+        nombre = os.path.basename(
+            archivo
+        )
+
+        match_id = nombre.replace(
+            "_lineups.json",
+            ""
+        )
+
+        if match_id not in ids_objetivo:
+            continue
+
+        try:
+
+            with open(
+                archivo,
+                "r",
+                encoding="utf-8"
+            ) as f:
+
+                data = json.load(f)
+
+        except Exception:
+
+            continue
+
+        data = data.get(
+            "data",
+            {}
+        )
+
+        if not data:
+            continue
+
+        lineups[match_id] = data
+
+    print()
+    print("=" * 70)
+    print(
+        "LINEUPS FECHA 10:",
+        len(lineups)
+    )
+    print("=" * 70)
+
+    for match_id in sorted(lineups):
+
+        data = lineups[match_id]
+
+        print(
+            match_id,
+            "|",
+            data.get(
+                "home_team",
+                {}
+            ).get(
+                "name",
+                ""
+            ),
+            "-",
+            data.get(
+                "away_team",
+                {}
+            ).get(
+                "name",
+                ""
+            ),
+        )
+
+    return lineups
+
+
+# ============================================================
+# CONSTRUIR MAPA DE JUGADORES FECHA 10
+# ============================================================
+
+def construir_jugadores_objetivo(
+    lineups
+):
+
+    jugadores = {}
+
+    for match_id, data in lineups.items():
+
+        for lado in [
+            "home",
+            "away"
+        ]:
+
+            equipo = data.get(
+                f"{lado}_team",
+                {}
+            ) or {}
+
+            team_id = str(
+                equipo.get(
+                    "id",
+                    ""
+                )
+            )
+
+            team_name = equipo.get(
+                "name",
+                ""
+            )
+
+            bloque = data.get(
+                lado,
+                {}
+            ) or {}
+
+            starters = bloque.get(
+                "starters",
+                []
+            ) or []
+
+            subs = bloque.get(
+                "subs",
+                []
+            ) or []
+
+            for jugador in starters:
+
+                player_id = str(
+                    jugador.get(
+                        "player_id",
+                        ""
+                    )
+                )
+
+                if not player_id:
+                    continue
+
+                jugadores[player_id] = {
+
+                    "player_id": player_id,
+
+                    "player_name": jugador.get(
+                        "name",
+                        ""
+                    ),
+
+                    "team_id": team_id,
+
+                    "team_name": team_name,
+
+                    "match_id_fecha10": match_id,
+
+                    "starter_fecha10": True,
+                }
+
+            for jugador in subs:
+
+                player_id = str(
+                    jugador.get(
+                        "player_id",
+                        ""
+                    )
+                )
+
+                if not player_id:
+                    continue
+
+                if player_id not in jugadores:
+
+                    jugadores[player_id] = {
+
+                        "player_id": player_id,
+
+                        "player_name": jugador.get(
+                            "name",
+                            ""
+                        ),
+
+                        "team_id": team_id,
+
+                        "team_name": team_name,
+
+                        "match_id_fecha10": match_id,
+
+                        "starter_fecha10": False,
+                    }
+
+    return jugadores
+
+
+# ============================================================
+# MAPA DE TITULARIDADES HISTÓRICAS
+# ============================================================
+
+def construir_mapa_lineups_historicos():
+
+    mapa = {}
+
+    archivos = glob.glob(
+        os.path.join(
+            LINEUPS_DIR,
+            "*_lineups.json"
+        )
+    )
+
+    for archivo in archivos:
+
+        nombre = os.path.basename(
+            archivo
+        )
+
+        match_id = nombre.replace(
+            "_lineups.json",
+            ""
+        )
+
+        try:
+
+            with open(
+                archivo,
+                "r",
+                encoding="utf-8"
+            ) as f:
+
+                data = json.load(f).get(
+                    "data",
+                    {}
+                )
+
+        except Exception:
+
+            continue
+
+        if not data:
+            continue
+
+        for lado in [
+            "home",
+            "away"
+        ]:
+
+            equipo = data.get(
+                f"{lado}_team",
+                {}
+            ) or {}
+
+            team_id = str(
+                equipo.get(
+                    "id",
+                    ""
+                )
+            )
+
+            team_name = equipo.get(
+                "name",
+                ""
+            )
+
+            bloque = data.get(
+                lado,
+                {}
+            ) or {}
+
+            starters = bloque.get(
+                "starters",
+                []
+            ) or []
+
+            subs = bloque.get(
+                "subs",
+                []
+            ) or []
+
+            for jugador in starters:
+
+                player_id = str(
+                    jugador.get(
+                        "player_id",
+                        ""
+                    )
+                )
+
+                if not player_id:
+                    continue
+
+                mapa[
+                    (
+                        match_id,
+                        player_id
+                    )
+                ] = {
+
+                    "starter": True,
+
+                    "team_id": team_id,
+
+                    "team_name": team_name,
+                }
+
+            for jugador in subs:
+
+                player_id = str(
+                    jugador.get(
+                        "player_id",
+                        ""
+                    )
+                )
+
+                if not player_id:
+                    continue
+
+                if (
+                    match_id,
+                    player_id
+                ) not in mapa:
+
+                    mapa[
+                        (
+                            match_id,
+                            player_id
+                        )
+                    ] = {
+
+                        "starter": False,
+
+                        "team_id": team_id,
+
+                        "team_name": team_name,
+                    }
+
+    return mapa
+
+
+# ============================================================
+# CARGAR CONTEXTOS
+# ============================================================
+
+def cargar_contextos():
+
+    contexto = pd.read_csv(
+        CONTEXTO_EQUIPOS_FILE
+    )
+
+    forma = pd.read_csv(
+        FORMA_RECIENTE_FILE
+    )
+
+    local_visitante = pd.read_csv(
+        FORMA_LOCAL_VISITANTE_FILE
+    )
+
+    rendimiento = pd.read_csv(
+        RENDIMIENTO_RECIENTE_FILE
+    )
+
+    for df in [
+        contexto,
+        forma,
+        local_visitante,
+        rendimiento
+    ]:
+
+        if "date" in df.columns:
+
+            df["date"] = pd.to_datetime(
+                df["date"],
+                errors="coerce"
+            )
+
     return (
-        str(valor)
-        .strip()
-        .lower()
-        .replace("á", "a")
-        .replace("é", "e")
-        .replace("í", "i")
-        .replace("ó", "o")
-        .replace("ú", "u")
-        .replace("ü", "u")
+        contexto,
+        forma,
+        local_visitante,
+        rendimiento
     )
 
 
-def safe_mean(values):
-    valores = pd.to_numeric(
-        values,
-        errors="coerce"
-    ).dropna()
+# ============================================================
+# HISTORIAL CLUB
+# ============================================================
 
-    if len(valores) == 0:
-        return 0.0
+def obtener_partidos_club(
+    historico,
+    team_name,
+    corte
+):
 
-    return float(valores.mean())
+    df = historico[
+        (
+            historico["team_name"]
+            == team_name
+        )
+        &
+        (
+            historico["date"]
+            < corte
+        )
+    ].copy()
 
+    if df.empty:
+        return pd.DataFrame()
 
-def safe_std(values):
-    valores = pd.to_numeric(
-        values,
-        errors="coerce"
-    ).dropna()
-
-    if len(valores) <= 1:
-        return 0.0
-
-    return float(
-        valores.std(ddof=1)
+    partidos = (
+        df[
+            [
+                "match_id",
+                "date",
+                "team_name",
+            ]
+        ]
+        .drop_duplicates()
+        .sort_values("date")
     )
 
+    return partidos
 
-def calcular_promedio_ponderado(valores):
-    valores = list(
-        pd.to_numeric(
+
+# ============================================================
+# ACTIVIDAD EN LOS ÚLTIMOS 3 PARTIDOS
+#
+# IMPORTANTE:
+#
+# Los últimos 3 NO se utilizan para decidir la calidad
+# histórica del jugador.
+#
+# Su función es detectar actividad reciente.
+#
+# ============================================================
+
+def evaluar_titularidad_ultimos_3(
+    historico,
+    mapa_lineups,
+    player_id,
+    team_name,
+    corte
+):
+
+    club_partidos = obtener_partidos_club(
+        historico,
+        team_name,
+        corte
+    )
+
+    if club_partidos.empty:
+
+        return {
+
+            "titulares_ultimos_3": 0,
+
+            "partidos_club_ultimos_3": 0,
+
+            "participaciones_ultimos_3": 0,
+
+            "activo_ultimos_3": False,
+
+            "titular_2_de_3": False,
+        }
+
+    ultimos_3 = (
+        club_partidos
+        .sort_values(
+            "date",
+            ascending=False
+        )
+        .head(3)
+    )
+
+    titulares = 0
+    participaciones = 0
+
+    for _, partido in ultimos_3.iterrows():
+
+        match_id = str(
+            partido["match_id"]
+        )
+
+        dato = mapa_lineups.get(
+            (
+                match_id,
+                str(player_id)
+            )
+        )
+
+        if dato:
+
+            participaciones += 1
+
+            if dato.get(
+                "starter"
+            ) is True:
+
+                titulares += 1
+
+    return {
+
+        "titulares_ultimos_3": titulares,
+
+        "partidos_club_ultimos_3": len(
+            ultimos_3
+        ),
+
+        "participaciones_ultimos_3": participaciones,
+
+        "activo_ultimos_3": (
+            participaciones > 0
+        ),
+
+        "titular_2_de_3": (
+            len(ultimos_3) == 3
+            and titulares >= 2
+        ),
+    }
+
+
+# ============================================================
+# PERFIL INDIVIDUAL
+#
+# USA TODO EL HISTORIAL DISPONIBLE DEL JUGADOR
+# EN SU CLUB ACTUAL.
+#
+# Los últimos 5 tienen un peso creciente dentro del
+# weighted_recent, pero NO reemplazan al historial completo.
+#
+# ============================================================
+
+def calcular_perfil(
+    grupo
+):
+
+    grupo = (
+        grupo
+        .sort_values("date")
+        .copy()
+    )
+
+    valores = pd.to_numeric(
+        grupo["winning_total"],
+        errors="coerce"
+    ).fillna(0)
+
+    n = len(valores)
+
+    if n == 0:
+        return None
+
+    # --------------------------------------------------------
+    # TODO EL HISTORIAL
+    # --------------------------------------------------------
+
+    promedio = float(
+        valores.mean()
+    )
+
+    p90 = float(
+        np.percentile(
             valores,
-            errors="coerce"
-        ).dropna()
+            90
+        )
     )
 
-    if not valores:
-        return 0.0
+    std = (
+        float(
+            valores.std()
+        )
+        if n > 1
+        else 0.0
+    )
+
+    minimo = float(
+        valores.min()
+    )
+
+    maximo = float(
+        valores.max()
+    )
+
+    # --------------------------------------------------------
+    # FORMA RECIENTE
+    #
+    # Solamente complementa al historial.
+    # --------------------------------------------------------
+
+    ultimos = valores.tail(
+        min(5, n)
+    )
 
     pesos = np.arange(
         1,
-        len(valores) + 1
+        len(ultimos) + 1
     )
+
+    weighted = (
+        float(
+            np.average(
+                ultimos,
+                weights=pesos
+            )
+        )
+        if len(ultimos)
+        else 0
+    )
+
+    estabilidad = 1 / (
+        1 + std
+    )
+
+    confianza = min(
+        1.0,
+        0.5
+        + min(n, 15) / 30
+        + estabilidad * 0.2
+    )
+
+    return {
+
+        "partidos_historicos": n,
+
+        "promedio": promedio,
+
+        "weighted_recent": weighted,
+
+        "p90": p90,
+
+        "std": std,
+
+        "minimo": minimo,
+
+        "maximo": maximo,
+
+        "confianza": confianza,
+
+        "estabilidad": estabilidad,
+    }
+
+
+# ============================================================
+# CONTEXTO DEL EQUIPO
+# ============================================================
+
+def calcular_factor_contexto(
+    team_name,
+    fecha_objetivo,
+    es_local,
+    contexto,
+    forma,
+    local_visitante,
+    rendimiento
+):
+
+    factor = 1.0
+
+    # --------------------------------------------------------
+    # CONTEXTO GENERAL DEL EQUIPO
+    # --------------------------------------------------------
+
+    datos_contexto = contexto[
+        (
+            contexto["team_name"]
+            == team_name
+        )
+        &
+        (
+            contexto["date"]
+            < fecha_objetivo
+        )
+    ].sort_values("date")
+
+    if not datos_contexto.empty:
+
+        ultimo = datos_contexto.iloc[-1]
+
+        # ----------------------------------------------------
+        # Intentamos aprovechar columnas disponibles
+        # relacionadas con puntos, goles y rendimiento.
+        #
+        # Si una columna no existe, simplemente no modifica
+        # el factor.
+        # ----------------------------------------------------
+
+        posibles_puntos = [
+            "puntos",
+            "points",
+            "forma_puntos",
+            "ultimos_5_puntos",
+            "puntos_ultimos_5",
+        ]
+
+        puntos_contexto = None
+
+        for columna in posibles_puntos:
+
+            if columna in ultimo.index:
+
+                valor = ultimo.get(
+                    columna
+                )
+
+                if pd.notna(valor):
+
+                    puntos_contexto = safe_float(
+                        valor,
+                        None
+                    )
+
+                    break
+
+        if puntos_contexto is not None:
+
+            factor += np.clip(
+                (
+                    puntos_contexto - 7
+                ) * 0.01,
+                -0.05,
+                0.05
+            )
+
+    # --------------------------------------------------------
+    # FORMA RECIENTE
+    # --------------------------------------------------------
+
+    datos_forma = forma[
+        (
+            forma["team_name"]
+            == team_name
+        )
+        &
+        (
+            forma["date"]
+            < fecha_objetivo
+        )
+    ].sort_values("date")
+
+    if not datos_forma.empty:
+
+        ultimo = datos_forma.iloc[-1]
+
+        puntos = safe_float(
+            ultimo.get(
+                "forma_ultimos_5_puntos",
+                0
+            )
+        )
+
+        goles_favor = safe_float(
+            ultimo.get(
+                "forma_ultimos_5_prom_goles_favor",
+                0
+            )
+        )
+
+        goles_contra = safe_float(
+            ultimo.get(
+                "forma_ultimos_5_prom_goles_contra",
+                0
+            )
+        )
+
+        factor += np.clip(
+            (
+                puntos - 7
+            ) * 0.015,
+            -0.08,
+            0.08
+        )
+
+        factor += np.clip(
+            (
+                goles_favor
+                - goles_contra
+            ) * 0.015,
+            -0.05,
+            0.05
+        )
+
+    # --------------------------------------------------------
+    # LOCAL / VISITANTE
+    # --------------------------------------------------------
+
+    datos_lv = local_visitante[
+        (
+            local_visitante["team_name"]
+            == team_name
+        )
+        &
+        (
+            local_visitante["date"]
+            < fecha_objetivo
+        )
+    ].sort_values("date")
+
+    if not datos_lv.empty:
+
+        ultimo = datos_lv.iloc[-1]
+
+        if es_local:
+
+            puntos = safe_float(
+                ultimo.get(
+                    "local_ultimos_5_puntos",
+                    0
+                )
+            )
+
+        else:
+
+            puntos = safe_float(
+                ultimo.get(
+                    "visitante_ultimos_5_puntos",
+                    0
+                )
+            )
+
+        factor += np.clip(
+            (
+                puntos - 7
+            ) * 0.01,
+            -0.05,
+            0.05
+        )
+
+    # --------------------------------------------------------
+    # RENDIMIENTO RECIENTE
+    # --------------------------------------------------------
+
+    datos_rend = rendimiento[
+        (
+            rendimiento["team_name"]
+            == team_name
+        )
+        &
+        (
+            rendimiento["date"]
+            < fecha_objetivo
+        )
+    ].sort_values("date")
+
+    if not datos_rend.empty:
+
+        ultimo = datos_rend.iloc[-1]
+
+        shots = safe_float(
+            ultimo.get(
+                "prom_ultimos_5_shots_on_target",
+                0
+            )
+        )
+
+        chances = safe_float(
+            ultimo.get(
+                "prom_ultimos_5_chances_created",
+                0
+            )
+        )
+
+        factor += np.clip(
+            (
+                shots - 4
+            ) * 0.01,
+            -0.04,
+            0.04
+        )
+
+        factor += np.clip(
+            (
+                chances - 5
+            ) * 0.005,
+            -0.03,
+            0.03
+        )
 
     return float(
-        np.average(
-            valores,
-            weights=pesos
+        np.clip(
+            factor,
+            0.85,
+            1.15
         )
     )
 
 
-def obtener_columna_titularidad(df):
-    candidatos = [
-        "titular",
-        "starter",
-        "starting",
-        "es_titular",
-        "titularidad",
-        "fue_titular",
-        "is_starter",
-        "is_starting",
-        "started",
-    ]
+# ============================================================
+# POSICIONES
+# ============================================================
 
-    columnas_normalizadas = {
-        normalizar_texto(col): col
-        for col in df.columns
-    }
+def cargar_posiciones():
 
-    for candidato in candidatos:
-
-        clave = normalizar_texto(
-            candidato
-        )
-
-        if clave in columnas_normalizadas:
-            return columnas_normalizadas[clave]
-
-    return None
-
-
-def interpretar_titular(valor):
-    if pd.isna(valor):
-        return False
-
-    if isinstance(valor, bool):
-        return valor
-
-    texto = normalizar_texto(valor)
-
-    verdaderos = {
-        "1",
-        "true",
-        "si",
-        "sí",
-        "yes",
-        "y",
-        "titular",
-        "starter",
-        "starting",
-        "started",
-    }
-
-    falsos = {
-        "0",
-        "false",
-        "no",
-        "n",
-        "suplente",
-        "substitute",
-        "bench",
-    }
-
-    if texto in verdaderos:
-        return True
-
-    if texto in falsos:
-        return False
-
-    try:
-        return float(texto) == 1
-    except Exception:
-        return False
-
-
-def seleccionar_posicion(
-    candidatos,
-    posicion,
-    cantidad,
-    score_column,
-    clubes_actuales
-):
-    resultado = []
-
-    candidatos_pos = candidatos[
-        candidatos["position"] == posicion
-    ].sort_values(
-        score_column,
-        ascending=False
+    archivo = (
+        "datos/"
+        "posiciones_finales_jugadores.csv"
     )
 
-    for _, jugador in candidatos_pos.iterrows():
+    if not os.path.exists(
+        archivo
+    ):
 
-        club = jugador["team_name"]
+        return {}
 
-        if clubes_actuales.get(
-            club,
-            0
-        ) >= 3:
-            continue
+    df = pd.read_csv(
+        archivo
+    )
 
-        resultado.append(
-            jugador.to_dict()
+    resultado = {}
+
+    for _, fila in df.iterrows():
+
+        player_id = str(
+            fila.get(
+                "player_id",
+                ""
+            )
         )
 
-        clubes_actuales[club] = (
-            clubes_actuales.get(
-                club,
-                0
-            ) + 1
+        posicion = fila.get(
+            "posicion_final",
+            fila.get(
+                "position",
+                ""
+            )
         )
 
-        if len(resultado) >= cantidad:
-            break
+        if player_id:
+
+            resultado[
+                player_id
+            ] = posicion
 
     return resultado
 
 
-def construir_equipo(
-    candidatos,
-    score_column
+# ============================================================
+# CONSTRUIR CANDIDATOS
+#
+# TODOS LOS JUGADORES DE FECHA 10 COMPITEN.
+#
+# Ya NO existe:
+#   6-7 partidos = FLEX
+#   8+ partidos = PRINCIPAL
+#
+# ============================================================
+
+def construir_candidatos(
+    historico,
+    jugadores_objetivo,
+    mapa_lineups,
+    contexto,
+    forma,
+    local_visitante,
+    rendimiento,
+    posiciones
 ):
-    clubes = {}
 
-    equipo = []
+    candidatos = []
 
-    equipo.extend(
-        seleccionar_posicion(
-            candidatos,
+    fecha_objetivo = CORTE_HISTORICO
+
+    for player_id, objetivo in (
+        jugadores_objetivo.items()
+    ):
+
+        player_id = str(
+            player_id
+        )
+
+        grupo = historico[
+            historico["player_id"]
+            .astype(str)
+            == player_id
+        ].copy()
+
+        if grupo.empty:
+            continue
+
+        club = objetivo[
+            "team_name"
+        ]
+
+        # ----------------------------------------------------
+        # HISTORIAL EN EL CLUB ACTUAL
+        # ----------------------------------------------------
+
+        grupo_club = grupo[
+            grupo["team_name"]
+            == club
+        ].copy()
+
+        if grupo_club.empty:
+            continue
+
+        grupo_club = grupo_club[
+            grupo_club["date"]
+            < fecha_objetivo
+        ].copy()
+
+        if grupo_club.empty:
+            continue
+
+        # ----------------------------------------------------
+        # ACTIVIDAD ÚLTIMOS 3
+        #
+        # NO se utiliza como ranking de calidad.
+        #
+        # Solamente se comprueba si tuvo participación reciente.
+        # ----------------------------------------------------
+
+        titularidad = (
+            evaluar_titularidad_ultimos_3(
+                historico,
+                mapa_lineups,
+                player_id,
+                club,
+                fecha_objetivo
+            )
+        )
+
+        if not titularidad[
+            "activo_ultimos_3"
+        ]:
+
+            continue
+
+        # ----------------------------------------------------
+        # PERFIL COMPLETO
+        # ----------------------------------------------------
+
+        perfil = calcular_perfil(
+            grupo_club
+        )
+
+        if perfil is None:
+            continue
+
+        # ----------------------------------------------------
+        # POSICIÓN
+        # ----------------------------------------------------
+
+        posicion = posiciones.get(
+            player_id,
+            ""
+        )
+
+        if not posicion:
+
+            if (
+                "position"
+                in grupo_club.columns
+                and not grupo_club[
+                    "position"
+                ].dropna().empty
+            ):
+
+                posicion = (
+                    grupo_club[
+                        "position"
+                    ]
+                    .dropna()
+                    .iloc[-1]
+                )
+
+            else:
+
+                posicion = ""
+
+        posicion = str(
+            posicion
+        ).upper()
+
+        if posicion not in {
             "ARQ",
-            1,
-            score_column,
-            clubes
-        )
-    )
-
-    equipo.extend(
-        seleccionar_posicion(
-            candidatos,
             "DEF",
-            3,
-            score_column,
-            clubes
-        )
-    )
-
-    equipo.extend(
-        seleccionar_posicion(
-            candidatos,
             "VOL",
-            3,
-            score_column,
-            clubes
+            "DEL"
+        }:
+
+            continue
+
+        # ----------------------------------------------------
+        # LOCALÍA + RIVAL
+        # ----------------------------------------------------
+
+        match_id_fecha10 = objetivo[
+            "match_id_fecha10"
+        ]
+
+        lineup = None
+
+        for mid, data in (
+            LINEUPS_GLOBAL.items()
+        ):
+
+            if mid == match_id_fecha10:
+
+                lineup = data
+                break
+
+        if lineup is None:
+            continue
+
+        home_team = (
+            lineup.get(
+                "home_team",
+                {}
+            )
+            or {}
         )
+
+        away_team = (
+            lineup.get(
+                "away_team",
+                {}
+            )
+            or {}
+        )
+
+        home_id = str(
+            home_team.get(
+                "id",
+                ""
+            )
+        )
+
+        home_name = home_team.get(
+            "name",
+            ""
+        )
+
+        away_name = away_team.get(
+            "name",
+            ""
+        )
+
+        es_local = (
+            str(
+                objetivo[
+                    "team_id"
+                ]
+            )
+            == home_id
+        )
+
+        rival_name = (
+            away_name
+            if es_local
+            else home_name
+        )
+
+        # ----------------------------------------------------
+        # CONTEXTO DEL EQUIPO
+        # ----------------------------------------------------
+
+        factor_contexto = (
+            calcular_factor_contexto(
+                club,
+                fecha_objetivo,
+                es_local,
+                contexto,
+                forma,
+                local_visitante,
+                rendimiento
+            )
+        )
+
+        # ----------------------------------------------------
+        # SCORE BASE
+        #
+        # El historial completo es la base.
+        #
+        # weighted_recent = forma reciente complementaria
+        # promedio        = rendimiento histórico completo
+        # p90             = techo de rendimiento histórico
+        # ----------------------------------------------------
+
+        score_base = (
+            perfil[
+                "weighted_recent"
+            ] * 0.35
+
+            +
+
+            perfil[
+                "promedio"
+            ] * 0.40
+
+            +
+
+            perfil[
+                "p90"
+            ] * 0.25
+        )
+
+        # ----------------------------------------------------
+        # CONFIANZA
+        #
+        # No excluye jugadores.
+        # Sirve para que el score valore la robustez del
+        # historial sin convertir cantidad de partidos en
+        # una clasificación principal/FLEX.
+        # ----------------------------------------------------
+
+        factor_confianza = (
+            0.90
+            + (
+                perfil[
+                    "confianza"
+                ]
+                * 0.10
+            )
+        )
+
+        score_contextual = (
+            score_base
+            * factor_contexto
+            * factor_confianza
+        )
+
+        candidatos.append(
+            {
+
+                "player_id": player_id,
+
+                "player_name": objetivo[
+                    "player_name"
+                ],
+
+                "team_id": objetivo[
+                    "team_id"
+                ],
+
+                "team_name": club,
+
+                "position": posicion,
+
+                "rival": rival_name,
+
+                "es_local": es_local,
+
+                "partidos_historicos": perfil[
+                    "partidos_historicos"
+                ],
+
+                "partidos_club_ultimos_3": titularidad[
+                    "partidos_club_ultimos_3"
+                ],
+
+                "participaciones_ultimos_3": titularidad[
+                    "participaciones_ultimos_3"
+                ],
+
+                "activo_ultimos_3": titularidad[
+                    "activo_ultimos_3"
+                ],
+
+                "titulares_ultimos_3": titularidad[
+                    "titulares_ultimos_3"
+                ],
+
+                "titular_2_de_3": titularidad[
+                    "titular_2_de_3"
+                ],
+
+                "weighted_recent": perfil[
+                    "weighted_recent"
+                ],
+
+                "promedio": perfil[
+                    "promedio"
+                ],
+
+                "p90": perfil[
+                    "p90"
+                ],
+
+                "std": perfil[
+                    "std"
+                ],
+
+                "minimo": perfil[
+                    "minimo"
+                ],
+
+                "maximo": perfil[
+                    "maximo"
+                ],
+
+                "confianza": perfil[
+                    "confianza"
+                ],
+
+                "estabilidad": perfil[
+                    "estabilidad"
+                ],
+
+                "factor_confianza": factor_confianza,
+
+                "factor_contexto": factor_contexto,
+
+                "score_base": score_base,
+
+                "score_contextual": score_contextual,
+
+                "starter_fecha10": objetivo[
+                    "starter_fecha10"
+                ],
+            }
+        )
+
+    return pd.DataFrame(
+        candidatos
     )
 
-    equipo.extend(
-        seleccionar_posicion(
-            candidatos,
-            "DEL",
-            3,
-            score_column,
-            clubes
-        )
-    )
 
-    return equipo, clubes
+# ============================================================
+# TODOS LOS CANDIDATOS
+#
+# Ya NO se separan por cantidad de partidos.
+#
+# El mismo universo completo sirve para titulares y FLEX.
+# ============================================================
 
-
-def construir_flex(
-    candidatos,
-    score_column,
-    clubes_equipo
+def separar_principal_flex(
+    candidatos
 ):
-    flex = []
+
+    principales = candidatos.copy()
+
+    flex = candidatos.copy()
+
+    return principales, flex
+
+
+# ============================================================
+# SCORE SEGÚN PERFIL
+# ============================================================
+
+def calcular_score_seleccion(
+    df,
+    perfil_equipo
+):
+
+    df = df.copy()
+
+    if df.empty:
+        return df
+
+    if perfil_equipo == "SEGURO":
+
+        df[
+            "score_seleccion"
+        ] = (
+
+            df[
+                "score_contextual"
+            ] * 0.65
+
+            +
+
+            df[
+                "promedio"
+            ] * 0.20
+
+            +
+
+            df[
+                "estabilidad"
+            ] * 0.15
+        )
+
+    elif perfil_equipo == "ARRIESGADO":
+
+        df[
+            "score_seleccion"
+        ] = (
+
+            df[
+                "p90"
+            ] * 0.55
+
+            +
+
+            df[
+                "score_contextual"
+            ] * 0.25
+
+            +
+
+            df[
+                "maximo"
+            ] * 0.20
+        )
+
+    else:
+
+        df[
+            "score_seleccion"
+        ] = (
+
+            df[
+                "score_contextual"
+            ] * 0.45
+
+            +
+
+            df[
+                "promedio"
+            ] * 0.30
+
+            +
+
+            df[
+                "p90"
+            ] * 0.25
+        )
+
+    return df
+
+
+# ============================================================
+# SELECCIÓN EQUIPO
+# ============================================================
+
+def seleccionar_equipo(
+    candidatos,
+    perfil_equipo,
+    jugadores_usados=None,
+    seed=None
+):
+
+    rng = random.Random(
+        seed
+    )
+
+    seleccion = []
+
+    if jugadores_usados is None:
+        jugadores_usados = set()
+
+    posiciones_necesarias = [
+
+        "ARQ",
+
+        "DEF",
+        "DEF",
+        "DEF",
+
+        "VOL",
+        "VOL",
+        "VOL",
+
+        "DEL",
+        "DEL",
+        "DEL",
+    ]
+
+    df = candidatos.copy()
+
+    if df.empty:
+        return []
+
+    # --------------------------------------------------------
+    # SCORE
+    # --------------------------------------------------------
+
+    df = calcular_score_seleccion(
+        df,
+        perfil_equipo
+    )
+
+    # --------------------------------------------------------
+    # PENALIZACIÓN POR REPETICIÓN ENTRE EQUIPOS
+    #
+    # NO bloquea. Solo genera diversidad.
+    # --------------------------------------------------------
+
+    penalizacion = (
+        PENALIZACION_REPETICION.get(
+            perfil_equipo,
+            0.0
+        )
+    )
+
+    df[
+        "veces_usado"
+    ] = (
+
+        df[
+            "player_id"
+        ]
+        .astype(str)
+        .map(
+            lambda x: (
+                1
+                if x in jugadores_usados
+                else 0
+            )
+        )
+    )
+
+    df[
+        "score_diversidad"
+    ] = (
+
+        df[
+            "score_seleccion"
+        ]
+
+        *
+
+        (
+            1
+            -
+            (
+                penalizacion
+                *
+                df[
+                    "veces_usado"
+                ]
+            )
+        )
+    )
+
+    # --------------------------------------------------------
+    # ELECCIÓN POR POSICIÓN
+    # --------------------------------------------------------
 
     for posicion in [
+        "ARQ",
         "DEF",
         "VOL",
         "DEL"
     ]:
 
-        candidatos_pos = candidatos[
-            candidatos["position"] == posicion
-        ].sort_values(
-            score_column,
-            ascending=False
+        cantidad = (
+            posiciones_necesarias.count(
+                posicion
+            )
         )
 
-        for _, jugador in candidatos_pos.iterrows():
+        disponibles = df[
+            df[
+                "position"
+            ]
+            == posicion
+        ].copy()
 
-            club = jugador["team_name"]
+        if disponibles.empty:
 
-            if clubes_equipo.get(
-                club,
-                0
-            ) >= 3:
+            print()
+            print(
+                "ADVERTENCIA:",
+                perfil_equipo,
+                "| no hay candidatos para",
+                posicion
+            )
+
+            continue
+
+        disponibles = (
+            disponibles
+            .sort_values(
+                [
+                    "score_diversidad",
+                    "score_seleccion",
+                    "score_contextual",
+                    "promedio",
+                    "p90"
+                ],
+                ascending=False
+            )
+        )
+
+        for _, jugador in (
+            disponibles.iterrows()
+        ):
+
+            cantidad_posicion = len(
+                [
+                    x
+                    for x in seleccion
+                    if x[
+                        "position"
+                    ]
+                    == posicion
+                ]
+            )
+
+            if (
+                cantidad_posicion
+                >= cantidad
+            ):
+
+                break
+
+            player_id = str(
+                jugador[
+                    "player_id"
+                ]
+            )
+
+            if any(
+                str(
+                    x["player_id"]
+                )
+                == player_id
+                for x in seleccion
+            ):
+
                 continue
 
-            flex.append(
+            club = jugador[
+                "team_name"
+            ]
+
+            cantidad_club = len(
+                [
+                    x
+                    for x in seleccion
+                    if x[
+                        "team_name"
+                    ]
+                    == club
+                ]
+            )
+
+            if cantidad_club >= 3:
+                continue
+
+            jugador_dict = (
                 jugador.to_dict()
             )
 
-            break
+            jugador_dict[
+                "score_diversidad"
+            ] = safe_float(
+                jugador[
+                    "score_diversidad"
+                ]
+            )
 
-    return flex
+            jugador_dict[
+                "veces_usado_otros_equipos"
+            ] = int(
+                jugador[
+                    "veces_usado"
+                ]
+            )
+
+            seleccion.append(
+                jugador_dict
+            )
+
+    # --------------------------------------------------------
+    # VALIDACIÓN
+    # --------------------------------------------------------
+
+    if len(seleccion) != 10:
+
+        print()
+        print(
+            "ADVERTENCIA:",
+            perfil_equipo,
+            "quedó con",
+            len(seleccion),
+            "jugadores en lugar de 10."
+        )
+
+    return seleccion
 
 
-def simular_equipo(equipo):
+# ============================================================
+# FLEX POR EQUIPO
+#
+# IMPORTANTE:
+#
+# FLEX usa TODOS los candidatos, no solamente jugadores
+# con 6-7 partidos.
+#
+# Si ya fue FLEX anteriormente, queda bloqueado.
+#
+# ============================================================
+
+def construir_flex(
+    candidatos_flex,
+    perfil_equipo,
+    jugadores_titulares_equipo,
+    jugadores_titulares_otros,
+    flex_usados_global=None
+):
+
+    if flex_usados_global is None:
+        flex_usados_global = set()
+
+    resultado = []
+
+    posiciones_flex = {
+
+        "DEF": 2,
+
+        "VOL": 2,
+
+        "DEL": 2,
+    }
+
+    # --------------------------------------------------------
+    # SCORE
+    # --------------------------------------------------------
+
+    df = calcular_score_seleccion(
+        candidatos_flex,
+        perfil_equipo
+    )
+
+    if df.empty:
+        return resultado
+
+    # --------------------------------------------------------
+    # BLOQUEO ABSOLUTO DE FLEX REPETIDOS
+    # --------------------------------------------------------
+
+    ids_flex_usados = {
+        str(x)
+        for x in flex_usados_global
+    }
+
+    if ids_flex_usados:
+
+        df = df[
+            ~df[
+                "player_id"
+            ]
+            .astype(str)
+            .isin(
+                ids_flex_usados
+            )
+        ].copy()
+
+    if df.empty:
+
+        print()
+        print(
+            "ADVERTENCIA FLEX:",
+            perfil_equipo,
+            "| no quedaron candidatos después",
+            "del bloqueo de FLEX repetidos."
+        )
+
+        return resultado
+
+    # --------------------------------------------------------
+    # CADA POSICIÓN
+    # --------------------------------------------------------
+
+    for posicion, cantidad in (
+        posiciones_flex.items()
+    ):
+
+        disponibles = df[
+            df[
+                "position"
+            ]
+            == posicion
+        ].copy()
+
+        if disponibles.empty:
+
+            print()
+            print(
+                "ADVERTENCIA FLEX:",
+                perfil_equipo,
+                "|",
+                posicion,
+                "| no hay candidatos disponibles."
+            )
+
+            continue
+
+        penalizacion_titular_otro = (
+            PENALIZACION_FLEX_TITULAR_OTRO.get(
+                perfil_equipo,
+                0.0
+            )
+        )
+
+        # ----------------------------------------------------
+        # TODOS LOS DISPONIBLES SON NUEVOS FLEX
+        # ----------------------------------------------------
+
+        disponibles[
+            "veces_flex_usado"
+        ] = 0
+
+        # ----------------------------------------------------
+        # TITULARIDADES
+        # ----------------------------------------------------
+
+        disponibles[
+            "titular_mismo_equipo"
+        ] = (
+
+            disponibles[
+                "player_id"
+            ]
+            .astype(str)
+            .isin(
+                jugadores_titulares_equipo
+            )
+        )
+
+        disponibles[
+            "titular_otro_equipo"
+        ] = (
+
+            disponibles[
+                "player_id"
+            ]
+            .astype(str)
+            .isin(
+                jugadores_titulares_otros
+            )
+        )
+
+        # ----------------------------------------------------
+        # SCORE FLEX
+        # ----------------------------------------------------
+
+        disponibles[
+            "score_flex"
+        ] = disponibles[
+            "score_seleccion"
+        ].copy()
+
+        # ----------------------------------------------------
+        # PENALIZACIÓN POR SER TITULAR DEL MISMO EQUIPO
+        #
+        # Se mantiene la regla anterior.
+        # ----------------------------------------------------
+
+        disponibles.loc[
+            disponibles[
+                "titular_mismo_equipo"
+            ],
+            "score_flex"
+        ] *= (
+            1
+            -
+            PENALIZACION_FLEX_TITULAR_MISMO
+        )
+
+        # ----------------------------------------------------
+        # PENALIZACIÓN POR SER TITULAR DE OTRO EQUIPO
+        # ----------------------------------------------------
+
+        disponibles.loc[
+            disponibles[
+                "titular_otro_equipo"
+            ],
+            "score_flex"
+        ] *= (
+            1
+            -
+            penalizacion_titular_otro
+        )
+
+        # ----------------------------------------------------
+        # ORDEN
+        # ----------------------------------------------------
+
+        disponibles = (
+            disponibles
+            .sort_values(
+                [
+                    "score_flex",
+                    "score_seleccion",
+                    "score_contextual",
+                    "promedio",
+                    "p90"
+                ],
+                ascending=False
+            )
+        )
+
+        seleccionados_posicion = 0
+
+        for _, jugador in (
+            disponibles.iterrows()
+        ):
+
+            if (
+                seleccionados_posicion
+                >= cantidad
+            ):
+
+                break
+
+            player_id = str(
+                jugador[
+                    "player_id"
+                ]
+            )
+
+            # Seguridad: nunca repetir dentro del mismo FLEX.
+            if any(
+                str(
+                    x["player_id"]
+                )
+                == player_id
+                for x in resultado
+            ):
+
+                continue
+
+            # Seguridad absoluta contra repetición global.
+            if player_id in ids_flex_usados:
+                continue
+
+            jugador_dict = (
+                jugador.to_dict()
+            )
+
+            jugador_dict[
+                "tipo"
+            ] = posicion
+
+            jugador_dict[
+                "perfil_flex"
+            ] = perfil_equipo
+
+            jugador_dict[
+                "score_flex"
+            ] = safe_float(
+                jugador[
+                    "score_flex"
+                ]
+            )
+
+            jugador_dict[
+                "flex_repetido"
+            ] = False
+
+            jugador_dict[
+                "veces_flex_usado"
+            ] = 0
+
+            jugador_dict[
+                "titular_mismo_equipo"
+            ] = bool(
+                jugador[
+                    "titular_mismo_equipo"
+                ]
+            )
+
+            jugador_dict[
+                "titular_otro_equipo"
+            ] = bool(
+                jugador[
+                    "titular_otro_equipo"
+                ]
+            )
+
+            resultado.append(
+                jugador_dict
+            )
+
+            seleccionados_posicion += 1
+
+        # ----------------------------------------------------
+        # VALIDACIÓN
+        # ----------------------------------------------------
+
+        if (
+            seleccionados_posicion
+            < cantidad
+        ):
+
+            print()
+            print(
+                "ADVERTENCIA FLEX:",
+                perfil_equipo,
+                "|",
+                posicion,
+                "| se obtuvieron",
+                seleccionados_posicion,
+                "de",
+                cantidad,
+                "| no se repitieron jugadores."
+            )
+
+    return resultado
+
+
+# ============================================================
+# SIMULACIONES
+# ============================================================
+
+def simular_equipo(
+    equipo,
+    perfil,
+    n=N_SIMULACIONES
+):
+
+    if not equipo:
+        return []
 
     resultados = []
 
-    for _ in range(
-        SIMULACIONES
-    ):
+    for _ in range(n):
 
         total = 0.0
 
         for jugador in equipo:
 
-            media = float(
-                jugador["promedio"]
-            )
-
-            desviacion = float(
-                jugador["desviacion"]
-            )
-
-            if not np.isfinite(media):
-                media = 0.0
-
-            if (
-                not np.isfinite(desviacion)
-                or desviacion <= 0
-            ):
-                desviacion = 1.0
-
-            desviacion = min(
-                desviacion,
-                max(
-                    4.0,
-                    abs(media) * 0.75
+            media = safe_float(
+                jugador.get(
+                    "score_contextual",
+                    0
                 )
             )
 
-            valor = np.random.normal(
-                media,
-                desviacion
+            std = safe_float(
+                jugador.get(
+                    "std",
+                    1
+                )
             )
 
-            total += valor
-
-        resultados.append(total)
-
-    resultados = np.array(
-        resultados
-    )
-
-    return {
-        "promedio_simulado": float(
-            np.mean(resultados)
-        ),
-        "mediana": float(
-            np.median(resultados)
-        ),
-        "p10": float(
-            np.percentile(
-                resultados,
-                10
+            p90 = safe_float(
+                jugador.get(
+                    "p90",
+                    media
+                )
             )
-        ),
-        "p25": float(
-            np.percentile(
-                resultados,
-                25
+
+            if perfil == "SEGURO":
+
+                valor = np.random.normal(
+                    media,
+                    max(
+                        std * 0.55,
+                        0.5
+                    )
+                )
+
+            elif perfil == "ARRIESGADO":
+
+                valor = np.random.normal(
+                    (
+                        media
+                        + p90
+                    ) / 2,
+                    max(
+                        std * 1.10,
+                        0.8
+                    )
+                )
+
+            else:
+
+                valor = np.random.normal(
+                    media,
+                    max(
+                        std * 0.8,
+                        0.6
+                    )
+                )
+
+            total += max(
+                0,
+                valor
             )
-        ),
-        "p75": float(
-            np.percentile(
-                resultados,
-                75
-            )
-        ),
-        "p90": float(
-            np.percentile(
-                resultados,
-                90
-            )
-        ),
-        "min": float(
-            np.min(resultados)
-        ),
-        "max": float(
-            np.max(resultados)
-        ),
-        "prob_mas_100": float(
-            np.mean(
-                resultados >= 100
-            ) * 100
-        ),
-        "prob_mas_140": float(
-            np.mean(
-                resultados >= 140
-            ) * 100
-        ),
-    }
+
+        resultados.append(
+            total
+        )
+
+    return resultados
 
 
 # ============================================================
-# CARGAR DATASET
+# PROGRAMA PRINCIPAL
 # ============================================================
 
-print("=" * 80)
-print("BACKTEST WINNING AI - FECHA 10")
-print("=" * 80)
+def main():
 
-print()
-print("Cargando dataset...")
-
-df = pd.read_csv(
-    DATASET
-)
-
-print(
-    f"Registros totales dataset: {len(df)}"
-)
-
-
-# ============================================================
-# NORMALIZAR
-# ============================================================
-
-df["date"] = pd.to_datetime(
-    df["date"],
-    errors="coerce"
-)
-
-df["round_num"] = pd.to_numeric(
-    df["round_name"],
-    errors="coerce"
-)
-
-df["winning_total"] = pd.to_numeric(
-    df["winning_total"],
-    errors="coerce"
-).fillna(0)
-
-df["minutes_played"] = pd.to_numeric(
-    df["minutes_played"],
-    errors="coerce"
-).fillna(0)
-
-df["player_name"] = df[
-    "player_name"
-].fillna(
-    "Jugador desconocido"
-)
-
-df["team_name"] = df[
-    "team_name"
-].fillna(
-    "Equipo desconocido"
-)
-
-df["position"] = (
-    df["position"]
-    .fillna("")
-    .astype(str)
-    .str.upper()
-    .str.strip()
-)
-
-
-# ============================================================
-# FECHA 10
-# ============================================================
-
-fecha10 = df[
-    df["round_num"] == FECHA_OBJETIVO
-].copy()
-
-if fecha10.empty:
-    raise RuntimeError(
-        "No se encontraron partidos de Fecha 10."
-    )
-
-fecha10 = fecha10.sort_values(
-    [
-        "date",
-        "match_id"
-    ]
-)
-
-print()
-print("=" * 80)
-print("FECHA 10")
-print("=" * 80)
-
-print(
-    f"Primer partido: "
-    f"{fecha10['date'].min().strftime('%Y-%m-%d')}"
-)
-
-print(
-    f"Último partido: "
-    f"{fecha10['date'].max().strftime('%Y-%m-%d')}"
-)
-
-print(
-    f"Partidos encontrados: "
-    f"{fecha10['match_id'].nunique()}"
-)
-
-print(
-    f"Equipos involucrados: "
-    f"{fecha10['team_name'].nunique()}"
-)
-
-print()
-print("Partidos Fecha 10:")
-print("-" * 80)
-
-for match_id, grupo in fecha10.groupby(
-    "match_id",
-    sort=False
-):
-
-    fecha = grupo["date"].min()
-
-    equipos = list(
-        grupo["team_name"]
-        .dropna()
-        .unique()
-    )
-
-    print(
-        f"{fecha.strftime('%d/%m')} | "
-        f"{' vs '.join(equipos)} | "
-        f"{match_id}"
-    )
-
-
-# ============================================================
-# HISTORIAL ANTERIOR A FECHA 10
-# ============================================================
-
-historico = df[
-    df["date"] < FECHA_INICIO_FECHA10
-].copy()
-
-print()
-print("=" * 80)
-print("HISTORIAL DISPONIBLE PARA EL MODELO")
-print("=" * 80)
-
-print(
-    f"Registros: {len(historico)}"
-)
-
-print(
-    f"Partidos: {historico['match_id'].nunique()}"
-)
-
-print(
-    f"Jugadores: {historico['player_id'].nunique()}"
-)
-
-print(
-    f"Última fecha permitida: "
-    f"{historico['date'].max().strftime('%Y-%m-%d')}"
-)
-
-
-# ============================================================
-# TITULARIDAD
-# ============================================================
-
-columna_titular = (
-    obtener_columna_titularidad(
-        historico
-    )
-)
-
-if columna_titular:
+    global LINEUPS_GLOBAL
 
     print()
+    print("=" * 70)
     print(
-        f"Columna de titularidad encontrada: "
-        f"{columna_titular}"
+        "WINNING AI - BACKTEST FECHA 10"
+    )
+    print("=" * 70)
+
+    # --------------------------------------------------------
+    # HISTÓRICO
+    # --------------------------------------------------------
+
+    historico = pd.read_csv(
+        HISTORICO_FILE
     )
 
-    historico["es_titular"] = (
+    historico["date"] = pd.to_datetime(
+        historico["date"],
+        errors="coerce"
+    )
+
+    historico["player_id"] = (
+        historico["player_id"]
+        .astype(str)
+    )
+
+    historico_hasta_corte = (
         historico[
-            columna_titular
-        ].apply(
-            interpretar_titular
-        )
+            historico["date"]
+            < CORTE_HISTORICO
+        ]
+        .copy()
     )
-
-else:
 
     print()
     print(
-        "AVISO: no se encontró una columna "
-        "explícita de titularidad."
+        "Histórico utilizado:",
+        len(
+            historico_hasta_corte
+        ),
+        "registros"
     )
 
     print(
-        "Se intentará reconstruir usando "
-        "participación/minutos."
-    )
-
-    if "participacion" in historico.columns:
-
-        participacion = pd.to_numeric(
-            historico["participacion"],
-            errors="coerce"
-        ).fillna(0)
-
-        historico["es_titular"] = (
-            participacion >= 1
-        )
-
-    else:
-
-        historico["es_titular"] = False
-
-
-# ============================================================
-# SOLO JUGADORES QUE APARECEN EN FECHA 10
-# ============================================================
-
-jugadores_fecha10 = set(
-    fecha10["player_id"]
-    .dropna()
-    .unique()
-)
-
-historico = historico[
-    historico["player_id"].isin(
-        jugadores_fecha10
-    )
-].copy()
-
-
-# ============================================================
-# CONSTRUIR CANDIDATOS
-# ============================================================
-
-registros = []
-
-for player_id, grupo in historico.groupby(
-    "player_id"
-):
-
-    grupo = grupo.sort_values(
-        "date"
-    )
-
-    fila_fecha10 = fecha10[
-        fecha10["player_id"] == player_id
-    ]
-
-    if fila_fecha10.empty:
-        continue
-
-    club_fecha10 = (
-        fila_fecha10
-        .sort_values("date")
-        .iloc[-1]["team_name"]
-    )
-
-    # --------------------------------------------------------
-    # HISTORIAL DEL JUGADOR EN SU CLUB DE FECHA 10
-    # --------------------------------------------------------
-
-    grupo_club = grupo[
-        grupo["team_name"] == club_fecha10
-    ].copy()
-
-    if grupo_club.empty:
-        continue
-
-    grupo_club = grupo_club.sort_values(
-        "date"
-    )
-
-    # --------------------------------------------------------
-    # PARTIDOS EN LOS QUE JUGÓ
-    # --------------------------------------------------------
-
-    grupo_jugado = grupo_club[
-        grupo_club["minutes_played"] > 0
-    ].copy()
-
-    if grupo_jugado.empty:
-        continue
-
-    partidos = len(
-        grupo_jugado
-    )
-
-    # --------------------------------------------------------
-    # ÚLTIMOS 3
-    # --------------------------------------------------------
-
-    ultimos_3 = grupo_jugado.tail(
-        ULTIMOS_PARTIDOS
-    )
-
-    titularidades_ultimos_3 = int(
-        ultimos_3[
-            "es_titular"
-        ].sum()
-    )
-
-    cantidad_ultimos_3 = len(
-        ultimos_3
-    )
-
-    # --------------------------------------------------------
-    # FORMA
-    # --------------------------------------------------------
-
-    ultimos_5 = grupo_jugado.tail(
-        PARTIDOS_FORMA
-    )
-
-    forma_reciente = safe_mean(
-        ultimos_5[
-            "winning_total"
-        ]
-    )
-
-    ponderado_reciente = (
-        calcular_promedio_ponderado(
-            ultimos_5[
-                "winning_total"
-            ]
-        )
-    )
-
-    # --------------------------------------------------------
-    # HISTORIAL
-    # --------------------------------------------------------
-
-    promedio = safe_mean(
-        grupo_jugado[
-            "winning_total"
-        ]
-    )
-
-    desviacion = safe_std(
-        grupo_jugado[
-            "winning_total"
-        ]
-    )
-
-    minimo = float(
-        grupo_jugado[
-            "winning_total"
-        ].min()
-    )
-
-    maximo = float(
-        grupo_jugado[
-            "winning_total"
+        "Última fecha histórica:",
+        historico_hasta_corte[
+            "date"
         ].max()
     )
 
     # --------------------------------------------------------
-    # PUNTOS POR 90
+    # FECHA 10
     # --------------------------------------------------------
 
-    minutos_totales = float(
-        grupo_jugado[
-            "minutes_played"
-        ].sum()
+    partidos_fecha10 = (
+        cargar_partidos_fecha10()
     )
 
-    puntos_totales = float(
-        grupo_jugado[
-            "winning_total"
-        ].sum()
+    if partidos_fecha10.empty:
+        return
+
+    # --------------------------------------------------------
+    # LINEUPS
+    # --------------------------------------------------------
+
+    LINEUPS_GLOBAL = (
+        cargar_lineups_fecha10()
     )
 
-    if minutos_totales > 0:
+    if len(
+        LINEUPS_GLOBAL
+    ) != 15:
 
-        promedio_por90 = (
-            puntos_totales
-            / minutos_totales
-            * 90
+        print(
+            "ADVERTENCIA: se esperaban 15 lineups."
         )
 
-    else:
-
-        promedio_por90 = 0.0
-
     # --------------------------------------------------------
-    # CONFIANZA POR CANTIDAD DE PARTIDOS
+    # JUGADORES
     # --------------------------------------------------------
 
-    if partidos < 4:
-        confianza = 0.0
+    jugadores_objetivo = (
+        construir_jugadores_objetivo(
+            LINEUPS_GLOBAL
+        )
+    )
 
-    elif partidos < 6:
-        confianza = 0.20
+    print()
+    print(
+        "Jugadores únicos encontrados en Fecha 10:",
+        len(
+            jugadores_objetivo
+        )
+    )
 
-    elif partidos < 8:
-        confianza = 0.45
+    # --------------------------------------------------------
+    # LINEUPS HISTÓRICOS
+    # --------------------------------------------------------
 
-    elif partidos < 12:
-        confianza = 0.70
+    mapa_lineups = (
+        construir_mapa_lineups_historicos()
+    )
 
-    elif partidos < 16:
-        confianza = 0.85
+    print(
+        "Registros de titularidad histórica:",
+        len(
+            mapa_lineups
+        )
+    )
 
-    else:
-        confianza = 1.00
+    # --------------------------------------------------------
+    # CONTEXTOS
+    # --------------------------------------------------------
+
+    (
+        contexto,
+        forma,
+        local_visitante,
+        rendimiento
+    ) = cargar_contextos()
+
+    posiciones = (
+        cargar_posiciones()
+    )
+
+    # --------------------------------------------------------
+    # CANDIDATOS
+    # --------------------------------------------------------
+
+    candidatos = construir_candidatos(
+        historico_hasta_corte,
+        jugadores_objetivo,
+        mapa_lineups,
+        contexto,
+        forma,
+        local_visitante,
+        rendimiento,
+        posiciones
+    )
+
+    if candidatos.empty:
+
+        print()
+        print(
+            "ERROR: no se generaron candidatos."
+        )
+
+        return
 
     # --------------------------------------------------------
     # ESTABILIDAD
     # --------------------------------------------------------
 
-    if promedio != 0:
+    candidatos[
+        "estabilidad"
+    ] = (
 
-        estabilidad = max(
-            0.0,
-            1.0 - (
-                abs(desviacion)
-                / max(
-                    abs(promedio),
-                    1.0
+        1
+        /
+        (
+            1
+            +
+            candidatos[
+                "std"
+            ].clip(
+                lower=0
+            )
+        )
+    )
+
+    # --------------------------------------------------------
+    # UNIVERSO COMPLETO
+    # --------------------------------------------------------
+
+    (
+        principales,
+        flex
+    ) = separar_principal_flex(
+        candidatos
+    )
+
+    print()
+    print("=" * 70)
+    print(
+        "CANDIDATOS"
+    )
+    print("=" * 70)
+
+    print(
+        "Candidatos totales:",
+        len(candidatos)
+    )
+
+    print(
+        "Universo para titulares:",
+        len(principales)
+    )
+
+    print(
+        "Universo para FLEX:",
+        len(flex)
+    )
+
+    print()
+    print(
+        "IMPORTANTE: ya no existe la separación",
+        "6-7 partidos / 8+ partidos."
+    )
+
+    print(
+        "Todos los candidatos compiten por rendimiento."
+    )
+
+    # --------------------------------------------------------
+    # GUARDAR CANDIDATOS
+    # --------------------------------------------------------
+
+    candidatos.to_csv(
+        SALIDA_CANDIDATOS,
+        index=False,
+        encoding="utf-8-sig"
+    )
+
+    # --------------------------------------------------------
+    # EQUIPOS
+    # --------------------------------------------------------
+
+    equipos_salida = []
+
+    simulaciones_salida = []
+
+    perfiles = [
+
+        (
+            "SEGURO",
+            principales
+        ),
+
+        (
+            "INTERMEDIO",
+            principales
+        ),
+
+        (
+            "ARRIESGADO",
+            principales
+        ),
+    ]
+
+    # ========================================================
+    # REGISTRO GLOBAL DE JUGADORES UTILIZADOS
+    # ========================================================
+
+    jugadores_usados_global = set()
+
+    equipos_generados = {}
+
+    # ========================================================
+    # REGISTRO DE TODOS LOS TITULARES
+    # ========================================================
+
+    titulares_por_perfil = {}
+
+    # ========================================================
+    # REGISTRO GLOBAL DE FLEX
+    #
+    # SET = BLOQUEO ABSOLUTO DE REPETICIÓN.
+    # ========================================================
+
+    flex_usados_global = set()
+
+    flex_por_perfil = {}
+
+    # ========================================================
+    # GENERAR LOS 3 EQUIPOS
+    # ========================================================
+
+    for nombre_perfil, base in perfiles:
+
+        equipo = seleccionar_equipo(
+            base,
+            nombre_perfil,
+            jugadores_usados=(
+                jugadores_usados_global
+            ),
+            seed=42
+        )
+
+        equipos_generados[
+            nombre_perfil
+        ] = equipo
+
+        # ----------------------------------------------------
+        # Guardar titulares del equipo
+        # ----------------------------------------------------
+
+        titulares_equipo = set()
+
+        for jugador in equipo:
+
+            player_id = str(
+                jugador[
+                    "player_id"
+                ]
+            )
+
+            jugadores_usados_global.add(
+                player_id
+            )
+
+            titulares_equipo.add(
+                player_id
+            )
+
+        titulares_por_perfil[
+            nombre_perfil
+        ] = titulares_equipo
+
+        # ----------------------------------------------------
+        # Todos los titulares de OTROS equipos
+        # ----------------------------------------------------
+
+        titulares_otros_equipos = set()
+
+        for otro_perfil, ids in (
+            titulares_por_perfil.items()
+        ):
+
+            if (
+                otro_perfil
+                != nombre_perfil
+            ):
+
+                titulares_otros_equipos.update(
+                    ids
                 )
+
+        # ----------------------------------------------------
+        # SIMULACIONES
+        # ----------------------------------------------------
+
+        simulaciones = simular_equipo(
+            equipo,
+            nombre_perfil,
+            N_SIMULACIONES
+        )
+
+        if simulaciones:
+
+            arr = np.array(
+                simulaciones
+            )
+
+            promedio_sim = float(
+                arr.mean()
+            )
+
+            p50 = float(
+                np.percentile(
+                    arr,
+                    50
+                )
+            )
+
+            p90 = float(
+                np.percentile(
+                    arr,
+                    90
+                )
+            )
+
+            minimo = float(
+                arr.min()
+            )
+
+            maximo = float(
+                arr.max()
+            )
+
+            prob_100 = float(
+                (
+                    arr >= 100
+                ).mean()
+            )
+
+            prob_140 = float(
+                (
+                    arr >= 140
+                ).mean()
+            )
+
+        else:
+
+            promedio_sim = 0
+            p50 = 0
+            p90 = 0
+            minimo = 0
+            maximo = 0
+            prob_100 = 0
+            prob_140 = 0
+
+        # ----------------------------------------------------
+        # GUARDAR TITULARES
+        # ----------------------------------------------------
+
+        for orden, jugador in enumerate(
+            equipo,
+            start=1
+        ):
+
+            equipos_salida.append(
+                {
+
+                    "perfil": nombre_perfil,
+
+                    "tipo_registro": "TITULAR",
+
+                    "orden": orden,
+
+                    "player_id": jugador[
+                        "player_id"
+                    ],
+
+                    "player_name": jugador[
+                        "player_name"
+                    ],
+
+                    "team_name": jugador[
+                        "team_name"
+                    ],
+
+                    "position": jugador[
+                        "position"
+                    ],
+
+                    "rival": jugador.get(
+                        "rival",
+                        ""
+                    ),
+
+                    "es_local": jugador.get(
+                        "es_local",
+                        ""
+                    ),
+
+                    "score_contextual": jugador[
+                        "score_contextual"
+                    ],
+
+                    "score_seleccion": jugador.get(
+                        "score_seleccion",
+                        ""
+                    ),
+
+                    "partidos_historicos": jugador[
+                        "partidos_historicos"
+                    ],
+
+                    "participaciones_ultimos_3": jugador.get(
+                        "participaciones_ultimos_3",
+                        0
+                    ),
+
+                    "titulares_ultimos_3": jugador[
+                        "titulares_ultimos_3"
+                    ],
+
+                    "promedio": jugador[
+                        "promedio"
+                    ],
+
+                    "p90": jugador[
+                        "p90"
+                    ],
+
+                    "std": jugador[
+                        "std"
+                    ],
+
+                    "factor_contexto": jugador[
+                        "factor_contexto"
+                    ],
+
+                    "factor_confianza": jugador.get(
+                        "factor_confianza",
+                        ""
+                    ),
+
+                    "score_diversidad": jugador.get(
+                        "score_diversidad",
+                        ""
+                    ),
+
+                    "veces_usado_otros_equipos": jugador.get(
+                        "veces_usado_otros_equipos",
+                        0
+                    ),
+
+                    "score_flex": "",
+
+                    "flex_repetido": "",
+
+                    "titular_mismo_equipo": "",
+
+                    "titular_otro_equipo": "",
+
+                    "veces_flex_usado": "",
+
+                    "perfil_flex": "",
+
+                    "sim_promedio_equipo": promedio_sim,
+
+                    "sim_p50_equipo": p50,
+
+                    "sim_p90_equipo": p90,
+
+                    "sim_min_equipo": minimo,
+
+                    "sim_max_equipo": maximo,
+
+                    "prob_100": prob_100,
+
+                    "prob_140": prob_140,
+                }
+            )
+
+        # ----------------------------------------------------
+        # GUARDAR SIMULACIONES
+        # ----------------------------------------------------
+
+        for i, valor in enumerate(
+            simulaciones
+        ):
+
+            simulaciones_salida.append(
+                {
+
+                    "perfil": nombre_perfil,
+
+                    "simulacion": i + 1,
+
+                    "puntos": valor,
+                }
+            )
+
+        # ====================================================
+        # FLEX PROPIO DE ESTE EQUIPO
+        # ====================================================
+
+        flex_equipo = construir_flex(
+
+            flex,
+
+            nombre_perfil,
+
+            jugadores_titulares_equipo=(
+                titulares_equipo
+            ),
+
+            jugadores_titulares_otros=(
+                titulares_otros_equipos
+            ),
+
+            flex_usados_global=(
+                flex_usados_global
             )
         )
 
-    else:
+        flex_por_perfil[
+            nombre_perfil
+        ] = flex_equipo
 
-        estabilidad = 0.0
+        # ----------------------------------------------------
+        # Registrar FLEX global
+        #
+        # Una vez utilizado, queda bloqueado.
+        # ----------------------------------------------------
 
-    estabilidad = min(
-        estabilidad,
-        1.0
+        for jugador in flex_equipo:
+
+            player_id = str(
+                jugador[
+                    "player_id"
+                ]
+            )
+
+            flex_usados_global.add(
+                player_id
+            )
+
+            equipos_salida.append(
+                {
+
+                    "perfil": nombre_perfil,
+
+                    "tipo_registro": "FLEX",
+
+                    "orden": 0,
+
+                    "player_id": jugador[
+                        "player_id"
+                    ],
+
+                    "player_name": jugador[
+                        "player_name"
+                    ],
+
+                    "team_name": jugador[
+                        "team_name"
+                    ],
+
+                    "position": jugador[
+                        "position"
+                    ],
+
+                    "rival": jugador.get(
+                        "rival",
+                        ""
+                    ),
+
+                    "es_local": jugador.get(
+                        "es_local",
+                        ""
+                    ),
+
+                    "score_contextual": jugador[
+                        "score_contextual"
+                    ],
+
+                    "score_seleccion": jugador.get(
+                        "score_seleccion",
+                        ""
+                    ),
+
+                    "partidos_historicos": jugador[
+                        "partidos_historicos"
+                    ],
+
+                    "participaciones_ultimos_3": jugador.get(
+                        "participaciones_ultimos_3",
+                        0
+                    ),
+
+                    "titulares_ultimos_3": jugador[
+                        "titulares_ultimos_3"
+                    ],
+
+                    "promedio": jugador[
+                        "promedio"
+                    ],
+
+                    "p90": jugador[
+                        "p90"
+                    ],
+
+                    "std": jugador[
+                        "std"
+                    ],
+
+                    "factor_contexto": jugador[
+                        "factor_contexto"
+                    ],
+
+                    "factor_confianza": jugador.get(
+                        "factor_confianza",
+                        ""
+                    ),
+
+                    "score_diversidad": "",
+
+                    "veces_usado_otros_equipos": "",
+
+                    "score_flex": jugador.get(
+                        "score_flex",
+                        ""
+                    ),
+
+                    "flex_repetido": False,
+
+                    "titular_mismo_equipo": jugador.get(
+                        "titular_mismo_equipo",
+                        False
+                    ),
+
+                    "titular_otro_equipo": jugador.get(
+                        "titular_otro_equipo",
+                        False
+                    ),
+
+                    "veces_flex_usado": 0,
+
+                    "perfil_flex": jugador.get(
+                        "perfil_flex",
+                        nombre_perfil
+                    ),
+
+                    "sim_promedio_equipo": "",
+
+                    "sim_p50_equipo": "",
+
+                    "sim_p90_equipo": "",
+
+                    "sim_min_equipo": "",
+
+                    "sim_max_equipo": "",
+
+                    "prob_100": "",
+
+                    "prob_140": "",
+                }
+            )
+
+    # --------------------------------------------------------
+    # GUARDAR CSV TÉCNICO
+    # --------------------------------------------------------
+
+    df_equipos = pd.DataFrame(
+        equipos_salida
+    )
+
+    df_equipos.to_csv(
+        SALIDA_EQUIPOS,
+        index=False,
+        encoding="utf-8-sig"
     )
 
     # --------------------------------------------------------
-    # SCORES
+    # EXPORTACIÓN LIMPIA PARA EXCEL
     # --------------------------------------------------------
 
-    score_seguro = (
-        ponderado_reciente * 0.35
-        + promedio * 0.25
-        + forma_reciente * 0.15
-        + minimo * 0.10
-        + promedio_por90 * 0.05
-        + estabilidad * 0.05
-        + confianza * 0.05
-    )
+    columnas_excel = {
 
-    score_intermedio = (
-        ponderado_reciente * 0.35
-        + promedio * 0.25
-        + forma_reciente * 0.15
-        + maximo * 0.10
-        + minimo * 0.05
-        + promedio_por90 * 0.05
-        + confianza * 0.05
-    )
+        "perfil": "Perfil",
 
-    score_arriesgado = (
-        maximo * 0.35
-        + ponderado_reciente * 0.25
-        + promedio_por90 * 0.15
-        + promedio * 0.10
-        + forma_reciente * 0.10
-        + confianza * 0.05
-    )
+        "tipo_registro": "Tipo",
 
-    # --------------------------------------------------------
-    # POSICIÓN
-    # --------------------------------------------------------
+        "orden": "Orden",
 
-    posiciones = (
-        grupo_club[
-            "position"
-        ]
-        .dropna()
-        .mode()
-    )
+        "position": "Posición",
 
-    if len(posiciones):
+        "player_name": "Jugador",
 
-        posicion = posiciones.iloc[0]
+        "team_name": "Club",
 
-    else:
+        "rival": "Rival",
 
-        posicion = ""
+        "es_local": "Local",
 
-    registros.append({
-        "player_id": player_id,
-        "player_name": fila_fecha10.iloc[0]["player_name"],
-        "team_name": club_fecha10,
-        "position": posicion,
-        "partidos_previos": partidos,
-        "titularidades_ultimos_3": titularidades_ultimos_3,
-        "partidos_ultimos_3": cantidad_ultimos_3,
-        "forma_reciente": forma_reciente,
-        "ponderado_reciente": ponderado_reciente,
-        "promedio": promedio,
-        "promedio_por90": promedio_por90,
-        "desviacion": desviacion,
-        "minimo": minimo,
-        "maximo": maximo,
-        "confianza_muestra": confianza,
-        "estabilidad": estabilidad,
-        "score_seguro": score_seguro,
-        "score_intermedio": score_intermedio,
-        "score_arriesgado": score_arriesgado,
-    })
+        "score_contextual": "Score",
 
+        "score_seleccion": "Score selección",
 
-candidatos = pd.DataFrame(
-    registros
-)
+        "partidos_historicos": "Historial",
 
+        "participaciones_ultimos_3": "Participaciones últimos 3",
 
-# ============================================================
-# FILTROS
-# ============================================================
+        "titulares_ultimos_3": "Titulares últimos 3",
 
-candidatos["cumple_titularidad"] = (
-    (
-        candidatos[
-            "partidos_ultimos_3"
-        ] >= 3
-    )
-    &
-    (
-        candidatos[
-            "titularidades_ultimos_3"
-        ] >= MIN_TITULARIDADES_ULTIMOS_3
-    )
-)
+        "promedio": "Promedio",
 
-candidatos["cumple_muestra"] = (
-    candidatos[
-        "partidos_previos"
-    ] >= MIN_PARTIDOS_PRINCIPALES
-)
+        "p90": "P90",
 
-candidatos_principales = candidatos[
-    candidatos["cumple_titularidad"]
-    &
-    candidatos["cumple_muestra"]
-].copy()
+        "factor_contexto": "Factor contexto",
 
-candidatos_secundarios = candidatos[
-    candidatos["cumple_titularidad"]
-    &
-    (
-        candidatos[
-            "partidos_previos"
-        ] >= 6
-    )
-].copy()
+        "factor_confianza": "Factor confianza",
 
+        "score_diversidad": "Score diversidad",
 
-print()
-print("=" * 80)
-print("FILTROS DE ELEGIBILIDAD")
-print("=" * 80)
+        "veces_usado_otros_equipos": (
+            "Usado en otros equipos"
+        ),
 
-print(
-    f"Candidatos totales: "
-    f"{len(candidatos)}"
-)
+        "score_flex": "Score FLEX",
 
-print(
-    f"Cumplen titularidad reciente: "
-    f"{int(candidatos['cumple_titularidad'].sum())}"
-)
+        "flex_repetido": "FLEX repetido",
 
-print(
-    f"Cumplen mínimo "
-    f"{MIN_PARTIDOS_PRINCIPALES} partidos: "
-    f"{int(candidatos['cumple_muestra'].sum())}"
-)
+        "veces_flex_usado": "FLEX usado antes",
 
-print(
-    f"Candidatos principales: "
-    f"{len(candidatos_principales)}"
-)
+        "titular_mismo_equipo": (
+            "Titular mismo equipo"
+        ),
 
-print(
-    f"Candidatos secundarios/FLEX: "
-    f"{len(candidatos_secundarios)}"
-)
+        "titular_otro_equipo": (
+            "Titular otro equipo"
+        ),
 
-print()
-print("POSICIONES CANDIDATOS PRINCIPALES:")
-print(
-    candidatos_principales[
-        "position"
-    ].value_counts().to_string()
-)
+        "sim_promedio_equipo": "Sim promedio",
 
+        "sim_p50_equipo": "Sim P50",
 
-# ============================================================
-# GENERAR EQUIPOS
-# ============================================================
+        "sim_p90_equipo": "Sim P90",
 
-perfiles = {
-    "SEGURO": "score_seguro",
-    "INTERMEDIO": "score_intermedio",
-    "ARRIESGADO": "score_arriesgado",
-}
+        "sim_min_equipo": "Sim mínimo",
 
-resultados_equipos = []
-resultados_simulaciones = []
-resultados_reales = []
+        "sim_max_equipo": "Sim máximo",
 
+        "prob_100": "Prob ≥100",
 
-for nombre_perfil, score_column in perfiles.items():
-
-    print()
-    print("=" * 80)
-    print(
-        f"PERFIL: {nombre_perfil}"
-    )
-    print("=" * 80)
-
-    equipo, clubes = construir_equipo(
-        candidatos_principales,
-        score_column
-    )
-
-    print()
-    print(
-        f"Jugadores fijos: "
-        f"{len(equipo)}"
-    )
-
-    # --------------------------------------------------------
-    # MOSTRAR EQUIPO
-    # --------------------------------------------------------
-
-    for jugador in equipo:
-
-        print(
-            f"{jugador['position']:3} | "
-            f"{jugador['player_name']:<28} | "
-            f"{jugador['team_name']:<28} | "
-            f"Hist {jugador['partidos_previos']:>2} | "
-            f"Tit3 "
-            f"{jugador['titularidades_ultimos_3']}/"
-            f"{jugador['partidos_ultimos_3']} | "
-            f"Prom "
-            f"{jugador['promedio']:.2f} | "
-            f"90 "
-            f"{jugador['promedio_por90']:.2f}"
-        )
-
-    # --------------------------------------------------------
-    # FLEX
-    # --------------------------------------------------------
-
-    flex = construir_flex(
-        candidatos_secundarios,
-        score_column,
-        clubes
-    )
-
-    print()
-    print("FLEX:")
-
-    for jugador in flex:
-
-        print(
-            f"{jugador['position']:3} | "
-            f"{jugador['player_name']:<28} | "
-            f"{jugador['team_name']:<28} | "
-            f"Hist "
-            f"{jugador['partidos_previos']:>2} | "
-            f"Tit3 "
-            f"{jugador['titularidades_ultimos_3']}/"
-            f"{jugador['partidos_ultimos_3']} | "
-            f"Prom "
-            f"{jugador['promedio']:.2f}"
-        )
-
-    # --------------------------------------------------------
-    # SIMULACIÓN
-    # --------------------------------------------------------
-
-    simulacion = simular_equipo(
-        equipo
-    )
-
-    print()
-    print("SIMULACIÓN 10.000 ITERACIONES")
-    print("-" * 80)
-
-    print(
-        f"Promedio: "
-        f"{simulacion['promedio_simulado']:.2f}"
-    )
-
-    print(
-        f"Mediana: "
-        f"{simulacion['mediana']:.2f}"
-    )
-
-    print(
-        f"P10: "
-        f"{simulacion['p10']:.2f}"
-    )
-
-    print(
-        f"P25: "
-        f"{simulacion['p25']:.2f}"
-    )
-
-    print(
-        f"P75: "
-        f"{simulacion['p75']:.2f}"
-    )
-
-    print(
-        f"P90: "
-        f"{simulacion['p90']:.2f}"
-    )
-
-    print(
-        f"Mínimo: "
-        f"{simulacion['min']:.2f}"
-    )
-
-    print(
-        f"Máximo: "
-        f"{simulacion['max']:.2f}"
-    )
-
-    print(
-        f"Probabilidad simulada >=100: "
-        f"{simulacion['prob_mas_100']:.2f}%"
-    )
-
-    print(
-        f"Probabilidad simulada >=140: "
-        f"{simulacion['prob_mas_140']:.2f}%"
-    )
-
-    # --------------------------------------------------------
-    # RESULTADO REAL
-    # --------------------------------------------------------
-
-    ids_equipo = {
-        jugador["player_id"]
-        for jugador in equipo
+        "prob_140": "Prob ≥140",
     }
 
-    reales = fecha10[
-        fecha10["player_id"].isin(
-            ids_equipo
-        )
-    ]
+    # Crear columnas que eventualmente puedan faltar
+    # para evitar errores de exportación.
+    for columna in columnas_excel.keys():
 
-    puntos_reales = float(
-        reales[
-            "winning_total"
-        ].sum()
+        if columna not in df_equipos.columns:
+
+            df_equipos[
+                columna
+            ] = ""
+
+    df_excel = df_equipos[
+        list(
+            columnas_excel.keys()
+        )
+    ].rename(
+        columns=columnas_excel
     )
+
+    # --------------------------------------------------------
+    # REDONDEO
+    # --------------------------------------------------------
+
+    for col in [
+
+        "Score",
+
+        "Score selección",
+
+        "Promedio",
+
+        "P90",
+
+        "Factor contexto",
+
+        "Factor confianza",
+
+        "Score diversidad",
+
+        "Score FLEX",
+
+        "Sim promedio",
+
+        "Sim P50",
+
+        "Sim P90",
+
+        "Sim mínimo",
+
+        "Sim máximo",
+
+    ]:
+
+        df_excel[col] = pd.to_numeric(
+            df_excel[col],
+            errors="coerce"
+        ).round(3)
+
+    # --------------------------------------------------------
+    # PROBABILIDADES
+    # --------------------------------------------------------
+
+    df_excel["Prob ≥100"] = (
+        pd.to_numeric(
+            df_excel["Prob ≥100"],
+            errors="coerce"
+        )
+        * 100
+    ).round(2)
+
+    df_excel["Prob ≥140"] = (
+        pd.to_numeric(
+            df_excel["Prob ≥140"],
+            errors="coerce"
+        )
+        * 100
+    ).round(2)
+
+    # --------------------------------------------------------
+    # GUARDAR ARCHIVO PARA EXCEL
+    # --------------------------------------------------------
+
+    df_excel.to_csv(
+        SALIDA_EQUIPOS_EXCEL,
+        index=False,
+        sep=";",
+        encoding="utf-8-sig"
+    )
+
+    # --------------------------------------------------------
+    # GUARDAR SIMULACIONES
+    # --------------------------------------------------------
+
+    pd.DataFrame(
+        simulaciones_salida
+    ).to_csv(
+        SALIDA_SIMULACIONES,
+        index=False,
+        encoding="utf-8-sig"
+    )
+
+    # ========================================================
+    # RESUMEN
+    # ========================================================
+
+    print()
+    print("=" * 70)
+    print(
+        "RESULTADO"
+    )
+    print("=" * 70)
+
+    for perfil in [
+        "SEGURO",
+        "INTERMEDIO",
+        "ARRIESGADO"
+    ]:
+
+        print()
+        print(
+            ">>>",
+            perfil
+        )
+
+        # ----------------------------------------------------
+        # TITULARES
+        # ----------------------------------------------------
+
+        print()
+        print(
+            "11 INICIAL"
+        )
+
+        datos = [
+
+            x
+            for x in equipos_salida
+
+            if (
+                x[
+                    "perfil"
+                ]
+                == perfil
+                and
+                x[
+                    "tipo_registro"
+                ]
+                == "TITULAR"
+            )
+        ]
+
+        for jugador in datos:
+
+            print(
+
+                jugador[
+                    "position"
+                ],
+
+                "|",
+
+                jugador[
+                    "player_name"
+                ],
+
+                "|",
+
+                jugador[
+                    "team_name"
+                ],
+
+                "| rival:",
+
+                jugador.get(
+                    "rival",
+                    ""
+                ),
+
+                "|",
+
+                "LOCAL"
+                if jugador.get(
+                    "es_local",
+                    False
+                )
+                else "VISITANTE",
+
+                "| score:",
+
+                round(
+                    safe_float(
+                        jugador[
+                            "score_contextual"
+                        ]
+                    ),
+                    3
+                ),
+
+                "| hist:",
+
+                jugador[
+                    "partidos_historicos"
+                ],
+
+                "| participaciones 3:",
+
+                jugador.get(
+                    "participaciones_ultimos_3",
+                    0
+                ),
+
+                "| titulares 3:",
+
+                jugador[
+                    "titulares_ultimos_3"
+                ],
+
+                "| usado antes:",
+
+                jugador.get(
+                    "veces_usado_otros_equipos",
+                    0
+                ),
+            )
+
+        if datos:
+
+            print()
+            print(
+                "Sim promedio:",
+                round(
+                    safe_float(
+                        datos[0][
+                            "sim_promedio_equipo"
+                        ]
+                    ),
+                    2
+                )
+            )
+
+            print(
+                "Sim P90:",
+                round(
+                    safe_float(
+                        datos[0][
+                            "sim_p90_equipo"
+                        ]
+                    ),
+                    2
+                )
+            )
+
+            print(
+                "Prob >=100:",
+                round(
+                    safe_float(
+                        datos[0][
+                            "prob_100"
+                        ]
+                    ) * 100,
+                    2
+                ),
+                "%"
+            )
+
+            print(
+                "Prob >=140:",
+                round(
+                    safe_float(
+                        datos[0][
+                            "prob_140"
+                        ]
+                    ) * 100,
+                    2
+                ),
+                "%"
+            )
+
+        # ----------------------------------------------------
+        # FLEX
+        # ----------------------------------------------------
+
+        print()
+        print(
+            "FLEX"
+        )
+
+        flex_equipo = (
+            flex_por_perfil.get(
+                perfil,
+                []
+            )
+        )
+
+        for jugador in flex_equipo:
+
+            print(
+
+                jugador[
+                    "position"
+                ],
+
+                "|",
+
+                jugador[
+                    "player_name"
+                ],
+
+                "|",
+
+                jugador[
+                    "team_name"
+                ],
+
+                "| rival:",
+
+                jugador.get(
+                    "rival",
+                    ""
+                ),
+
+                "|",
+
+                "LOCAL"
+                if jugador.get(
+                    "es_local",
+                    False
+                )
+                else "VISITANTE",
+
+                "| score:",
+
+                round(
+                    safe_float(
+                        jugador[
+                            "score_contextual"
+                        ]
+                    ),
+                    3
+                ),
+
+                "| score FLEX:",
+
+                round(
+                    safe_float(
+                        jugador.get(
+                            "score_flex",
+                            0
+                        )
+                    ),
+                    3
+                ),
+
+                "| hist:",
+
+                jugador[
+                    "partidos_historicos"
+                ],
+
+                "| participaciones 3:",
+
+                jugador.get(
+                    "participaciones_ultimos_3",
+                    0
+                ),
+
+                "| titulares 3:",
+
+                jugador[
+                    "titulares_ultimos_3"
+                ],
+
+                "| flex usado antes:",
+
+                jugador.get(
+                    "veces_flex_usado",
+                    0
+                ),
+
+                "| titular mismo:",
+
+                jugador.get(
+                    "titular_mismo_equipo",
+                    False
+                ),
+
+                "| titular otro:",
+
+                jugador.get(
+                    "titular_otro_equipo",
+                    False
+                ),
+            )
+
+        # ----------------------------------------------------
+        # VALIDACIÓN FLEX DEL EQUIPO
+        # ----------------------------------------------------
+
+        print()
+
+        print(
+            "Cantidad FLEX:",
+            len(
+                flex_equipo
+            )
+        )
+
+        for posicion in [
+            "DEF",
+            "VOL",
+            "DEL"
+        ]:
+
+            cantidad = len(
+                [
+                    x
+                    for x in flex_equipo
+                    if x[
+                        "position"
+                    ]
+                    == posicion
+                ]
+            )
+
+            print(
+                " ",
+                posicion,
+                ":",
+                cantidad
+            )
+
+    # ========================================================
+    # REPETICIÓN ENTRE LOS 3 EQUIPOS
+    # ========================================================
 
     print()
     print(
-        f"PUNTOS REALES FECHA 10: "
-        f"{puntos_reales:.2f}"
+        "Jugadores utilizados en más de un equipo:"
+    )
+
+    todos_los_equipos = []
+
+    for perfil in [
+        "SEGURO",
+        "INTERMEDIO",
+        "ARRIESGADO"
+    ]:
+
+        todos_los_equipos.extend(
+            equipos_generados.get(
+                perfil,
+                []
+            )
+        )
+
+    contador_jugadores = {}
+
+    for jugador in todos_los_equipos:
+
+        player_id = str(
+            jugador[
+                "player_id"
+            ]
+        )
+
+        contador_jugadores[
+            player_id
+        ] = contador_jugadores.get(
+            player_id,
+            0
+        ) + 1
+
+    repetidos = []
+
+    for player_id, cantidad in (
+        contador_jugadores.items()
+    ):
+
+        if cantidad > 1:
+
+            jugador_info = next(
+                (
+                    j
+                    for j in todos_los_equipos
+
+                    if str(
+                        j[
+                            "player_id"
+                        ]
+                    )
+                    == player_id
+                ),
+
+                None
+            )
+
+            if jugador_info:
+
+                repetidos.append(
+                    (
+                        jugador_info[
+                            "player_name"
+                        ],
+
+                        jugador_info[
+                            "team_name"
+                        ],
+
+                        cantidad
+                    )
+                )
+
+    if repetidos:
+
+        for (
+            nombre,
+            club,
+            cantidad
+        ) in sorted(
+            repetidos,
+            key=lambda x: (
+                -x[2],
+                x[0]
+            )
+        ):
+
+            print(
+                "-",
+                nombre,
+                "|",
+                club,
+                "|",
+                cantidad,
+                "equipos"
+            )
+
+    else:
+
+        print(
+            "Ningún jugador se repite."
+        )
+
+    # ========================================================
+    # REPETICIÓN ENTRE LOS FLEX
+    # ========================================================
+
+    print()
+    print(
+        "Jugadores FLEX utilizados en más de un equipo:"
+    )
+
+    contador_flex = {}
+
+    for perfil in [
+        "SEGURO",
+        "INTERMEDIO",
+        "ARRIESGADO"
+    ]:
+
+        for jugador in (
+            flex_por_perfil.get(
+                perfil,
+                []
+            )
+        ):
+
+            player_id = str(
+                jugador[
+                    "player_id"
+                ]
+            )
+
+            contador_flex[
+                player_id
+            ] = contador_flex.get(
+                player_id,
+                0
+            ) + 1
+
+    repetidos_flex = []
+
+    for player_id, cantidad in (
+        contador_flex.items()
+    ):
+
+        if cantidad > 1:
+
+            jugador_info = None
+
+            for perfil in [
+                "SEGURO",
+                "INTERMEDIO",
+                "ARRIESGADO"
+            ]:
+
+                for jugador in (
+                    flex_por_perfil.get(
+                        perfil,
+                        []
+                    )
+                ):
+
+                    if str(
+                        jugador[
+                            "player_id"
+                        ]
+                    ) == player_id:
+
+                        jugador_info = jugador
+                        break
+
+                if jugador_info:
+                    break
+
+            if jugador_info:
+
+                repetidos_flex.append(
+                    (
+                        jugador_info[
+                            "player_name"
+                        ],
+
+                        jugador_info[
+                            "team_name"
+                        ],
+
+                        cantidad
+                    )
+                )
+
+    if repetidos_flex:
+
+        for (
+            nombre,
+            club,
+            cantidad
+        ) in sorted(
+            repetidos_flex,
+            key=lambda x: (
+                -x[2],
+                x[0]
+            )
+        ):
+
+            print(
+                "-",
+                nombre,
+                "|",
+                club,
+                "|",
+                cantidad,
+                "FLEX"
+            )
+
+    else:
+
+        print(
+            "Ningún FLEX se repite."
+        )
+
+    # ========================================================
+    # RESUMEN TOTAL DE FLEX
+    # ========================================================
+
+    print()
+    print(
+        "TOTAL FLEX GENERADOS:"
+    )
+
+    total_flex = sum(
+        len(
+            flex_por_perfil.get(
+                perfil,
+                []
+            )
+        )
+
+        for perfil in [
+            "SEGURO",
+            "INTERMEDIO",
+            "ARRIESGADO"
+        ]
+    )
+
+    print(
+        total_flex,
+        "de 18 posibles"
     )
 
     # --------------------------------------------------------
-    # GUARDAR
+    # ARCHIVOS
     # --------------------------------------------------------
 
-    for jugador in equipo:
-
-        resultados_equipos.append({
-            "perfil": nombre_perfil,
-            "tipo": "FIJO",
-            **jugador
-        })
-
-    for jugador in flex:
-
-        resultados_equipos.append({
-            "perfil": nombre_perfil,
-            "tipo": "FLEX",
-            **jugador
-        })
-
-    resultados_simulaciones.append({
-        "perfil": nombre_perfil,
-        **simulacion
-    })
-
-    resultados_reales.append({
-        "perfil": nombre_perfil,
-        "puntos_reales_fecha10": puntos_reales
-    })
-
-
-# ============================================================
-# GUARDAR ARCHIVOS
-# ============================================================
-
-SALIDA_DIR.mkdir(
-    parents=True,
-    exist_ok=True
-)
-
-archivo_equipos = (
-    SALIDA_DIR
-    / "backtest_fecha10_equipos.csv"
-)
-
-archivo_simulaciones = (
-    SALIDA_DIR
-    / "backtest_fecha10_simulaciones.csv"
-)
-
-archivo_reales = (
-    SALIDA_DIR
-    / "backtest_fecha10_resultados_reales.csv"
-)
-
-
-pd.DataFrame(
-    resultados_equipos
-).to_csv(
-    archivo_equipos,
-    index=False,
-    encoding="utf-8-sig"
-)
-
-pd.DataFrame(
-    resultados_simulaciones
-).to_csv(
-    archivo_simulaciones,
-    index=False,
-    encoding="utf-8-sig"
-)
-
-pd.DataFrame(
-    resultados_reales
-).to_csv(
-    archivo_reales,
-    index=False,
-    encoding="utf-8-sig"
-)
-
-
-# ============================================================
-# RESUMEN
-# ============================================================
-
-print()
-print("=" * 80)
-print("RESUMEN FINAL")
-print("=" * 80)
-
-print()
-
-print(
-    pd.DataFrame(
-        resultados_simulaciones
-    ).to_string(
-        index=False,
-        float_format=lambda x: f"{x:.2f}"
+    print()
+    print(
+        "Archivos generados:"
     )
-)
 
-print()
-print("PUNTOS REALES FECHA 10")
-print("-" * 80)
-
-print(
-    pd.DataFrame(
-        resultados_reales
-    ).to_string(
-        index=False,
-        float_format=lambda x: f"{x:.2f}"
+    print(
+        "-",
+        SALIDA_CANDIDATOS
     )
-)
 
-print()
-print("Archivos generados:")
-print(archivo_equipos)
-print(archivo_simulaciones)
-print(archivo_reales)
+    print(
+        "-",
+        SALIDA_EQUIPOS
+    )
 
-print()
-print("=" * 80)
-print("BACKTEST FINALIZADO")
-print("=" * 80)
+    print(
+        "-",
+        SALIDA_EQUIPOS_EXCEL
+    )
+
+    print(
+        "-",
+        SALIDA_SIMULACIONES
+    )
+
+
+if __name__ == "__main__":
+
+    main()
