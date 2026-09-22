@@ -1,6 +1,7 @@
 import json
 import csv
 from pathlib import Path
+from collections import defaultdict
 
 
 # ============================================================
@@ -12,6 +13,7 @@ DATOS_DIR = BASE_DIR / "datos"
 PITCHAPI_DIR = DATOS_DIR / "pitchapi"
 
 OUTPUT_FILE = DATOS_DIR / "dataset_winning_pitchapi.csv"
+POSICIONES_FILE = DATOS_DIR / "posiciones_finales_jugadores.csv"
 
 
 # ============================================================
@@ -24,6 +26,19 @@ def cargar_json(path):
             return json.load(f)
     except Exception:
         return None
+
+
+def cargar_csv(path):
+    try:
+        with open(
+            path,
+            "r",
+            encoding="utf-8-sig",
+            newline=""
+        ) as f:
+            return list(csv.DictReader(f))
+    except Exception:
+        return []
 
 
 def normalizar_numero(valor):
@@ -40,6 +55,43 @@ def archivos_por_sufijo(sufijo):
     return sorted(
         PITCHAPI_DIR.glob(f"*{sufijo}")
     )
+
+
+# ============================================================
+# POSICIONES FINALES
+# ============================================================
+
+print()
+print("=" * 100)
+print("CARGANDO POSICIONES FINALES")
+print("=" * 100)
+print()
+
+posiciones_por_jugador = {}
+
+filas_posiciones = cargar_csv(
+    POSICIONES_FILE
+)
+
+for fila in filas_posiciones:
+
+    player_id = fila.get(
+        "player_id"
+    )
+
+    posicion = fila.get(
+        "posicion_final"
+    )
+
+    if player_id and posicion:
+
+        posiciones_por_jugador[player_id] = posicion
+
+
+print(
+    f"Jugadores con posición: "
+    f"{len(posiciones_por_jugador)}"
+)
 
 
 # ============================================================
@@ -228,7 +280,8 @@ for archivo in archivos_players:
 
 
 print(
-    f"Archivos players: {len(players_por_partido)}"
+    f"Archivos players: "
+    f"{len(players_por_partido)}"
 )
 
 
@@ -280,7 +333,8 @@ for archivo in archivos_advanced:
 
 
 print(
-    f"Archivos advanced: {len(advanced_por_partido)}"
+    f"Archivos advanced: "
+    f"{len(advanced_por_partido)}"
 )
 
 
@@ -312,17 +366,18 @@ for archivo in archivos_events:
         ""
     )
 
-    eventos = data.get(
+    contenido = data.get(
         "data",
-        []
+        {}
     )
 
-    if isinstance(eventos, dict):
+    if not isinstance(contenido, dict):
+        continue
 
-        eventos = eventos.get(
-            "events",
-            []
-        )
+    eventos = contenido.get(
+        "events",
+        []
+    )
 
     if not isinstance(eventos, list):
         eventos = []
@@ -331,7 +386,8 @@ for archivo in archivos_events:
 
 
 print(
-    f"Archivos events: {len(events_por_partido)}"
+    f"Archivos events: "
+    f"{len(events_por_partido)}"
 )
 
 
@@ -358,6 +414,608 @@ def indexar_advanced(jugadores):
             resultado[player_id] = jugador
 
     return resultado
+
+
+# ============================================================
+# INFORMACIÓN DE EVENTS
+# ============================================================
+
+def minuto_evento(evento):
+
+    minuto = normalizar_numero(
+        evento.get("minute")
+    )
+
+    agregado = normalizar_numero(
+        evento.get("minute_added")
+    )
+
+    return minuto + (
+        agregado / 100.0
+    )
+
+
+def ordenar_eventos(eventos):
+
+    return sorted(
+        eventos,
+        key=minuto_evento
+    )
+
+
+def construir_info_eventos(
+    eventos,
+    partido,
+    players
+):
+
+    eventos_ordenados = ordenar_eventos(
+        eventos
+    )
+
+    # --------------------------------------------------------
+    # Equipos
+    # --------------------------------------------------------
+
+    home_team = partido.get(
+        "home_team",
+        {}
+    )
+
+    away_team = partido.get(
+        "away_team",
+        {}
+    )
+
+    home_id = home_team.get("id")
+    away_id = away_team.get("id")
+
+    # --------------------------------------------------------
+    # Jugadores por equipo
+    # --------------------------------------------------------
+
+    jugadores_por_equipo = defaultdict(set)
+
+    for player in players:
+
+        player_id = (
+            player.get("player", {})
+            .get("id")
+        )
+
+        team_id = player.get(
+            "team_id"
+        )
+
+        if player_id and team_id:
+
+            jugadores_por_equipo[
+                team_id
+            ].add(player_id)
+
+    # --------------------------------------------------------
+    # Sustituciones
+    # --------------------------------------------------------
+
+    sustituciones_entrada = {}
+
+    sustituciones_salida = {}
+
+    for evento in eventos_ordenados:
+
+        if evento.get(
+            "event_type"
+        ) != "substitution":
+
+            continue
+
+        sale = evento.get(
+            "player",
+            {}
+        )
+
+        entra = evento.get(
+            "sub_in_player",
+            {}
+        )
+
+        sale_id = sale.get("id")
+        entra_id = entra.get("id")
+
+        minuto = minuto_evento(
+            evento
+        )
+
+        if sale_id:
+
+            sustituciones_salida.setdefault(
+                sale_id,
+                []
+            ).append(
+                minuto
+            )
+
+        if entra_id:
+
+            sustituciones_entrada.setdefault(
+                entra_id,
+                []
+            ).append(
+                minuto
+            )
+
+    # --------------------------------------------------------
+    # Amarillas / rojas
+    # --------------------------------------------------------
+
+    amarillas_por_jugador = defaultdict(int)
+
+    rojas_por_jugador = defaultdict(int)
+
+    rojas_directas_por_jugador = defaultdict(int)
+
+    segunda_amarilla_por_jugador = defaultdict(int)
+
+    for evento in eventos_ordenados:
+
+        tipo = evento.get(
+            "event_type"
+        )
+
+        jugador = evento.get(
+            "player",
+            {}
+        )
+
+        player_id = jugador.get(
+            "id"
+        )
+
+        if not player_id:
+            continue
+
+        if tipo == "yellowcard":
+
+            amarillas_por_jugador[
+                player_id
+            ] += 1
+
+        elif tipo == "redcard":
+
+            rojas_por_jugador[
+                player_id
+            ] += 1
+
+    # --------------------------------------------------------
+    # Determinar segunda amarilla
+    #
+    # Si un jugador recibe roja y previamente recibió
+    # amarilla, tratamos la expulsión como segunda amarilla.
+    # --------------------------------------------------------
+
+    amarillas_acumuladas = defaultdict(int)
+
+    for evento in eventos_ordenados:
+
+        tipo = evento.get(
+            "event_type"
+        )
+
+        jugador = evento.get(
+            "player",
+            {}
+        )
+
+        player_id = jugador.get(
+            "id"
+        )
+
+        if not player_id:
+            continue
+
+        if tipo == "yellowcard":
+
+            amarillas_acumuladas[
+                player_id
+            ] += 1
+
+        elif tipo == "redcard":
+
+            if amarillas_acumuladas[
+                player_id
+            ] >= 1:
+
+                segunda_amarilla_por_jugador[
+                    player_id
+                ] += 1
+
+            else:
+
+                rojas_directas_por_jugador[
+                    player_id
+                ] += 1
+
+    # --------------------------------------------------------
+    # Goles
+    #
+    # PitchAPI PLAYERS es la fuente principal para la cantidad
+    # total de goles del jugador.
+    #
+    # EVENTS se utiliza como complemento para identificar
+    # autogoles y goles de penal cuando esa información existe.
+    #
+    # Esto evita perder goles cuando EVENTS no contiene todos
+    # los eventos de gol del partido.
+    # --------------------------------------------------------
+
+    goles_por_jugador = defaultdict(int)
+    autogoles_por_jugador = defaultdict(int)
+    goles_penal_por_jugador = defaultdict(int)
+
+    # --------------------------------------------------------
+    # 1. Goles desde PLAYERS
+    # --------------------------------------------------------
+
+    for player in players:
+
+        player_id = player.get(
+            "player",
+            {}
+        ).get(
+            "id"
+        )
+
+        if not player_id:
+            continue
+
+        goals = stat_value(
+            player,
+            "goals",
+            "Goals"
+        )
+
+        if goals is None:
+            goals = 0
+
+        goals = int(
+            normalizar_numero(
+                goals
+            )
+        )
+
+        if goals > 0:
+
+            goles_por_jugador[
+                player_id
+            ] += goals
+
+    # --------------------------------------------------------
+    # 2. Información adicional desde EVENTS
+    #
+    # Si EVENTS informa que un gol fue penal o autogol,
+    # guardamos esa clasificación.
+    #
+    # NO usamos EVENTS para determinar cuántos goles hizo
+    # el jugador, porque puede estar incompleto.
+    # --------------------------------------------------------
+
+    for evento in eventos_ordenados:
+
+        if evento.get(
+            "event_type"
+        ) != "goal":
+
+            continue
+
+        jugador = evento.get(
+            "player",
+            {}
+        )
+
+        player_id = jugador.get(
+            "id"
+        )
+
+        if not player_id:
+            continue
+
+        if evento.get(
+            "is_own_goal",
+            False
+        ):
+
+            autogoles_por_jugador[
+                player_id
+            ] += 1
+
+        elif evento.get(
+            "is_penalty",
+            False
+        ):
+
+            goles_penal_por_jugador[
+                player_id
+            ] += 1
+
+    # --------------------------------------------------------
+    # 3. Evitar que las clasificaciones de EVENTS superen
+    #    la cantidad real de goles registrada por PLAYERS.
+    # --------------------------------------------------------
+
+    for player_id in list(
+        goles_penal_por_jugador.keys()
+    ):
+
+        goles_penal_por_jugador[
+            player_id
+        ] = min(
+            goles_penal_por_jugador[
+                player_id
+            ],
+            goles_por_jugador.get(
+                player_id,
+                0
+            )
+        )
+
+    # --------------------------------------------------------
+    # GOLES DEL PARTIDO
+    #
+    # Los usamos para determinar el resultado del equipo
+    # mientras cada jugador estaba en cancha.
+    # --------------------------------------------------------
+
+    goles_equipo_en_cancha = defaultdict(
+        float
+    )
+
+    # --------------------------------------------------------
+    # Jugadores activos al comienzo
+    #
+    # Un jugador que tiene minutos > 0 y no aparece como
+    # entrada de sustitución se considera titular.
+    # --------------------------------------------------------
+
+    activos = defaultdict(set)
+
+    for player in players:
+
+        player_info = player.get(
+            "player",
+            {}
+        )
+
+        player_id = player_info.get(
+            "id"
+        )
+
+        team_id = player.get(
+            "team_id"
+        )
+
+        if not player_id or not team_id:
+            continue
+
+        minutos = stat_value(
+            player,
+            "minutes_played",
+            "Minutes played"
+        )
+
+        minutos = normalizar_numero(
+            minutos
+        )
+
+        if minutos <= 0:
+            continue
+
+        if player_id not in sustituciones_entrada:
+
+            activos[
+                team_id
+            ].add(
+                player_id
+            )
+
+    # --------------------------------------------------------
+    # Bonus de resultado por jugador
+    #
+    # +1 por gol de su equipo mientras está en cancha
+    # -0.5 por gol recibido mientras está en cancha
+    # máximo ±3
+    # --------------------------------------------------------
+
+    bonus_resultado_jugador = defaultdict(
+        float
+    )
+
+    for evento in eventos_ordenados:
+
+        tipo = evento.get(
+            "event_type"
+        )
+
+        team_id = evento.get(
+            "team_id"
+        )
+
+        # ----------------------------------------------------
+        # Sustitución
+        # ----------------------------------------------------
+
+        if tipo == "substitution":
+
+            sale = evento.get(
+                "player",
+                {}
+            )
+
+            entra = evento.get(
+                "sub_in_player",
+                {}
+            )
+
+            sale_id = sale.get("id")
+            entra_id = entra.get("id")
+
+            if sale_id:
+
+                activos[
+                    team_id
+                ].discard(
+                    sale_id
+                )
+
+            if entra_id:
+
+                activos[
+                    team_id
+                ].add(
+                    entra_id
+                )
+
+            continue
+
+        # ----------------------------------------------------
+        # Gol
+        # ----------------------------------------------------
+
+        if tipo != "goal":
+            continue
+
+        if team_id not in (
+            home_id,
+            away_id
+        ):
+            continue
+
+        # Para un autogol, el team_id representa el equipo
+        # beneficiado por el gol. Por eso, para el bonus de
+        # resultado usamos el equipo que figura en el evento.
+        equipo_goleador = team_id
+
+        if equipo_goleador == home_id:
+
+            equipo_recibe = away_id
+
+        else:
+
+            equipo_recibe = home_id
+
+        # ----------------------------------------------------
+        # Gol a favor
+        # ----------------------------------------------------
+
+        for player_id in list(
+            activos[equipo_goleador]
+        ):
+
+            bonus_resultado_jugador[
+                player_id
+            ] += 1.0
+
+        # ----------------------------------------------------
+        # Gol en contra
+        # ----------------------------------------------------
+
+        for player_id in list(
+            activos[equipo_recibe]
+        ):
+
+            bonus_resultado_jugador[
+                player_id
+            ] -= 0.5
+
+    # --------------------------------------------------------
+    # Limitar bonus ±3
+    # --------------------------------------------------------
+
+    for player_id in list(
+        bonus_resultado_jugador.keys()
+    ):
+
+        bonus_resultado_jugador[
+            player_id
+        ] = max(
+            -3.0,
+            min(
+                3.0,
+                bonus_resultado_jugador[
+                    player_id
+                ]
+            )
+        )
+
+    # --------------------------------------------------------
+    # Puntos por goles
+    # --------------------------------------------------------
+
+    goles_asistencias_por_jugador = defaultdict(
+        float
+    )
+
+    for player_id, cantidad in goles_por_jugador.items():
+
+        penales = goles_penal_por_jugador.get(
+            player_id,
+            0
+        )
+
+        goles_normales = (
+            cantidad
+            - penales
+        )
+
+        puntos = (
+            goles_normales * 6.0
+            + penales * 4.5
+        )
+
+        goles_asistencias_por_jugador[
+            player_id
+        ] += puntos
+
+    # --------------------------------------------------------
+    # Autogoles
+    # --------------------------------------------------------
+
+    for player_id, cantidad in autogoles_por_jugador.items():
+
+        goles_asistencias_por_jugador[
+            player_id
+        ] -= (
+            cantidad * 6.0
+        )
+
+    return {
+        "goles": goles_por_jugador,
+        "autogoles": autogoles_por_jugador,
+        "goles_penal": goles_penal_por_jugador,
+
+        "goles_asistencias":
+            goles_asistencias_por_jugador,
+
+        "amarillas":
+            amarillas_por_jugador,
+
+        "rojas":
+            rojas_por_jugador,
+
+        "rojas_directas":
+            rojas_directas_por_jugador,
+
+        "segunda_amarilla":
+            segunda_amarilla_por_jugador,
+
+        "bonus_resultado":
+            bonus_resultado_jugador,
+
+        "sustituciones_entrada":
+            sustituciones_entrada,
+
+        "sustituciones_salida":
+            sustituciones_salida
+    }
 
 
 # ============================================================
@@ -485,6 +1143,17 @@ for match_id, partido in partidos.items():
         advanced_players
     )
 
+    eventos = events_por_partido.get(
+        match_id,
+        []
+    )
+
+    info_eventos = construir_info_eventos(
+        eventos,
+        partido,
+        players
+    )
+
     for player in players:
 
         player_info = player.get(
@@ -511,16 +1180,6 @@ for match_id, partido in partidos.items():
         # ====================================================
         # MINUTOS
         # ====================================================
-        #
-        # IMPORTANTE:
-        # Los minutos NO están en:
-        #
-        # player["minutes_played"]
-        #
-        # Están en:
-        #
-        # stats -> Minutes played -> stat -> value
-        #
 
         minutes = stat_value(
             player,
@@ -543,13 +1202,15 @@ for match_id, partido in partidos.items():
             continue
 
         # ====================================================
-        # POSICIÓN
+        # POSICIÓN FINAL
         # ====================================================
-        #
-        # Se incorporará desde SofaScore.
-        #
 
-        position = None
+        position = posiciones_por_jugador.get(
+            player_id
+        )
+
+        if position is None:
+            position = "REVISAR"
 
         # ====================================================
         # ADVANCED
@@ -611,7 +1272,21 @@ for match_id, partido in partidos.items():
         # ÚLTIMO TERCIO
         # ====================================================
 
-        puntos_ultimo_tercio = 0.0
+        touches_final_third = stat_value(
+            player,
+            "touches_final_third",
+            "Touches in final third",
+            "Touches in attacking third"
+        )
+
+        if touches_final_third is None:
+            touches_final_third = 0
+
+        puntos_ultimo_tercio = (
+            normalizar_numero(
+                touches_final_third
+            ) * 0.02
+        )
 
         # ====================================================
         # CARRERAS PROGRESIVAS
@@ -715,9 +1390,53 @@ for match_id, partido in partidos.items():
 
         # ====================================================
         # EXCESO DE PÉRDIDAS
+        #
+        # Se aplica sobre pérdidas de posesión:
+        # DEL >12
+        # VOL >8
+        # DEF >11
+        # ARQ sin penalización
         # ====================================================
 
-        puntos_exceso_perdidas = 0.0
+        if position == "DEL":
+
+            limite_perdidas = 12
+
+        elif position == "VOL":
+
+            limite_perdidas = 8
+
+        elif position == "DEF":
+
+            limite_perdidas = 11
+
+        else:
+
+            limite_perdidas = None
+
+        if limite_perdidas is None:
+
+            puntos_exceso_perdidas = 0.0
+
+            exceso_perdidas = 0
+
+        else:
+
+            perdidas_totales = (
+                miscontrols
+                + dispossessed
+            )
+
+            exceso_perdidas = max(
+                0,
+                perdidas_totales
+                - limite_perdidas
+            )
+
+            puntos_exceso_perdidas = (
+                exceso_perdidas
+                * -0.15
+            )
 
         # ====================================================
         # PASES
@@ -839,7 +1558,7 @@ for match_id, partido in partidos.items():
             )
         )
 
-        if position == "G":
+        if position == "ARQ":
 
             puntos_pases += (
                 long_balls_accurate
@@ -912,6 +1631,19 @@ for match_id, partido in partidos.items():
             )
         )
 
+        # ----------------------------------------------------
+        # ASISTENCIAS
+        #
+        # PitchAPI PLAYERS:
+        # assists = asistencias
+        #
+        # Winning:
+        # +3 puntos por asistencia.
+        #
+        # No diferenciamos entre asistencia intencional
+        # y no intencional.
+        # ----------------------------------------------------
+
         assists = stat_value(
             player,
             "assists",
@@ -924,6 +1656,33 @@ for match_id, partido in partidos.items():
         assists = normalizar_numero(
             assists
         )
+
+        # ----------------------------------------------------
+        # PRE-ASISTENCIAS
+        #
+        # PitchAPI ADVANCED:
+        # creation.second_assists
+        #
+        # Criterio confirmado para WINNING AI:
+        # second_assists = pre-asistencia
+        #
+        # Winning:
+        # +2 puntos por pre-asistencia.
+        # ----------------------------------------------------
+
+        second_assists = normalizar_numero(
+            creation.get(
+                "second_assists"
+            )
+        )
+
+        # ----------------------------------------------------
+        # PASES CLAVE SIN ASISTENCIA
+        #
+        # Las asistencias no vuelven a contar como pase clave.
+        # second_assists NO se resta de chances_created porque
+        # no es una asistencia normal.
+        # ----------------------------------------------------
 
         pases_clave_sin_asistencia = max(
             0,
@@ -1142,13 +1901,105 @@ for match_id, partido in partidos.items():
         if saved_penalties is None:
             saved_penalties = 0
 
-        puntos_arquero = 0.0
+        puntos_arquero = (
+            normalizar_numero(
+                saves
+            )
+            * 0.20
+        )
+
+        puntos_arquero += (
+            normalizar_numero(
+                saved_penalties
+            )
+            * 4.00
+        )
 
         # ====================================================
         # GOLES / ASISTENCIAS
+        #
+        # Goles:
+        #   normal        +6.0
+        #   penal         +4.5
+        #   autogol       -6.0
+        #
+        # Asistencias:
+        #   asistencia    +3.0
+        #
+        # Pre-asistencias:
+        #   second_assists +2.0
+        #
+        # Las asistencias y pre-asistencias se calculan aquí
+        # porque tenemos acceso tanto a PLAYERS como a ADVANCED.
         # ====================================================
 
-        goles_asistencias = 0.0
+        goles_asistencias = (
+            info_eventos[
+                "goles_asistencias"
+            ].get(
+                player_id,
+                0.0
+            )
+        )
+
+        puntos_asistencias = (
+            assists * 3.0
+        )
+
+        puntos_pre_asistencias = (
+            second_assists * 2.0
+        )
+
+        goles_asistencias += (
+            puntos_asistencias
+            + puntos_pre_asistencias
+        )
+
+        # ====================================================
+        # DISCIPLINA
+        # ====================================================
+
+        amarillas = (
+            info_eventos[
+                "amarillas"
+            ].get(
+                player_id,
+                0
+            )
+        )
+
+        segunda_amarilla = (
+            info_eventos[
+                "segunda_amarilla"
+            ].get(
+                player_id,
+                0
+            )
+        )
+
+        rojas_directas = (
+            info_eventos[
+                "rojas_directas"
+            ].get(
+                player_id,
+                0
+            )
+        )
+
+        puntos_disciplina = (
+            amarillas * -1.0
+        )
+
+        puntos_disciplina += (
+            segunda_amarilla * -2.0
+        )
+
+        puntos_disciplina += (
+            rojas_directas * -3.0
+        )
+
+        # La segunda amarilla ya recibió -1 por la amarilla
+        # y agrega -2 para completar -3.
 
         # ====================================================
         # RESULTADO
@@ -1161,6 +2012,19 @@ for match_id, partido in partidos.items():
         ) = obtener_resultado(
             partido,
             team_id
+        )
+
+        # ====================================================
+        # BONUS DE RESULTADO DEL JUGADOR
+        # ====================================================
+
+        bonus_resultado_jugador = (
+            info_eventos[
+                "bonus_resultado"
+            ].get(
+                player_id,
+                0.0
+            )
         )
 
         # ====================================================
@@ -1178,7 +2042,7 @@ for match_id, partido in partidos.items():
                 minutes / 90.0
             )
 
-            if position == "D":
+            if position == "DEF":
 
                 if goles_contra == 0:
 
@@ -1191,7 +2055,7 @@ for match_id, partido in partidos.items():
                     * 0.5
                 )
 
-            elif position == "G":
+            elif position == "ARQ":
 
                 if goles_contra == 0:
 
@@ -1222,7 +2086,9 @@ for match_id, partido in partidos.items():
             + puntos_defensa
             + puntos_arquero
             + goles_asistencias
+            + puntos_disciplina
             + resultado_puntos
+            + bonus_resultado_jugador
             + puntos_valla
         )
 
@@ -1343,8 +2209,18 @@ for match_id, partido in partidos.items():
                 4
             ),
 
+            "disciplina": round(
+                puntos_disciplina,
+                4
+            ),
+
             "resultado_puntos": round(
                 resultado_puntos,
+                4
+            ),
+
+            "bonus_resultado_jugador": round(
+                bonus_resultado_jugador,
                 4
             ),
 
@@ -1399,12 +2275,17 @@ for match_id, partido in partidos.items():
             "shots_on_target": shots_on_target,
             "goals": goals,
             "assists": assists,
+            "second_assists": second_assists,
             "chances_created": chances_created,
 
             "saves": saves,
             "saved_penalties": saved_penalties,
 
             "goals_conceded": goles_contra,
+
+            "yellow_cards": amarillas,
+            "second_yellow": segunda_amarilla,
+            "red_cards_direct": rojas_directas,
 
             "match_finished":
                 partido_finalizado
@@ -1490,11 +2371,15 @@ for r in ordenados[:20]:
     print(
         f"{r['player_name']:<30} "
         f"{r['team_name']:<28} "
+        f"{r['position']:<6} "
         f"min={r['minutes_played']:>5.0f} "
         f"pases={r['pases']:>6.2f} "
         f"peligro={r['peligro_creado']:>6.2f} "
         f"defensa={r['defensa']:>6.2f} "
-        f"resultado={r['resultado_puntos']:>4.1f} "
+        f"g/a={r['goles_asistencias']:>5.2f} "
+        f"disc={r['disciplina']:>5.2f} "
+        f"res={r['resultado_puntos']:>4.1f} "
+        f"bonus={r['bonus_resultado_jugador']:>4.1f} "
         f"TOTAL={r['winning_total']:>6.2f}"
     )
 

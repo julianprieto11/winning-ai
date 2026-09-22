@@ -1,19 +1,45 @@
 import json
 import glob
 import os
-import csv
-from collections import defaultdict
+import pandas as pd
 
 LINEUPS_DIR = "datos/pitchapi/lineups"
 MATCHES_DIR = "datos/pitchapi/matches"
 SALIDA = "datos/historial_posiciones_pitchapi.csv"
 
-print("=" * 70)
-print("ANALISIS CRONOLOGICO DE POSICIONES PITCHAPI")
-print("=" * 70)
 
 # ============================================================
-# 1. CARGAR FECHAS DE LOS PARTIDOS
+# FUNCION PARA CONVERTIR VALORES COMPLEJOS A TEXTO
+# ============================================================
+
+def limpiar_valor(valor):
+
+    if isinstance(valor, dict):
+        # Intentamos obtener un nombre si PitchAPI devuelve
+        # un objeto en lugar de un texto.
+        if "name" in valor:
+            return str(valor["name"])
+
+        return json.dumps(
+            valor,
+            ensure_ascii=False,
+            sort_keys=True
+        )
+
+    if isinstance(valor, list):
+        return json.dumps(
+            valor,
+            ensure_ascii=False
+        )
+
+    if pd.isna(valor):
+        return ""
+
+    return str(valor)
+
+
+# ============================================================
+# FECHAS DE LOS PARTIDOS
 # ============================================================
 
 fechas_partidos = {}
@@ -22,12 +48,15 @@ archivos_matches = glob.glob(
     os.path.join(MATCHES_DIR, "*.json")
 )
 
-print()
-print("Cargando fechas de partidos...")
-
 for archivo in archivos_matches:
+
     try:
-        with open(archivo, "r", encoding="utf-8") as f:
+
+        with open(
+            archivo,
+            "r",
+            encoding="utf-8"
+        ) as f:
             data = json.load(f)
 
         root = data.get("data", data)
@@ -45,47 +74,45 @@ for archivo in archivos_matches:
         hora = root.get("time_utc")
 
         if fecha:
-            fechas_partidos[match_id] = {
-                "date": fecha,
-                "time_utc": hora or ""
+
+            fechas_partidos[str(match_id)] = {
+                "date": limpiar_valor(fecha),
+                "time_utc": limpiar_valor(hora)
             }
 
     except Exception:
         continue
 
-print("Partidos con fecha encontrada:", len(fechas_partidos))
 
 # ============================================================
-# 2. LEER LINEUPS
+# LEER LINEUPS
 # ============================================================
-
-archivos_lineups = glob.glob(
-    os.path.join(LINEUPS_DIR, "*_lineups.json")
-)
-
-print("Archivos de lineups:", len(archivos_lineups))
 
 registros = []
+
+archivos_lineups = glob.glob(
+    os.path.join(
+        LINEUPS_DIR,
+        "*_lineups.json"
+    )
+)
+
+print(f"Lineups encontrados: {len(archivos_lineups)}")
+
 
 for archivo in archivos_lineups:
 
     try:
-        with open(archivo, "r", encoding="utf-8") as f:
+
+        with open(
+            archivo,
+            "r",
+            encoding="utf-8"
+        ) as f:
             raw = json.load(f)
+
     except Exception:
         continue
-
-    # Los lineups tienen la estructura:
-    #
-    # {
-    #     "data": {
-    #         "match_id": "...",
-    #         "home_team": "...",
-    #         "away_team": "...",
-    #         "home": {...},
-    #         "away": {...}
-    #     }
-    # }
 
     data = raw.get("data", raw)
 
@@ -95,13 +122,31 @@ for archivo in archivos_lineups:
     match_id = data.get("match_id")
 
     if not match_id:
+
         nombre = os.path.basename(archivo)
-        match_id = nombre.replace("_lineups.json", "")
 
-    fecha_info = fechas_partidos.get(match_id, {})
+        match_id = nombre.replace(
+            "_lineups.json",
+            ""
+        )
 
-    fecha = fecha_info.get("date", "")
-    time_utc = fecha_info.get("time_utc", "")
+    match_id = limpiar_valor(match_id)
+
+    fecha_info = fechas_partidos.get(
+        match_id,
+        {}
+    )
+
+    fecha = fecha_info.get(
+        "date",
+        ""
+    )
+
+    time_utc = fecha_info.get(
+        "time_utc",
+        ""
+    )
+
 
     # ========================================================
     # HOME / AWAY
@@ -109,66 +154,178 @@ for archivo in archivos_lineups:
 
     for lado in ["home", "away"]:
 
-        equipo_data = data.get(lado, {})
+        equipo_data = data.get(
+            lado,
+            {}
+        )
 
-        if not isinstance(equipo_data, dict):
+        if not isinstance(
+            equipo_data,
+            dict
+        ):
             continue
 
-        # Nombre del equipo.
-        # Puede estar arriba en home_team / away_team.
+
+        # ----------------------------------------------------
+        # NOMBRE DEL EQUIPO
+        # ----------------------------------------------------
+
         equipo = data.get(
-            "home_team" if lado == "home" else "away_team",
+            "home_team"
+            if lado == "home"
+            else "away_team",
             ""
         )
 
+        equipo = limpiar_valor(
+            equipo
+        )
+
+
         # ====================================================
-        # STARTERS
+        # TITULARES
         # ====================================================
 
-        starters = equipo_data.get("starters", [])
+        starters = equipo_data.get(
+            "starters",
+            []
+        )
 
-        if not isinstance(starters, list):
-            continue
+        if isinstance(
+            starters,
+            list
+        ):
 
-        for jugador in starters:
+            for jugador in starters:
 
-            if not isinstance(jugador, dict):
-                continue
+                if not isinstance(
+                    jugador,
+                    dict
+                ):
+                    continue
 
-            player_id = jugador.get("player_id")
+                player_id = jugador.get(
+                    "player_id"
+                )
 
-            if player_id is None:
-                continue
+                if player_id is None:
+                    continue
 
-            registros.append({
-                "match_id": match_id,
-                "date": fecha,
-                "time_utc": time_utc,
-                "player_id": player_id,
-                "player_name": jugador.get("name", ""),
-                "team": equipo,
-                "side": lado,
-                "starter": 1,
-                "position_id": jugador.get("position_id")
-            })
+                registros.append({
+
+                    "match_id": match_id,
+
+                    "date": fecha,
+
+                    "time_utc": time_utc,
+
+                    "player_id": limpiar_valor(
+                        player_id
+                    ),
+
+                    "player_name": limpiar_valor(
+                        jugador.get(
+                            "name",
+                            ""
+                        )
+                    ),
+
+                    "team": equipo,
+
+                    "side": lado,
+
+                    "starter": 1,
+
+                    "position_id": limpiar_valor(
+                        jugador.get(
+                            "position_id"
+                        )
+                    )
+                })
+
+
+        # ====================================================
+        # SUPLENTES
+        # ====================================================
+
+        subs = equipo_data.get(
+            "subs",
+            []
+        )
+
+        if isinstance(
+            subs,
+            list
+        ):
+
+            for jugador in subs:
+
+                if not isinstance(
+                    jugador,
+                    dict
+                ):
+                    continue
+
+                player_id = jugador.get(
+                    "player_id"
+                )
+
+                if player_id is None:
+                    continue
+
+                registros.append({
+
+                    "match_id": match_id,
+
+                    "date": fecha,
+
+                    "time_utc": time_utc,
+
+                    "player_id": limpiar_valor(
+                        player_id
+                    ),
+
+                    "player_name": limpiar_valor(
+                        jugador.get(
+                            "name",
+                            ""
+                        )
+                    ),
+
+                    "team": equipo,
+
+                    "side": lado,
+
+                    "starter": 0,
+
+                    "position_id": limpiar_valor(
+                        jugador.get(
+                            "position_id"
+                        )
+                    )
+                })
+
 
 # ============================================================
-# 3. ORDENAR CRONOLOGICAMENTE
+# CREAR DATAFRAME
 # ============================================================
 
-registros.sort(
-    key=lambda x: (
-        str(x["player_id"]),
-        x["date"],
-        x["time_utc"]
-    )
+df = pd.DataFrame(
+    registros
 )
 
+if df.empty:
+
+    print("")
+    print("ERROR: No se encontraron registros.")
+    raise SystemExit
+
+
 # ============================================================
-# 4. GUARDAR
+# ASEGURAR TIPOS SIMPLES
 # ============================================================
 
-campos = [
+columnas_texto = [
     "match_id",
     "date",
     "time_utc",
@@ -176,91 +333,95 @@ campos = [
     "player_name",
     "team",
     "side",
-    "starter",
     "position_id"
 ]
 
-with open(
+for columna in columnas_texto:
+
+    if columna in df.columns:
+
+        df[columna] = df[columna].apply(
+            limpiar_valor
+        )
+
+
+# ============================================================
+# STARTER COMO NUMERO
+# ============================================================
+
+df["starter"] = pd.to_numeric(
+    df["starter"],
+    errors="coerce"
+).fillna(0).astype(int)
+
+
+# ============================================================
+# ELIMINAR DUPLICADOS
+# ============================================================
+
+df = df.drop_duplicates(
+    subset=[
+        "match_id",
+        "player_id"
+    ],
+    keep="first"
+)
+
+
+# ============================================================
+# ORDENAR
+# ============================================================
+
+df = df.sort_values(
+    by=[
+        "date",
+        "match_id",
+        "player_name"
+    ],
+    ascending=[
+        True,
+        True,
+        True
+    ],
+    kind="stable"
+)
+
+
+# ============================================================
+# GUARDAR
+# ============================================================
+
+df.to_csv(
     SALIDA,
-    "w",
-    newline="",
+    index=False,
     encoding="utf-8-sig"
-) as f:
+)
 
-    writer = csv.DictWriter(
-        f,
-        fieldnames=campos
-    )
-
-    writer.writeheader()
-    writer.writerows(registros)
-
-print()
-print("Registros guardados:", len(registros))
-print("Salida:", SALIDA)
 
 # ============================================================
-# 5. RESUMEN
+# RESUMEN
 # ============================================================
 
-jugadores = defaultdict(list)
-
-for r in registros:
-    jugadores[r["player_id"]].append(r)
-
-print()
-print("Jugadores:", len(jugadores))
-
-# ============================================================
-# 6. MOSTRAR EJEMPLOS CON CAMBIOS
-# ============================================================
-
-print()
-print("=" * 70)
-print("EJEMPLOS DE HISTORIAL CRONOLOGICO")
-print("=" * 70)
-
-mostrados = 0
-
-for player_id, historial in jugadores.items():
-
-    if len(historial) < 5:
-        continue
-
-    historial = sorted(
-        historial,
-        key=lambda x: (
-            x["date"],
-            x["time_utc"]
-        )
-    )
-
-    posiciones = [
-        str(x["position_id"])
-        for x in historial
-    ]
-
-    if len(set(posiciones)) > 1:
-
-        print()
-        print(
-            historial[-1]["player_name"],
-            f"(ID {player_id})"
-        )
-
-        for x in historial[-10:]:
-            print(
-                f"  {x['date']} | "
-                f"{x['team']} | "
-                f"position_id={x['position_id']}"
-            )
-
-        mostrados += 1
-
-        if mostrados >= 15:
-            break
-
-print()
-print("=" * 70)
-print("ANALISIS TERMINADO")
-print("=" * 70)
+print("")
+print("========================================")
+print("HISTORIAL DE POSICIONES GENERADO")
+print("========================================")
+print(
+    f"Registros guardados: {len(df)}"
+)
+print(
+    f"Jugadores únicos: {df['player_id'].nunique()}"
+)
+print(
+    f"Partidos: {df['match_id'].nunique()}"
+)
+print(
+    f"Titulares: {(df['starter'] == 1).sum()}"
+)
+print(
+    f"Suplentes: {(df['starter'] == 0).sum()}"
+)
+print(
+    f"Archivo: {SALIDA}"
+)
+print("========================================")
