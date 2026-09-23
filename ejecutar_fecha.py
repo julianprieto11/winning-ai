@@ -100,6 +100,11 @@ def request_json(url, *, headers=None, params=None, retries=3, impersonate=True)
             if response.status_code == 404:
                 raise ultimo
         except Exception as error:
+            # Los 404 de SofaScore no son transitorios para este proceso.
+            # Hay que propagarlos inmediatamente para que el llamador los
+            # convierta en [AVISO], sin entrar en el ciclo de reintentos.
+            if "HTTP 404:" in str(error):
+                raise error
             ultimo = error
         if intento < retries:
             time.sleep(1.5 * intento)
