@@ -89,7 +89,16 @@ def request_json(url, *, headers=None, params=None, retries=3, impersonate=True)
             response = requests.get(url, **kwargs)
             if response.status_code == 200:
                 return response.json()
-            ultimo = RuntimeError(f"HTTP {response.status_code}: {response.text[:300]}")
+            ultimo = RuntimeError(
+                f"HTTP {response.status_code}: {response.text[:300]}"
+            )
+
+            # Un 404 significa que el recurso todavía no existe en SofaScore
+            # (muy habitual para statistics/lineups de partidos futuros).
+            # No tiene sentido reintentar: los llamadores ya manejan este
+            # caso como aviso y continúan con el resto del proceso.
+            if response.status_code == 404:
+                raise ultimo
         except Exception as error:
             ultimo = error
         if intento < retries:
