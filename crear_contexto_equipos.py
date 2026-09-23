@@ -378,11 +378,16 @@ def extraer_datos_evento_sofascore(contenido):
     if not isinstance(away, dict):
         away = {}
 
+    home_score = event.get("homeScore", {}) or {}
+    away_score = event.get("awayScore", {}) or {}
+
     return {
         "event_id": event.get("id"),
         "timestamp": event.get("startTimestamp"),
         "home_team": home.get("name"),
         "away_team": away.get("name"),
+        "home_score": home_score.get("current"),
+        "away_score": away_score.get("current"),
     }
 
 
@@ -1090,6 +1095,37 @@ def construir_contexto(
         nueva_fila[
             "pitchapi_es_local"
         ] = es_local
+
+        # ----------------------------------------------------
+        # RESULTADO DEL PARTIDO
+        #
+        # SofaScore entrega el marcador final en homeScore /
+        # awayScore. Lo guardamos desde la perspectiva del
+        # equipo para que los scripts de forma puedan trabajar
+        # sin depender de columnas que no existen en el dataset.
+        # ----------------------------------------------------
+
+        home_score = None
+        away_score = None
+
+        if sf is not None:
+            home_score = sf.get("home_score")
+            away_score = sf.get("away_score")
+
+        if es_local is True:
+            nueva_fila["goles_favor"] = home_score
+            nueva_fila["goles_contra"] = away_score
+            nueva_fila["local_visitante"] = "LOCAL"
+
+        elif es_local is False:
+            nueva_fila["goles_favor"] = away_score
+            nueva_fila["goles_contra"] = home_score
+            nueva_fila["local_visitante"] = "VISITANTE"
+
+        else:
+            nueva_fila["goles_favor"] = None
+            nueva_fila["goles_contra"] = None
+            nueva_fila["local_visitante"] = None
 
         # ----------------------------------------------------
         # SOFASCORE
