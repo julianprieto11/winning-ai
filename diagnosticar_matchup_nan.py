@@ -12,9 +12,12 @@ print("=" * 60)
 
 df = pd.read_csv(MATCHUP)
 
-cols = ["match_id", "date", "player_name", "team_name", "rival_team_name",
-        "position", "matchup_score", "matchup_score_propio",
-        "matchup_score_rival", "matchup_score_interaccion"]
+cols = [
+    "match_id", "date", "player_id", "player_name", "team_name",
+    "rival_team_name", "position", "matchup_score",
+    "matchup_score_propio", "matchup_score_rival",
+    "matchup_score_interaccion", "sofascore_event_id"
+]
 faltantes = [c for c in cols if c not in df.columns]
 if faltantes:
     raise ValueError(f"Faltan columnas en contexto_matchup.csv: {faltantes}")
@@ -22,121 +25,126 @@ if faltantes:
 candidatos = df[df["matchup_score"].isna()].copy()
 print(f"Filas sin matchup: {len(candidatos)}")
 
-# Cargamos alineaciones de SofaScore y construimos un índice por partido/jugador.
+# SofaScore event_id en contexto_matchup.csv corresponde al nombre
+# del archivo JSON de datos/partidos/ cuando existe.
 indice = {}
 
-for ruta in glob.glob(os.path.join(PARTIDOS, "*.json")):
-    try:
-        with open(ruta, "r", encoding="utf-8") as f:
-            data = json.load(f)
-
-        event = data.get("event", {})
-        match_id = str(event.get("id") or event.get("event", {}).get("id") or "")
-        if not match_id:
-            match_id = str(data.get("match_id") or "")
-        if not match_id:
-            continue
-
-        lineups = data.get("lineups", {})
-        if isinstance(lineups, list):
-            bloques = lineups
-        else:
-            bloques = []
-            for key in ("home", "away"):
-                bloque = lineups.get(key, {}) if isinstance(lineups, dict) else {}
-                bloques.append(bloque)
-
-        for bloque in bloques:
-            jugadores = bloque.get("players", []) if isinstance(bloque, dict) else []
-            for item in jugadores:
-                jugador = item.get("player", {}) or {}
-                pid = jugador.get("id")
-                if pid is None:
-                    continue
-
-                stats = item.get("statistics") or {}
-                indice[(match_id, str(pid))] = {
-                    "titular": item.get("substitute") is False,
-                    "suplente": item.get("substitute") is True,
-                    "minutos": stats.get("minutesPlayed"),
-                    "rating": stats.get("rating"),
-                }
-
-    except Exception:
-        pass
-
-# Intento adicional por nombre cuando no hay player_id en el dataset.
-por_nombre = {}
-for ruta in glob.glob(os.path.join(PARTIDOS, "*.json")):
-    try:
-        with open(ruta, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        event = data.get("event", {})
-        match_id = str(event.get("id") or "")
-        lineups = data.get("lineups", {})
-        bloques = lineups if isinstance(lineups, list) else [
-            lineups.get("home", {}), lineups.get("away", {})
-        ]
-        for bloque in bloques:
-            for item in (bloque.get("players", []) if isinstance(bloque, dict) else []):
-                jugador = item.get("player", {}) or {}
-                nombre = str(jugador.get("name") or "").strip().casefold()
-                if not nombre:
-                    continue
-                stats = item.get("statistics") or {}
-                por_nombre[(match_id, nombre)] = {
-                    "titular": item.get("substitute") is False,
-                    "suplente": item.get("substitute") is True,
-                    "minutos": stats.get("minutesPlayed"),
-                    "rating": stats.get("rating"),
-                }
-    except Exception:
-        pass
-
-def normalizar_player_id(pid):
-    """Normaliza IDs numéricos y IDs alfanuméricos de SofaScore."""
-    if pd.isna(pid):
+def normalizar_event_id(valor):
+    if pd.isna(valor):
         return None
-
-    valor = str(pid).strip()
-
-    # IDs numéricos que pandas pueda haber leído como 123.0.
+    texto = str(valor).strip()
+    if not texto or texto.lower() == "nan":
+        return None
     try:
-        numero = float(valor)
+        numero = float(texto)
         if numero.is_integer():
             return str(int(numero))
     except (ValueError, TypeError):
         pass
+    return texto
 
-    # IDs alfanuméricos, por ejemplo p_2UZfm9.
-    return valor
+def normalizar_player_id(valor):
+    if pd.isna(valor):
+        return None
+    texto = str(valor).strip()
+    if not texto or texto.lower() == "nan":
+        return None
+    try:
+        numero = float(texto)
+        if numero.is_integer():
+            return str(int(numero))
+    except (ValueError, TypeError):
+        pass
+    return texto
 
+def agregar_bloque(event_id, bloque):
+    if not isinstance(bloque, dict):
+        return
+
+    for item in bloque.get("players", []):
+        jugador = item.get("player", {}) or {}
+        stats = item.get("statistics") or {}
+
+        # Guardamos las dos identificaciones que aparecen en SofaScore.
+        ids = []
+        for valor in (jugador.get("id"), jugador.get("sofascoreId")):
+            normalizado = normalizar_player_id(valor)
+            if normalizado is not None:
+                ids.append(normalizado)
+
+        nombre = str(jugador.get("name") or "").strip().casefold()
+        info = {
+            "titular": item.get("substitute") is False,
+            "suplente": item.get("substitute") is True,
+            "minutos": stats.get("minutesPlayed"),
+            "rating": stats.get("rating"),
+            "nombre": nombre,
+            "player_id_sofascore": normalizar_player_id(jugador.get("id")),
+            "sofascore_id": normalizar_player_id(jugador.get("sofascoreId")),
+        }
+
+        for pid in ids:
+            indice[(event_id, "id", pid)] = info
+
+        if nombre:
+            indice[(event_id, "nombre", nombre)] = info
+
+for ruta in glob.glob(os.path.join(PARTIDOS, "*.json")):
+    try:
+        event_id = os.path.splitext(os.path.basename(ruta))[0]
+        with open(ruta, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        lineups = data.get("lineups", {})
+        if isinstance(lineups, list):
+            bloques = lineups
+        elif isinstance(lineups, dict):
+            bloques = [
+                lineups.get("home", {}),
+                lineups.get("away", {}),
+            ]
+        else:
+            bloques = []
+
+        for bloque in bloques:
+            agregar_bloque(event_id, bloque)
+
+    except Exception:
+        pass
 
 def obtener_estado(row):
-    match_id = str(row["match_id"])
+    event_id = normalizar_event_id(row["sofascore_event_id"])
+
+    # Si el partido no tiene correspondencia SofaScore, no podemos
+    # verificar participación con alineaciones.
+    if event_id is None:
+        return None, "SIN_EVENTO_SOFASCORE"
+
+    # player_id de contexto_matchup.csv es un ID interno p_..., no
+    # necesariamente el mismo que SofaScore. Por eso primero probamos
+    # por nombre y luego, por si coincidiera, por ID.
     nombre = str(row["player_name"]).strip().casefold()
-
-    # Si existe player_id en el CSV, usarlo primero.
-    pid = row.get("player_id")
-    pid_normalizado = normalizar_player_id(pid)
-    if pid_normalizado is not None:
-        info = indice.get((match_id, pid_normalizado))
-        if info is not None:
-            return info, "player_id"
-
-    info = por_nombre.get((match_id, nombre))
+    info = indice.get((event_id, "nombre", nombre))
     if info is not None:
         return info, "nombre"
 
-    return None, "no_encontrado"
+    pid = normalizar_player_id(row.get("player_id"))
+    if pid is not None:
+        info = indice.get((event_id, "id", pid))
+        if info is not None:
+            return info, "player_id"
+
+    return None, "NO_ENCONTRADO_EN_ALINEACION"
 
 resultados = []
 
 for _, row in candidatos.iterrows():
     info, metodo = obtener_estado(row)
 
-    if info is None:
-        estado = "NO_ENCONTRADO_EN_ALINEACIONES"
+    if metodo == "SIN_EVENTO_SOFASCORE":
+        estado = "SIN_EVENTO_SOFASCORE"
+    elif info is None:
+        estado = "NO_ENCONTRADO_EN_ALINEACION"
     elif info["minutos"] is not None and float(info["minutos"]) > 0:
         estado = "REVISAR_JUGO"
     elif info["titular"]:
@@ -146,7 +154,9 @@ for _, row in candidatos.iterrows():
 
     resultados.append({
         "match_id": row["match_id"],
+        "sofascore_event_id": row["sofascore_event_id"],
         "date": row["date"],
+        "player_id": row["player_id"],
         "player_name": row["player_name"],
         "team_name": row["team_name"],
         "rival_team_name": row["rival_team_name"],
@@ -182,6 +192,6 @@ revisar = salida[salida["estado"].isin([
 print(f"Total: {len(revisar)}")
 if len(revisar):
     print(revisar[[
-        "date","player_name","team_name","rival_team_name",
-        "position","titular","minutos","matchup_score"
+        "date", "player_name", "team_name", "rival_team_name",
+        "position", "titular", "minutos", "matchup_score"
     ]].to_string(index=False))
