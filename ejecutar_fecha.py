@@ -351,9 +351,14 @@ def construir_mapeo(eventos, pitch_matches):
     resultado = {}
     for evento in eventos:
         event_id = str(evento["id"])
+        # PitchAPI puede registrar el mismo partido un día corrido por
+        # zona horaria. No limitar los candidatos a fecha exacta: esa
+        # tolerancia ya está controlada por match_score(), que acepta
+        # como máximo 1 día de diferencia y sigue exigiendo coincidencia
+        # fuerte de equipos.
         candidatos = [
             p for p in pitch_matches
-            if fecha_sofa(evento) == str(p.get("date") or "")[:10]
+            if distancia_fechas(evento, p) <= 1
         ]
         puntuados = sorted(
             ((match_score(evento, p), p) for p in candidatos),
