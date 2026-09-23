@@ -674,10 +674,14 @@ for indice, fila in resultado.iterrows():
             if variable not in variables_disponibles:
                 continue
 
-            columna = f"sofascore_{variable}"
+            # Para medir la producción del rival frente al equipo
+            # objetivo usamos rival_X en el historial del propio equipo.
+            # Esa columna representa lo que el rival produjo en esos
+            # partidos desde la perspectiva del equipo objetivo.
+            columna = f"rival_{variable}"
 
             valor = promedio_historico(
-                historial_rival,
+                historial_propio,
                 columna,
             )
 
