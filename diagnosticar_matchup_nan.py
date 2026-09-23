@@ -93,14 +93,34 @@ for ruta in glob.glob(os.path.join(PARTIDOS, "*.json")):
     except Exception:
         pass
 
+def normalizar_player_id(pid):
+    """Normaliza IDs numéricos y IDs alfanuméricos de SofaScore."""
+    if pd.isna(pid):
+        return None
+
+    valor = str(pid).strip()
+
+    # IDs numéricos que pandas pueda haber leído como 123.0.
+    try:
+        numero = float(valor)
+        if numero.is_integer():
+            return str(int(numero))
+    except (ValueError, TypeError):
+        pass
+
+    # IDs alfanuméricos, por ejemplo p_2UZfm9.
+    return valor
+
+
 def obtener_estado(row):
     match_id = str(row["match_id"])
     nombre = str(row["player_name"]).strip().casefold()
 
     # Si existe player_id en el CSV, usarlo primero.
     pid = row.get("player_id")
-    if pd.notna(pid):
-        info = indice.get((match_id, str(int(pid)) if float(pid).is_integer() else str(pid)))
+    pid_normalizado = normalizar_player_id(pid)
+    if pid_normalizado is not None:
+        info = indice.get((match_id, pid_normalizado))
         if info is not None:
             return info, "player_id"
 
