@@ -109,6 +109,14 @@ ALIASES_EQUIPOS = {
     "gimnasia y esgrima": "gimnasia y esgrima",
     "central cordoba de santiago": "central cordoba",
     "central cordoba": "central cordoba",
+    "belgrano": "club atletico belgrano",
+    "club atletico belgrano": "club atletico belgrano",
+    "lanus": "ca lanus",
+    "ca lanus": "ca lanus",
+    "estudiantes": "estudiantes de la plata",
+    "estudiantes de la plata": "estudiantes de la plata",
+    "gimnasia mendoza": "gimnasia y esgrima mendoza",
+    "gimnasia y esgrima mendoza": "gimnasia y esgrima mendoza",
 }
 
 
