@@ -99,6 +99,10 @@ def normalizar_nombre(nombre):
 ALIASES_EQUIPOS = {
     "instituto": "instituto de cordoba",
     "instituto de cordoba": "instituto de cordoba",
+    "independiente": "ca independiente",
+    "ca independiente": "ca independiente",
+    "union": "club atletico union de santa fe",
+    "club atletico union de santa fe": "club atletico union de santa fe",
 }
 
 
