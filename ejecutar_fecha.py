@@ -301,13 +301,27 @@ def fecha_sofa(evento):
         return ""
 
 
+def distancia_fechas(sofa, pitch):
+    """Diferencia absoluta en días entre las fechas de SofaScore y PitchAPI."""
+    try:
+        from datetime import date
+        fecha_a = date.fromisoformat(fecha_sofa(sofa))
+        fecha_b = date.fromisoformat(str(pitch.get("date") or "")[:10])
+        return abs((fecha_a - fecha_b).days)
+    except Exception:
+        return 999
+
+
 def match_score(sofa, pitch):
-    if fecha_sofa(sofa) != str(pitch.get("date") or "")[:10]:
+    distancia = distancia_fechas(sofa, pitch)
+    if distancia > 1:
         return 0.0
+
     s_home = normalizar(sofa.get("homeTeam", {}).get("name"))
     s_away = normalizar(sofa.get("awayTeam", {}).get("name"))
     p_home = normalizar(pitch.get("home_team", {}).get("name"))
     p_away = normalizar(pitch.get("away_team", {}).get("name"))
+
     directo = (
         SequenceMatcher(None, s_home, p_home).ratio()
         + SequenceMatcher(None, s_away, p_away).ratio()
@@ -316,7 +330,16 @@ def match_score(sofa, pitch):
         SequenceMatcher(None, s_home, p_away).ratio()
         + SequenceMatcher(None, s_away, p_home).ratio()
     ) / 2
-    return max(directo, invertido)
+
+    score_nombres = max(directo, invertido)
+
+    # La coincidencia exacta de fecha sigue teniendo prioridad.
+    # Si PitchAPI trae el partido un día corrido por zona horaria,
+    # permitimos hasta 1 día de diferencia sin relajar la exigencia
+    # sobre los equipos.
+    if distancia == 0:
+        return score_nombres
+    return score_nombres * 0.995
 
 
 def construir_mapeo(eventos, pitch_matches):
