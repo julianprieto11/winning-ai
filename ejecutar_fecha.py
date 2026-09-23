@@ -31,9 +31,14 @@ SLEEP_SOFA = 0.35
 SLEEP_PITCH = 0.15
 
 # La API de SofaScore puede devolver, dentro de una misma ronda,
-# el partido de la primera rueda y su partido espejo de la segunda rueda.
+# el partido del Apertura y el partido del Clausura entre los mismos equipos.
 # Para la Liga Profesional 2026 hay 30 equipos => 15 partidos por fecha.
 PARTIDOS_ESPERADOS_POR_FECHA = 15
+
+# El Clausura 2026 comenzó el 22/07/2026.
+# No debemos desduplicar primero, porque eso puede conservar el partido
+# del Apertura y descartar el correspondiente al Clausura.
+CLAUSURA_INICIO = "2026-07-22"
 
 
 def normalizar(texto):
@@ -107,6 +112,24 @@ def cargar_pitch_key():
     )
 
 
+def fecha_evento_sofascore(evento):
+    timestamp = evento.get("startTimestamp")
+    if timestamp is None:
+        return ""
+    try:
+        import datetime as _dt
+        return _dt.datetime.fromtimestamp(
+            int(timestamp), tz=_dt.timezone.utc
+        ).date().isoformat()
+    except Exception:
+        return ""
+
+
+def es_clausura(evento):
+    fecha = fecha_evento_sofascore(evento)
+    return bool(fecha and fecha >= CLAUSURA_INICIO)
+
+
 def clave_enfrentamiento(evento):
     """
     Identifica un enfrentamiento sin importar quién figure como local.
@@ -137,17 +160,33 @@ def clave_enfrentamiento(evento):
 
 def filtrar_partidos_de_fecha(eventos, round_num):
     """
-    SofaScore puede devolver partidos espejo de la segunda rueda al pedir
-    /events/round/{round}. Conservamos un solo evento por enfrentamiento.
+    SofaScore puede devolver partidos del Apertura y del Clausura con el
+    mismo enfrentamiento dentro de una misma ronda.
 
-    La validación es deliberadamente estricta: si después de quitar los
-    espejos no quedan exactamente 15 partidos, no seguimos con PitchAPI.
-    Es preferible detener la automatización antes que contaminar el modelo.
+    Primero filtramos por fecha para quedarnos exclusivamente con el
+    Clausura 2026. Recién después desduplicamos por enfrentamiento.
+    Esto es importante porque el partido del Apertura puede aparecer
+    primero y, si desduplicamos antes, podríamos conservar la localía
+    equivocada.
+
+    La validación es deliberadamente estricta: si después de filtrar y
+    quitar duplicados no quedan exactamente 15 partidos, no seguimos.
     """
+    eventos_clausura = [evento for evento in eventos if es_clausura(evento)]
+
+    if len(eventos_clausura) < PARTIDOS_ESPERADOS_POR_FECHA:
+        raise RuntimeError(
+            f"Fecha {round_num}: SofaScore devolvió {len(eventos)} eventos, "
+            f"pero solo {len(eventos_clausura)} corresponden al Clausura "
+            f"2026 (inicio {CLAUSURA_INICIO}). Se esperaban "
+            f"{PARTIDOS_ESPERADOS_POR_FECHA}. "
+            f"No se continuará para evitar datos incorrectos."
+        )
+
     unicos = []
     vistos = set()
 
-    for evento in eventos:
+    for evento in eventos_clausura:
         clave = clave_enfrentamiento(evento)
         if clave in vistos:
             continue
@@ -155,15 +194,10 @@ def filtrar_partidos_de_fecha(eventos, round_num):
         unicos.append(evento)
 
     if len(unicos) != PARTIDOS_ESPERADOS_POR_FECHA:
-        ejemplos = []
-        for evento in unicos:
-            local = evento.get("homeTeam", {}).get("name", "")
-            visitante = evento.get("awayTeam", {}).get("name", "")
-            ejemplos.append(f"{local} - {visitante}")
-
         raise RuntimeError(
             f"Fecha {round_num}: SofaScore devolvió {len(eventos)} eventos, "
-            f"pero después de eliminar partidos espejo quedaron {len(unicos)}. "
+            f"de los cuales {len(eventos_clausura)} son del Clausura, "
+            f"pero después de eliminar duplicados quedaron {len(unicos)}. "
             f"Se esperaban {PARTIDOS_ESPERADOS_POR_FECHA}. "
             f"No se continuará para evitar datos duplicados o incompletos."
         )
@@ -171,7 +205,9 @@ def filtrar_partidos_de_fecha(eventos, round_num):
     eliminados = len(eventos) - len(unicos)
     print(
         f"Fecha {round_num}: {len(eventos)} eventos recibidos -> "
-        f"{len(unicos)} partidos reales ({eliminados} espejos/duplicados eliminados)."
+        f"{len(eventos_clausura)} del Clausura -> "
+        f"{len(unicos)} partidos reales "
+        f"({eliminados} eventos Apertura/espejo/duplicado descartados)."
     )
     return unicos
 
@@ -283,7 +319,7 @@ def construir_mapeo(eventos, pitch_matches):
             if fecha_sofa(evento) == str(p.get("date") or "")[:10]
         ]
         puntuados = sorted(
-            ((match_score(evento, p), p) for p in candidatos),
+            ((match_score(evento, p) for p in candidatos)),
             key=lambda x: x[0],
             reverse=True,
         )
