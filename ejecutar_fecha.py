@@ -341,10 +341,41 @@ def construir_mapeo(eventos, pitch_matches):
             )
         score, pitch = puntuados[0]
         if len(puntuados) > 1 and score == puntuados[1][0]:
-            raise RuntimeError(
-                f"Mapeo ambiguo para SofaScore {event_id}: "
-                f"dos partidos PitchAPI con score {score:.3f}"
-            )
+            # PitchAPI puede devolver registros duplicados del mismo
+            # enfrentamiento y misma fecha. Si los candidatos
+            # representan exactamente el mismo partido, no es una
+            # ambigüedad real y podemos resolverla de forma determinista.
+            def clave_pitch_match(p):
+                return (
+                    str(p.get("date") or "")[:10],
+                    tuple(sorted((
+                        normalizar(p.get("home_team", {}).get("name")),
+                        normalizar(p.get("away_team", {}).get("name")),
+                    ))),
+                )
+
+            clave_top = clave_pitch_match(puntuados[0][1])
+            empates_equivalentes = [
+                p for s, p in puntuados
+                if s == score and clave_pitch_match(p) == clave_top
+            ]
+            todos_los_empates = [p for s, p in puntuados if s == score]
+
+            if len(empates_equivalentes) == len(todos_los_empates):
+                pitch = sorted(
+                    empates_equivalentes,
+                    key=lambda p: str(p.get("id", ""))
+                )[0]
+                print(
+                    f"  [AVISO] PitchAPI duplicado para SofaScore "
+                    f"{event_id}: score {score:.3f}. "
+                    f"Se usa {pitch.get('id')}."
+                )
+            else:
+                raise RuntimeError(
+                    f"Mapeo ambiguo para SofaScore {event_id}: "
+                    f"dos partidos PitchAPI con score {score:.3f}"
+                )
         resultado[event_id] = str(pitch["id"])
     return resultado
 
