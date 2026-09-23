@@ -5,6 +5,12 @@ import random
 import numpy as np
 import pandas as pd
 
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.impute import SimpleImputer
+from sklearn.ensemble import HistGradientBoostingRegressor
+
 # ============================================================
 # CONFIGURACIÓN
 # ============================================================
@@ -33,14 +39,24 @@ SALIDA_SIMULACIONES = "datos/fecha10_simulaciones.csv"
 
 N_SIMULACIONES = 10000
 
+# Corte original utilizado para entrenar el Modelo C.
+FECHA_CORTE_MODELO_C = pd.Timestamp("2026-08-01")
+
+BACKTEST_DATASET_FILE = "datos/backtest_dataset.csv"
+CONTEXTO_MATCHUP_FILE = "datos/contexto_matchup.csv"
+
+# El Modelo C funciona como señal complementaria; no reemplaza
+# el motor original ni ninguna regla de selección.
+PESO_MODELO_C = 0.30
+
 # ============================================================
 # DIVERSIDAD ENTRE LOS 3 EQUIPOS
 # ============================================================
 
 PENALIZACION_REPETICION = {
     "SEGURO": 0.00,
-    "INTERMEDIO": 0.18,
-    "ARRIESGADO": 0.28,
+    "INTERMEDIO": 0.30,
+    "ARRIESGADO": 0.45,
 }
 
 # ============================================================
@@ -51,8 +67,8 @@ PENALIZACION_REPETICION = {
 # NO puede volver a aparecer como FLEX en otro equipo.
 
 # Si ya fue titular del MISMO equipo que estamos armando FLEX,
-# no se bloquea: recibe una penalización fuerte.
-PENALIZACION_FLEX_TITULAR_MISMO = 0.70
+# queda bloqueado completamente.
+PENALIZACION_FLEX_TITULAR_MISMO = 1.00
 
 # Si fue titular de otro de los equipos, recibe una
 # penalización dependiendo del perfil.
@@ -61,6 +77,482 @@ PENALIZACION_FLEX_TITULAR_OTRO = {
     "INTERMEDIO": 0.18,
     "ARRIESGADO": 0.30,
 }
+
+# ============================================================
+# MATCHUP / MODELO C
+# ============================================================
+
+# El archivo contexto_matchup.csv ya contiene el matchup calculado
+# para cada jugador/partido. Este motor solamente lo incorpora como
+# señal complementaria sobre el motor original.
+
+
+def cargar_csv_seguro(ruta):
+
+    if not os.path.exists(ruta):
+        return pd.DataFrame()
+
+    try:
+        return pd.read_csv(
+            ruta,
+            low_memory=False,
+        )
+    except Exception as error:
+        print()
+        print("ADVERTENCIA: no se pudo cargar", ruta)
+        print(error)
+        return pd.DataFrame()
+
+
+def normalizar_posicion_matchup(valor):
+
+    texto = normalizar_texto(valor).upper()
+
+    if texto in {"GK", "G", "ARQ", "ARQUERO", "GOALKEEPER"}:
+        return "ARQ"
+    if texto in {"DEF", "DF", "D", "DEFENDER", "DEFENSA"}:
+        return "DEF"
+    if texto in {"MID", "MF", "M", "VOL", "VOLANTE", "MIDFIELDER"}:
+        return "VOL"
+    if texto in {"FWD", "FW", "ST", "DEL", "DELANTERO", "FORWARD", "ATTACKER"}:
+        return "DEL"
+
+    return ""
+
+
+contexto_matchup = cargar_csv_seguro(
+    CONTEXTO_MATCHUP_FILE
+)
+
+if not contexto_matchup.empty:
+
+    if "date" in contexto_matchup.columns:
+        contexto_matchup["date"] = pd.to_datetime(
+            contexto_matchup["date"],
+            errors="coerce"
+        )
+
+    if "player_id" in contexto_matchup.columns:
+        contexto_matchup["_player_id_str"] = (
+            contexto_matchup["player_id"].astype(str)
+        )
+
+    if "team_id" in contexto_matchup.columns:
+        contexto_matchup["_team_id_str"] = (
+            contexto_matchup["team_id"].astype(str)
+        )
+
+
+def calcular_matchup_directo(
+    player_id,
+    team_id,
+    rival_team_id,
+    posicion,
+    fecha_objetivo
+):
+
+    salida = {
+        "matchup_arq": np.nan,
+        "matchup_def": np.nan,
+        "matchup_vol": np.nan,
+        "matchup_del": np.nan,
+        "matchup_score": np.nan,
+        "matchup_variables_usadas": np.nan,
+    }
+
+    if contexto_matchup.empty:
+        return salida
+
+    if "date" not in contexto_matchup.columns:
+        return salida
+
+    fecha = pd.to_datetime(
+        fecha_objetivo,
+        errors="coerce"
+    )
+
+    if pd.isna(fecha):
+        return salida
+
+    fecha = pd.Timestamp(fecha).normalize()
+
+    df = contexto_matchup.copy()
+    df["date"] = pd.to_datetime(
+        df["date"],
+        errors="coerce"
+    ).dt.normalize()
+
+    candidatos = pd.DataFrame()
+
+    if "player_id" in df.columns:
+        candidatos = df[
+            (df["player_id"].astype(str) == str(player_id))
+            & (df["date"] == fecha)
+        ].copy()
+
+    if candidatos.empty and "team_id" in df.columns:
+        candidatos = df[
+            (df["team_id"].astype(str) == str(team_id))
+            & (df["date"] == fecha)
+        ].copy()
+
+    if candidatos.empty:
+        return salida
+
+    if len(candidatos) > 1 and "position" in candidatos.columns:
+        posicion_norm = candidatos["position"].map(
+            normalizar_posicion_matchup
+        )
+        filtradas = candidatos[
+            posicion_norm == normalizar_posicion_matchup(posicion)
+        ]
+        if not filtradas.empty:
+            candidatos = filtradas
+
+    # Si existe el rival en el archivo, priorizamos coincidencia exacta.
+    if len(candidatos) > 1 and "rival_team_id" in candidatos.columns:
+        exactas = candidatos[
+            candidatos["rival_team_id"].astype(str) == str(rival_team_id)
+        ]
+        if not exactas.empty:
+            candidatos = exactas
+
+    fila = candidatos.iloc[0]
+
+    for columna in salida:
+        if columna in fila.index:
+            salida[columna] = fila[columna]
+
+    return salida
+
+
+# ============================================================
+# MODELO C
+# ============================================================
+
+
+def limpiar_columnas_modelo(df_modelo, columnas):
+
+    columnas_prohibidas = {
+        "winning_total",
+        "date",
+        "match_id",
+        "player_id",
+        "player_name",
+        "team_id",
+        "team_name",
+        "round_name",
+        "minutes_played",
+        "match_finished",
+    }
+
+    resultado = []
+
+    palabras_prohibidas = [
+        "sofascore_event",
+        "sofascore_match",
+        "resultado_puntos",
+        "bonus_resultado",
+        "valla_invicta",
+        "goles_asistencias",
+        "match_finished",
+        "winning_total",
+    ]
+
+    for c in columnas:
+        if c not in df_modelo.columns:
+            continue
+        if c in columnas_prohibidas:
+            continue
+
+        nombre = c.lower()
+        if any(palabra in nombre for palabra in palabras_prohibidas):
+            continue
+
+        resultado.append(c)
+
+    return list(dict.fromkeys(resultado))
+
+
+def preparar_X_modelo(data, columnas):
+
+    X = data[columnas].copy()
+
+    if "position" in X.columns:
+        X["position"] = (
+            X["position"]
+            .fillna("DESCONOCIDA")
+            .astype(str)
+        )
+
+    return X
+
+
+def crear_pipeline_modelo(X):
+
+    columnas_numericas = (
+        X.select_dtypes(include=["number", "bool"])
+        .columns.tolist()
+    )
+
+    columnas_categoricas = (
+        X.select_dtypes(exclude=["number", "bool"])
+        .columns.tolist()
+    )
+
+    transformers = []
+
+    if columnas_numericas:
+        transformers.append(
+            (
+                "numericas",
+                Pipeline([
+                    ("imputer", SimpleImputer(strategy="median"))
+                ]),
+                columnas_numericas,
+            )
+        )
+
+    if columnas_categoricas:
+        transformers.append(
+            (
+                "categoricas",
+                Pipeline([
+                    ("imputer", SimpleImputer(strategy="most_frequent")),
+                    ("onehot", OneHotEncoder(
+                        handle_unknown="ignore",
+                        sparse_output=False,
+                    )),
+                ]),
+                columnas_categoricas,
+            )
+        )
+
+    preprocesador = ColumnTransformer(
+        transformers=transformers,
+        remainder="drop",
+    )
+
+    modelo = HistGradientBoostingRegressor(
+        max_iter=300,
+        learning_rate=0.05,
+        max_leaf_nodes=31,
+        l2_regularization=1.0,
+        random_state=42,
+    )
+
+    return Pipeline([
+        ("preprocesador", preprocesador),
+        ("modelo", modelo),
+    ])
+
+
+def entrenar_modelo_c():
+
+    print()
+    print("=" * 70)
+    print("MODELO C - BASE + CONTEXTO + MATCHUP")
+    print("=" * 70)
+
+    if not os.path.exists(BACKTEST_DATASET_FILE):
+        print(
+            "ADVERTENCIA: no existe",
+            BACKTEST_DATASET_FILE,
+            "| se mantiene el motor original sin Modelo C."
+        )
+        return None, []
+
+    df = pd.read_csv(
+        BACKTEST_DATASET_FILE,
+        low_memory=False,
+    )
+
+    if "date" not in df.columns or "winning_total" not in df.columns:
+        print(
+            "ADVERTENCIA: backtest_dataset.csv no contiene las columnas necesarias."
+        )
+        return None, []
+
+    df["date"] = pd.to_datetime(
+        df["date"],
+        errors="coerce"
+    )
+
+    df = df.dropna(
+        subset=["date", "winning_total"]
+    ).copy()
+
+    base_columns = [
+        c for c in df.columns
+        if (
+            c.startswith("prom_ultimos_5_")
+            or c in {
+                "minutos_promedio_historico",
+                "partidos_historicos_minutos",
+                "minutos_promedio_ultimos_5",
+                "position",
+            }
+        )
+    ]
+
+    context_columns = [
+        c for c in df.columns
+        if (
+            c.startswith("historico_")
+            or c.startswith("rival_historico_")
+        )
+    ]
+
+    matchup_columns = [
+        c for c in df.columns
+        if c.startswith("matchup_")
+    ]
+
+    base_columns = limpiar_columnas_modelo(df, base_columns)
+    context_columns = limpiar_columnas_modelo(df, context_columns)
+    matchup_columns = limpiar_columnas_modelo(df, matchup_columns)
+
+    modelo_C = list(dict.fromkeys(
+        base_columns + context_columns + matchup_columns
+    ))
+
+    if not modelo_C:
+        print("ADVERTENCIA: Modelo C no tiene variables disponibles.")
+        return None, []
+
+    train = df[
+        df["date"] < FECHA_CORTE_MODELO_C
+    ].copy()
+
+    if train.empty:
+        print("ADVERTENCIA: no hay datos de entrenamiento para Modelo C.")
+        return None, []
+
+    X_train = preparar_X_modelo(train, modelo_C)
+    y_train = train["winning_total"]
+
+    pipeline = crear_pipeline_modelo(X_train)
+
+    print(f"BASE:     {len(base_columns)} variables")
+    print(f"CONTEXTO: {len(context_columns)} variables")
+    print(f"MATCHUP:  {len(matchup_columns)} variables")
+    print(f"MODELO C: {len(modelo_C)} variables")
+    print(f"TRAIN:    {len(train):,} filas")
+    print("Entrenando Modelo C...")
+
+    pipeline.fit(X_train, y_train)
+
+    print("Modelo C entrenado.")
+
+    return pipeline, modelo_C
+
+
+def completar_features_modelo_c(candidatos, columnas_modelo):
+
+    candidatos = candidatos.copy()
+
+    if candidatos.empty:
+        return candidatos
+
+    if not os.path.exists(BACKTEST_DATASET_FILE):
+        return candidatos
+
+    df_backtest = pd.read_csv(
+        BACKTEST_DATASET_FILE,
+        low_memory=False,
+    )
+
+    if "date" not in df_backtest.columns:
+        return candidatos
+
+    df_backtest["date"] = pd.to_datetime(
+        df_backtest["date"],
+        errors="coerce"
+    )
+
+    columnas_disponibles = [
+        c for c in columnas_modelo
+        if c in df_backtest.columns
+    ]
+
+    for indice, fila in candidatos.iterrows():
+
+        fecha = fila.get("fecha_partido")
+        if pd.isna(fecha):
+            continue
+
+        fecha = pd.Timestamp(fecha).normalize()
+
+        posibles = df_backtest[
+            df_backtest["date"].dt.normalize() == fecha
+        ].copy()
+
+        if "player_id" in posibles.columns:
+            exactos = posibles[
+                posibles["player_id"].astype(str)
+                == str(fila.get("player_id"))
+            ]
+            if not exactos.empty:
+                posibles = exactos
+
+        if (
+            "team_id" in posibles.columns
+            and len(posibles) > 1
+        ):
+            exactos = posibles[
+                posibles["team_id"].astype(str)
+                == str(fila.get("team_id"))
+            ]
+            if not exactos.empty:
+                posibles = exactos
+
+        if posibles.empty:
+            continue
+
+        origen = posibles.iloc[0]
+
+        for columna in columnas_disponibles:
+            # Solo rellenamos si el candidato todavía no trae el valor.
+            if (
+                columna not in candidatos.columns
+                or pd.isna(candidatos.at[indice, columna])
+            ):
+                candidatos.at[indice, columna] = origen[columna]
+
+    return candidatos
+
+
+def agregar_prediccion_modelo_c(candidatos, pipeline, columnas_modelo):
+
+    candidatos = candidatos.copy()
+    candidatos["prediccion_modelo_c"] = np.nan
+
+    if pipeline is None or candidatos.empty:
+        return candidatos
+
+    candidatos = completar_features_modelo_c(
+        candidatos,
+        columnas_modelo
+    )
+
+    for columna in columnas_modelo:
+        if columna not in candidatos.columns:
+            candidatos[columna] = np.nan
+
+    X = preparar_X_modelo(
+        candidatos,
+        columnas_modelo
+    )
+
+    try:
+        candidatos["prediccion_modelo_c"] = pipeline.predict(X)
+    except Exception as error:
+        print()
+        print("ADVERTENCIA Modelo C:")
+        print(error)
+
+    return candidatos
+
 
 # ============================================================
 # UTILIDADES
@@ -415,12 +907,28 @@ def cargar_lineups_fecha10():
 # ============================================================
 
 def construir_jugadores_objetivo(
-    lineups
+    lineups,
+    info_fecha10=None
 ):
 
     jugadores = {}
 
+    if info_fecha10 is None:
+        info_fecha10 = {}
+
     for match_id, data in lineups.items():
+
+        info = info_fecha10.get(str(match_id), {})
+
+        fecha_partido = info.get(
+            "fecha_partido",
+            pd.NaT
+        )
+
+        event_id = info.get(
+            "event_id",
+            ""
+        )
 
         for lado in [
             "home",
@@ -432,14 +940,25 @@ def construir_jugadores_objetivo(
                 {}
             ) or {}
 
+            rival = data.get(
+                "away_team" if lado == "home" else "home_team",
+                {}
+            ) or {}
+
             team_id = str(
-                equipo.get(
-                    "id",
-                    ""
-                )
+                equipo.get("id", "")
             )
 
             team_name = equipo.get(
+                "name",
+                ""
+            )
+
+            rival_team_id = str(
+                rival.get("id", "")
+            )
+
+            rival_team_name = rival.get(
                 "name",
                 ""
             )
@@ -462,63 +981,48 @@ def construir_jugadores_objetivo(
             for jugador in starters:
 
                 player_id = str(
-                    jugador.get(
-                        "player_id",
-                        ""
-                    )
+                    jugador.get("player_id", "")
                 )
 
                 if not player_id:
                     continue
 
                 jugadores[player_id] = {
-
                     "player_id": player_id,
-
-                    "player_name": jugador.get(
-                        "name",
-                        ""
-                    ),
-
+                    "player_name": jugador.get("name", ""),
                     "team_id": team_id,
-
                     "team_name": team_name,
-
                     "match_id_fecha10": match_id,
-
                     "starter_fecha10": True,
+                    "fecha_partido": fecha_partido,
+                    "event_id": event_id,
+                    "rival_team_id": rival_team_id,
+                    "rival_team_name": rival_team_name,
+                    "es_local": lado == "home",
                 }
 
             for jugador in subs:
 
                 player_id = str(
-                    jugador.get(
-                        "player_id",
-                        ""
-                    )
+                    jugador.get("player_id", "")
                 )
 
                 if not player_id:
                     continue
 
                 if player_id not in jugadores:
-
                     jugadores[player_id] = {
-
                         "player_id": player_id,
-
-                        "player_name": jugador.get(
-                            "name",
-                            ""
-                        ),
-
+                        "player_name": jugador.get("name", ""),
                         "team_id": team_id,
-
                         "team_name": team_name,
-
                         "match_id_fecha10": match_id,
-
                         "starter_fecha10": False,
+                        "fecha_partido": fecha_partido,
+                        "event_id": event_id,
+                        "rival_team_id": rival_team_id,
+                        "rival_team_name": rival_team_name,
+                        "es_local": lado == "home",
                     }
 
     return jugadores
@@ -1547,6 +2051,21 @@ def construir_candidatos(
             * factor_confianza
         )
 
+        # ----------------------------------------------------
+        # MATCHUP / CONTEXTO ADICIONAL
+        #
+        # No reemplaza el motor original. Solo aporta una señal
+        # adicional que luego utiliza Modelo C.
+        # ----------------------------------------------------
+
+        matchup = calcular_matchup_directo(
+            objetivo["player_id"],
+            objetivo["team_id"],
+            objetivo.get("rival_team_id", ""),
+            posicion,
+            objetivo.get("fecha_partido", pd.NaT),
+        )
+
         candidatos.append(
             {
 
@@ -1632,6 +2151,20 @@ def construir_candidatos(
 
                 "score_contextual": score_contextual,
 
+                "matchup_arq": matchup["matchup_arq"],
+
+                "matchup_def": matchup["matchup_def"],
+
+                "matchup_vol": matchup["matchup_vol"],
+
+                "matchup_del": matchup["matchup_del"],
+
+                "matchup_score": matchup["matchup_score"],
+
+                "matchup_variables_usadas": matchup[
+                    "matchup_variables_usadas"
+                ],
+
                 "starter_fecha10": objetivo[
                     "starter_fecha10"
                 ],
@@ -1679,71 +2212,61 @@ def calcular_score_seleccion(
     if perfil_equipo == "SEGURO":
 
         df[
-            "score_seleccion"
+            "score_seleccion_original"
         ] = (
-
-            df[
-                "score_contextual"
-            ] * 0.65
-
-            +
-
-            df[
-                "promedio"
-            ] * 0.20
-
-            +
-
-            df[
-                "estabilidad"
-            ] * 0.15
+            df["score_contextual"] * 0.65
+            + df["promedio"] * 0.20
+            + df["estabilidad"] * 0.15
         )
 
     elif perfil_equipo == "ARRIESGADO":
 
         df[
-            "score_seleccion"
+            "score_seleccion_original"
         ] = (
-
-            df[
-                "p90"
-            ] * 0.55
-
-            +
-
-            df[
-                "score_contextual"
-            ] * 0.25
-
-            +
-
-            df[
-                "maximo"
-            ] * 0.20
+            df["p90"] * 0.55
+            + df["score_contextual"] * 0.25
+            + df["maximo"] * 0.20
         )
 
     else:
 
         df[
-            "score_seleccion"
+            "score_seleccion_original"
         ] = (
-
-            df[
-                "score_contextual"
-            ] * 0.45
-
-            +
-
-            df[
-                "promedio"
-            ] * 0.30
-
-            +
-
-            df[
-                "p90"
-            ] * 0.25
+            df["score_contextual"] * 0.45
+            + df["promedio"] * 0.30
+            + df["p90"] * 0.25
         )
+
+    # --------------------------------------------------------
+    # MOTOR C COMO SEÑAL COMPLEMENTARIA
+    # --------------------------------------------------------
+
+    if "prediccion_modelo_c" not in df.columns:
+        df["prediccion_modelo_c"] = np.nan
+
+    df["prediccion_modelo_c"] = pd.to_numeric(
+        df["prediccion_modelo_c"],
+        errors="coerce"
+    )
+
+    df["prediccion_modelo_c"] = df[
+        "prediccion_modelo_c"
+    ].fillna(
+        df["score_seleccion_original"]
+    )
+
+    # El score original conserva el 70% del peso.
+    # Modelo C aporta el 30% restante.
+    df[
+        "score_seleccion"
+    ] = (
+        df["score_seleccion_original"]
+        * (1.0 - PESO_MODELO_C)
+        + df["prediccion_modelo_c"]
+        * PESO_MODELO_C
+    )
 
     return df
 
@@ -2153,6 +2676,27 @@ def construir_flex(
         )
 
         # ----------------------------------------------------
+        # BLOQUEO ABSOLUTO
+        # Un titular del MISMO equipo NO puede ser FLEX.
+        # ----------------------------------------------------
+
+        disponibles = disponibles[
+            ~disponibles["titular_mismo_equipo"]
+        ].copy()
+
+        if disponibles.empty:
+            print()
+            print(
+                "ADVERTENCIA FLEX:",
+                perfil_equipo,
+                "|",
+                posicion,
+                "| no quedaron candidatos después del bloqueo",
+                "de titulares del mismo equipo."
+            )
+            continue
+
+        # ----------------------------------------------------
         # SCORE FLEX
         # ----------------------------------------------------
 
@@ -2163,21 +2707,9 @@ def construir_flex(
         ].copy()
 
         # ----------------------------------------------------
-        # PENALIZACIÓN POR SER TITULAR DEL MISMO EQUIPO
-        #
-        # Se mantiene la regla anterior.
+        # TITULAR DEL MISMO EQUIPO = 100% PENALIZACIÓN
+        # Ya fue eliminado mediante bloqueo absoluto.
         # ----------------------------------------------------
-
-        disponibles.loc[
-            disponibles[
-                "titular_mismo_equipo"
-            ],
-            "score_flex"
-        ] *= (
-            1
-            -
-            PENALIZACION_FLEX_TITULAR_MISMO
-        )
 
         # ----------------------------------------------------
         # PENALIZACIÓN POR SER TITULAR DE OTRO EQUIPO
@@ -2477,6 +3009,25 @@ def main():
         return
 
     # --------------------------------------------------------
+    # INFORMACIÓN FECHA 10 PARA MATCHUP
+    # --------------------------------------------------------
+
+    info_fecha10 = {}
+
+    for _, partido in partidos_fecha10.iterrows():
+
+        sofa_id = str(partido["sofascore_id"])
+        pitch_id = MAPEO_PITCHAPI.get(sofa_id)
+
+        if not pitch_id:
+            continue
+
+        info_fecha10[str(pitch_id)] = {
+            "fecha_partido": pd.Timestamp(partido["fecha"]).normalize(),
+            "event_id": sofa_id,
+        }
+
+    # --------------------------------------------------------
     # LINEUPS
     # --------------------------------------------------------
 
@@ -2498,7 +3049,8 @@ def main():
 
     jugadores_objetivo = (
         construir_jugadores_objetivo(
-            LINEUPS_GLOBAL
+            LINEUPS_GLOBAL,
+            info_fecha10
         )
     )
 
@@ -2565,6 +3117,38 @@ def main():
         return
 
     # --------------------------------------------------------
+    # MODELO C: BASE + CONTEXTO + MATCHUP
+    #
+    # Es una señal adicional. No reemplaza el motor original.
+    # --------------------------------------------------------
+
+    modelo_c, columnas_modelo_c = entrenar_modelo_c()
+
+    if modelo_c is not None:
+
+        candidatos = agregar_prediccion_modelo_c(
+            candidatos,
+            modelo_c,
+            columnas_modelo_c
+        )
+
+        cantidad_modelo = (
+            candidatos["prediccion_modelo_c"]
+            .notna()
+            .sum()
+        )
+
+        print()
+        print(
+            "Predicciones Modelo C:",
+            f"{cantidad_modelo:,}/{len(candidatos):,}"
+        )
+
+    else:
+
+        candidatos["prediccion_modelo_c"] = np.nan
+
+    # --------------------------------------------------------
     # ESTABILIDAD
     # --------------------------------------------------------
 
@@ -2627,6 +3211,19 @@ def main():
     print(
         "Todos los candidatos compiten por rendimiento."
     )
+
+    print()
+    print(
+        "Matchup cargado:",
+        "SI" if not contexto_matchup.empty else "NO"
+    )
+
+    if not candidatos.empty and "matchup_score" in candidatos.columns:
+        cantidad_matchup = candidatos["matchup_score"].notna().sum()
+        print(
+            "Jugadores con matchup:",
+            f"{cantidad_matchup:,}/{len(candidatos):,}"
+        )
 
     # --------------------------------------------------------
     # GUARDAR CANDIDATOS
@@ -2900,6 +3497,21 @@ def main():
 
                     "factor_confianza": jugador.get(
                         "factor_confianza",
+                        ""
+                    ),
+
+                    "matchup_score": jugador.get(
+                        "matchup_score",
+                        ""
+                    ),
+
+                    "matchup_variables_usadas": jugador.get(
+                        "matchup_variables_usadas",
+                        ""
+                    ),
+
+                    "prediccion_modelo_c": jugador.get(
+                        "prediccion_modelo_c",
                         ""
                     ),
 
@@ -3251,6 +3863,10 @@ def main():
         "Factor contexto",
 
         "Factor confianza",
+
+        "Matchup score",
+
+        "Predicción Modelo C",
 
         "Score diversidad",
 
