@@ -3,239 +3,227 @@ import numpy as np
 
 
 # ============================================================
-# CONFIGURACIÓN
+# MATCHUP V3
+#
+# Arquitectura:
+#
+#   HISTORIAL DEL PROPIO EQUIPO
+#          +
+#   HISTORIAL DEL RIVAL
+#          +
+#   INTERACCION PROPIO VS RIVAL
+#          ↓
+#      MATCHUP SCORE
+#
+# IMPORTANTE:
+# - No exige historial jugador vs rival.
+# - Todo se calcula usando solamente datos anteriores a la fecha objetivo.
+# - No modifica ninguna regla del motor de selección.
+# - El historial individual del jugador sigue perteneciendo a
+#   score_contextual; aquí medimos el contexto del partido.
 # ============================================================
 
 ARCHIVO_ENTRADA = "datos/contexto_equipos.csv"
 ARCHIVO_SALIDA = "datos/contexto_matchup.csv"
 
-MIN_PARTIDOS_RIVAL = 3
+EPSILON = 1e-6
 
 
 # ============================================================
-# VARIABLES MATCHUP POR POSICIÓN
+# CONFIGURACION POR POSICION
+#
+# Las variables fueron seleccionadas a partir de los análisis
+# históricos V2. No se usan porcentajes de cobertura.
+#
+# Cada grupo se promedia internamente. Los tres componentes
+# disponibles se combinan con el mismo peso: no imponemos
+# pesos arbitrarios antes de validar el resultado.
 # ============================================================
 
-VARIABLES_ARQ = [
-    "rival_shotsOnGoal",
-    "rival_totalShotsOnGoal",
-    "rival_expectedGoals",
-    "rival_totalShotsInsideBox",
-    "rival_bigChanceCreated",
-    "rival_touchesInOppBox",
-    "rival_accurateCross",
-    "rival_cornerKicks",
-    "rival_freeKicks",
-    "rival_shotsOffGoal",
-]
+CONFIG = {
+    "ARQ": {
+        # Producción/actividad del propio equipo relevante para ARQ.
+        "propio": [
+            "goalkeeperSaves",
+            "ballRecovery",
+            "totalClearance",
+        ],
 
-VARIABLES_DEF = [
-    "rival_finalThirdEntries",
-    "rival_touchesInOppBox",
-    "rival_totalShotsInsideBox",
-    "rival_totalShotsOnGoal",
-    "rival_shotsOnGoal",
-    "rival_expectedGoals",
-    "rival_accurateCross",
-    "rival_cornerKicks",
-    "rival_fouledFinalThird",
-    "rival_duelWonPercent",
-    "rival_aerialDuelsPercentage",
-    "rival_errorsLeadToShot",
-]
+        # Producción del rival que determina volumen de trabajo.
+        "rival_produccion": [
+            "shotsOnGoal",
+            "totalShotsOnGoal",
+            "expectedGoals",
+            "totalShotsInsideBox",
+            "touchesInOppBox",
+        ],
 
-VARIABLES_VOL = [
-    "rival_ballPossession",
-    "rival_passes",
-    "rival_accuratePasses",
-    "rival_finalThirdEntries",
-    "rival_ballRecovery",
-    "rival_duelWonPercent",
-    "rival_groundDuelsPercentage",
-    "rival_aerialDuelsPercentage",
-    "rival_dispossessed",
-    "rival_fouls",
-    "rival_fouledFinalThird",
-    "rival_totalTackle",
-]
+        # Interacción: volumen ofensivo rival respecto de la
+        # capacidad defensiva/actividad del propio equipo.
+        "interaccion": [
+            "shotsOnGoal",
+            "totalShotsOnGoal",
+            "expectedGoals",
+        ],
 
-VARIABLES_DEL = [
-    "rival_expectedGoals",
-    "rival_totalShotsOnGoal",
-    "rival_shotsOnGoal",
-    "rival_totalShotsInsideBox",
-    "rival_touchesInOppBox",
-    "rival_bigChanceCreated",
-    "rival_bigChanceMissed",
-    "rival_fouls",
-    "rival_fouledFinalThird",
-    "rival_duelWonPercent",
-    "rival_groundDuelsPercentage",
-    "rival_aerialDuelsPercentage",
-    "rival_dispossessed",
-    "rival_errorsLeadToShot",
-    "rival_errorsLeadToGoal",
-]
+        # En ARQ un rival activo genera trabajo.
+        "direccion_rival": +1,
+        "tipo_interaccion": "rival_vs_propio",
+    },
 
+    "DEF": {
+        # La evidencia histórica mostró señal positiva para
+        # circulación/participación del propio equipo.
+        "propio": [
+            "passes",
+            "accuratePasses",
+            "ballPossession",
+            "ballRecovery",
+            "duelWonPercent",
+        ],
 
-# ============================================================
-# DIRECCIÓN SEMÁNTICA
-#
-# +1 = un valor alto aumenta el contexto positivo
-# -1 = un valor alto aumenta la dificultad
-# ============================================================
+        # Para DEF, mayor producción ofensiva rival aumenta
+        # el riesgo de perder acciones/bonus defensivos.
+        "rival_produccion": [
+            "expectedGoals",
+            "shotsOnGoal",
+            "totalShotsOnGoal",
+            "totalShotsInsideBox",
+            "touchesInOppBox",
+            "ballPossession",
+        ],
 
-DIRECCION = {}
+        # La interacción mide cuánto puede imponer el propio
+        # equipo respecto del contexto ofensivo rival.
+        "interaccion": [
+            "passes",
+            "accuratePasses",
+            "ballPossession",
+            "expectedGoals",
+            "shotsOnGoal",
+        ],
 
+        "direccion_rival": -1,
+        "tipo_interaccion": "propio_vs_rival",
+    },
 
-def agregar_direccion(variables, direccion):
-    for variable in variables:
-        DIRECCION[variable] = direccion
+    "VOL": {
+        "propio": [
+            "passes",
+            "accuratePasses",
+            "ballPossession",
+            "duelWonPercent",
+            "ballRecovery",
+            "freeKicks",
+        ],
 
+        # El análisis histórico mostró relación negativa entre
+        # dominio/pases del rival y puntos Winning del volante.
+        "rival_produccion": [
+            "ballPossession",
+            "passes",
+            "accuratePasses",
+            "duelWonPercent",
+            "totalClearance",
+        ],
 
-# ------------------------------------------------------------
-# ARQUERO
-#
-# Más producción ofensiva rival = más trabajo para ARQ.
-# ------------------------------------------------------------
+        "interaccion": [
+            "passes",
+            "accuratePasses",
+            "ballPossession",
+            "shotsOnGoal",
+        ],
 
-agregar_direccion([
-    "rival_shotsOnGoal",
-    "rival_totalShotsOnGoal",
-    "rival_expectedGoals",
-    "rival_totalShotsInsideBox",
-    "rival_bigChanceCreated",
-    "rival_touchesInOppBox",
-    "rival_accurateCross",
-    "rival_cornerKicks",
-    "rival_freeKicks",
-    "rival_shotsOffGoal",
-], +1)
+        "direccion_rival": -1,
+        "tipo_interaccion": "propio_vs_rival",
+    },
 
+    "DEL": {
+        "propio": [
+            "expectedGoals",
+            "shotsOnGoal",
+            "totalShotsInsideBox",
+            "touchesInOppBox",
+            "bigChanceCreated",
+            "accuratePasses",
+            "passes",
+        ],
 
-# ------------------------------------------------------------
-# DEFENSA
-#
-# Más ataques del rival = más volumen defensivo.
-# Errores rivales también generan oportunidades defensivas.
-# ------------------------------------------------------------
+        # Para DEL importa especialmente cuánto concede el rival.
+        # En esta sección NO usamos la producción del rival sino
+        # sus estadísticas rival_X: lo que el rival suele permitir.
+        "rival_concede": [
+            "expectedGoals",
+            "expectedGoalsOnTarget",
+            "shotsOnGoal",
+            "totalShotsInsideBox",
+            "touchesInOppBox",
+            "bigChanceCreated",
+        ],
 
-agregar_direccion([
-    "rival_finalThirdEntries",
-    "rival_touchesInOppBox",
-    "rival_totalShotsInsideBox",
-    "rival_totalShotsOnGoal",
-    "rival_shotsOnGoal",
-    "rival_expectedGoals",
-    "rival_accurateCross",
-    "rival_cornerKicks",
-    "rival_fouledFinalThird",
-    "rival_duelWonPercent",
-    "rival_aerialDuelsPercentage",
-    "rival_errorsLeadToShot",
-], +1)
+        # Las interacciones xG/xGOT/tiros fueron las señales más
+        # fuertes encontradas en el análisis histórico.
+        "interaccion": [
+            "expectedGoals",
+            "expectedGoalsOnTarget",
+            "shotsOnGoal",
+        ],
 
-
-# ------------------------------------------------------------
-# VOLANTE
-#
-# Buscamos intensidad y volumen de interacción.
-# ------------------------------------------------------------
-
-agregar_direccion([
-    "rival_ballPossession",
-    "rival_passes",
-    "rival_accuratePasses",
-    "rival_finalThirdEntries",
-    "rival_ballRecovery",
-    "rival_duelWonPercent",
-    "rival_groundDuelsPercentage",
-    "rival_aerialDuelsPercentage",
-    "rival_dispossessed",
-    "rival_fouls",
-    "rival_fouledFinalThird",
-    "rival_totalTackle",
-], +1)
-
-
-# ------------------------------------------------------------
-# DELANTERO
-#
-# Volumen ofensivo rival crea contexto de partido.
-#
-# Pero un rival fuerte en duelos representa mayor dificultad
-# directa para el delantero.
-# ------------------------------------------------------------
-
-agregar_direccion([
-    "rival_expectedGoals",
-    "rival_totalShotsOnGoal",
-    "rival_shotsOnGoal",
-    "rival_totalShotsInsideBox",
-    "rival_touchesInOppBox",
-    "rival_bigChanceCreated",
-    "rival_bigChanceMissed",
-    "rival_fouls",
-    "rival_fouledFinalThird",
-    "rival_dispossessed",
-    "rival_errorsLeadToShot",
-    "rival_errorsLeadToGoal",
-], +1)
-
-agregar_direccion([
-    "rival_duelWonPercent",
-    "rival_groundDuelsPercentage",
-    "rival_aerialDuelsPercentage",
-], -1)
+        "tipo_interaccion": "propio_vs_concede",
+    },
+}
 
 
 # ============================================================
-# NORMALIZAR POSICIÓN
+# POSICIONES
 # ============================================================
 
 def normalizar_posicion(valor):
-
     if pd.isna(valor):
         return None
 
     texto = str(valor).upper().strip()
 
-    if texto in ["GK", "G", "ARQ", "GOALKEEPER"]:
+    if texto in {"GK", "G", "ARQ", "GOALKEEPER", "ARQUERO"}:
         return "ARQ"
 
-    if texto in ["D", "DF", "DEF", "DEFENDER"]:
+    if texto in {"D", "DF", "DEF", "DEFENDER", "DEFENSA"}:
         return "DEF"
 
-    if texto in ["M", "MF", "MID", "VOL", "MIDFIELDER"]:
+    if texto in {"M", "MF", "MID", "VOL", "MIDFIELDER", "VOLANTE"}:
         return "VOL"
 
-    if texto in ["F", "FW", "DEL", "FORWARD", "ATTACKER"]:
+    if texto in {"F", "FW", "FWD", "DEL", "FORWARD", "ATTACKER", "DELANTERO"}:
         return "DEL"
 
     return None
 
 
 # ============================================================
-# PERCENTIL EMPÍRICO
+# PERCENTIL EMPIRICO
 # ============================================================
 
 def percentile_rank(valor, serie):
-
     if pd.isna(valor):
         return np.nan
 
-    serie = pd.to_numeric(
-        serie,
-        errors="coerce"
-    ).dropna()
+    serie = pd.to_numeric(serie, errors="coerce").dropna()
 
     if len(serie) == 0:
         return np.nan
 
-    return (
-        (serie <= valor).sum()
-        / len(serie)
-    )
+    return float((serie <= valor).sum() / len(serie))
+
+
+def percentil_previo(valor, serie, fechas, fecha_objetivo):
+    """
+    Percentil calculado solamente contra observaciones anteriores
+    a la fecha objetivo. Esto evita leakage temporal.
+    """
+    mascara = fechas < fecha_objetivo
+    serie_previa = serie.loc[mascara]
+
+    return percentile_rank(valor, serie_previa)
 
 
 # ============================================================
@@ -243,37 +231,28 @@ def percentile_rank(valor, serie):
 # ============================================================
 
 print("=" * 60)
-print("CREANDO CONTEXTO MATCHUP")
+print("CREANDO CONTEXTO MATCHUP V3")
 print("=" * 60)
 
 df = pd.read_csv(
     ARCHIVO_ENTRADA,
-    low_memory=False
+    low_memory=False,
 )
 
-print(
-    f"Filas entrada: {len(df)}"
-)
-
-
-# ============================================================
-# FECHA Y POSICIÓN
-# ============================================================
+print(f"Filas entrada: {len(df)}")
 
 df["fecha_matchup"] = pd.to_datetime(
     df["pitchapi_fecha"],
-    errors="coerce"
-)
+    errors="coerce",
+).dt.normalize()
 
-df["position_normalizada"] = (
-    df["position"].apply(
-        normalizar_posicion
-    )
+df["position_normalizada"] = df["position"].apply(
+    normalizar_posicion
 )
 
 
 # ============================================================
-# IDENTIFICAR RIVAL
+# RIVAL
 # ============================================================
 
 df["rival_team_id"] = np.where(
@@ -282,8 +261,8 @@ df["rival_team_id"] = np.where(
     np.where(
         df["team_id"] == df["pitchapi_away_team_id"],
         df["pitchapi_home_team_id"],
-        np.nan
-    )
+        np.nan,
+    ),
 )
 
 df["rival_team_name"] = np.where(
@@ -292,131 +271,113 @@ df["rival_team_name"] = np.where(
     np.where(
         df["team_id"] == df["pitchapi_away_team_id"],
         df["pitchapi_home_team"],
-        np.nan
-    )
+        np.nan,
+    ),
 )
 
 
 # ============================================================
-# TODAS LAS VARIABLES
+# VARIABLES NECESARIAS
 # ============================================================
 
-VARIABLES_MATCHUP = sorted(
-    set(
-        VARIABLES_ARQ
-        + VARIABLES_DEF
-        + VARIABLES_VOL
-        + VARIABLES_DEL
-    )
-)
+todas_variables = set()
 
-print(
-    f"Variables MATCHUP: {len(VARIABLES_MATCHUP)}"
-)
+for posicion, cfg in CONFIG.items():
+    todas_variables.update(cfg.get("propio", []))
+    todas_variables.update(cfg.get("rival_produccion", []))
+    todas_variables.update(cfg.get("rival_concede", []))
+    todas_variables.update(cfg.get("interaccion", []))
 
+variables_disponibles = {
+    variable
+    for variable in todas_variables
+    if f"sofascore_{variable}" in df.columns
+    and f"rival_{variable}" in df.columns
+}
 
-# ============================================================
-# MAPEO FUNDAMENTAL
-#
-# El MATCHUP usa nombres:
-#
-#     rival_expectedGoals
-#
-# Pero para construir el HISTORIAL DEL RIVAL debemos mirar:
-#
-#     sofascore_expectedGoals
-#
-# porque queremos saber cuánto produjo el rival en sus propios
-# partidos anteriores.
-# ============================================================
-
-MAPA_VARIABLES = {}
-
-for variable_rival in VARIABLES_MATCHUP:
-
-    nombre_base = variable_rival.replace(
-        "rival_",
-        "",
-        1
-    )
-
-    columna_propia = (
-        "sofascore_" + nombre_base
-    )
-
-    if columna_propia in df.columns:
-        MAPA_VARIABLES[
-            variable_rival
-        ] = columna_propia
-
-
-print(
-    f"Variables con fuente SofaScore: "
-    f"{len(MAPA_VARIABLES)}"
-)
+print(f"Variables conceptuales: {len(todas_variables)}")
+print(f"Variables con fuente SofaScore: {len(variables_disponibles)}")
 
 
 # ============================================================
 # TABLA EQUIPO-PARTIDO
 #
-# Una fila por:
+# Una fila por equipo en cada partido.
 #
-#     match_id + team_id
-#
-# Las estadísticas propias salen de sofascore_*.
+# sofascore_X = lo que produjo el equipo.
+# rival_X     = lo que produjo el rival / lo que este equipo
+#               recibió o concedió en ese partido.
 # ============================================================
 
-columnas_base = [
+columnas_equipo = [
     "match_id",
     "fecha_matchup",
     "team_id",
     "team_name",
 ]
 
-columnas_estadisticas = sorted(
-    set(
-        MAPA_VARIABLES.values()
-    )
-)
+for variable in sorted(variables_disponibles):
+    columnas_equipo.append(f"sofascore_{variable}")
+    columnas_equipo.append(f"rival_{variable}")
 
-columnas_equipo = (
-    columnas_base
-    + columnas_estadisticas
-)
+columnas_equipo = [
+    columna
+    for columna in columnas_equipo
+    if columna in df.columns
+]
 
 df_equipo = (
     df[columnas_equipo]
     .groupby(
         ["match_id", "team_id"],
         as_index=False,
-        sort=False
+        sort=False,
     )
     .first()
 )
 
-print(
-    f"Partidos/equipos históricos: "
-    f"{len(df_equipo)}"
-)
+df_equipo = df_equipo.sort_values(
+    ["fecha_matchup", "match_id", "team_id"]
+).reset_index(drop=True)
+
+print(f"Partidos/equipos históricos: {len(df_equipo)}")
 
 
 # ============================================================
-# HISTORIAL POR EQUIPO
+# PRECALCULAR INTERACCIONES DE CADA PARTIDO
+#
+# Estas distribuciones sirven como referencia histórica.
+# Para una fecha objetivo solamente se utilizan filas anteriores.
+# ============================================================
+
+for variable in sorted(variables_disponibles):
+    columna_propia = f"sofascore_{variable}"
+    columna_rival = f"rival_{variable}"
+
+    df_equipo[f"_ratio_{variable}"] = (
+        pd.to_numeric(df_equipo[columna_propia], errors="coerce")
+        / (
+            pd.to_numeric(df_equipo[columna_rival], errors="coerce").abs()
+            + EPSILON
+        )
+    )
+
+    df_equipo[f"_diferencia_{variable}"] = (
+        pd.to_numeric(df_equipo[columna_propia], errors="coerce")
+        - pd.to_numeric(df_equipo[columna_rival], errors="coerce")
+    )
+
+
+# ============================================================
+# INDICES HISTORICOS POR EQUIPO
 # ============================================================
 
 historial_equipo = {}
 
-for team_id, grupo in df_equipo.groupby(
-    "team_id"
-):
-
-    grupo = grupo.sort_values(
+for team_id, grupo in df_equipo.groupby("team_id"):
+    historial_equipo[team_id] = grupo.sort_values(
         "fecha_matchup"
-    )
-
-    historial_equipo[
-        team_id
-    ] = grupo
+    ).copy()
 
 
 # ============================================================
@@ -426,6 +387,7 @@ for team_id, grupo in df_equipo.groupby(
 resultado = df.copy()
 
 resultado["rival_partidos_historicos"] = np.nan
+resultado["propio_partidos_historicos"] = np.nan
 
 resultado["matchup_arq"] = np.nan
 resultado["matchup_def"] = np.nan
@@ -433,7 +395,69 @@ resultado["matchup_vol"] = np.nan
 resultado["matchup_del"] = np.nan
 resultado["matchup_score"] = np.nan
 
+resultado["matchup_score_propio"] = np.nan
+resultado["matchup_score_rival"] = np.nan
+resultado["matchup_score_interaccion"] = np.nan
+
 resultado["matchup_variables_usadas"] = np.nan
+resultado["matchup_componentes"] = ""
+
+
+# ============================================================
+# FUNCIONES DE COMPONENTES
+# ============================================================
+
+def media_percentiles(
+    valores,
+    series_historicas,
+    fechas_historicas,
+    fecha_objetivo,
+    direccion=+1,
+):
+    scores = []
+
+    for valor, serie, fechas in zip(
+        valores,
+        series_historicas,
+        fechas_historicas,
+    ):
+        if pd.isna(valor):
+            continue
+
+        score = percentil_previo(
+            valor,
+            serie,
+            fechas,
+            fecha_objetivo,
+        )
+
+        if pd.isna(score):
+            continue
+
+        if direccion < 0:
+            score = 1.0 - score
+
+        scores.append(score)
+
+    if not scores:
+        return np.nan, 0
+
+    return float(np.mean(scores)), len(scores)
+
+
+def promedio_historico(grupo, columna):
+    if grupo is None or grupo.empty or columna not in grupo.columns:
+        return np.nan
+
+    serie = pd.to_numeric(
+        grupo[columna],
+        errors="coerce",
+    ).dropna()
+
+    if serie.empty:
+        return np.nan
+
+    return float(serie.mean())
 
 
 # ============================================================
@@ -441,248 +465,331 @@ resultado["matchup_variables_usadas"] = np.nan
 # ============================================================
 
 total = len(resultado)
-
-contador_historial = 0
+contador_con_historial = 0
+contador_con_matchup = 0
 
 
 for indice, fila in resultado.iterrows():
 
-    fecha_objetivo = fila[
-        "fecha_matchup"
-    ]
-
-    rival_id = fila[
-        "rival_team_id"
-    ]
+    fecha_objetivo = fila["fecha_matchup"]
+    team_id = fila["team_id"]
+    rival_id = fila["rival_team_id"]
 
     if pd.isna(fecha_objetivo):
         continue
 
-    if pd.isna(rival_id):
+    if pd.isna(team_id) or pd.isna(rival_id):
         continue
 
+    posicion = fila["position_normalizada"]
 
-    # ========================================================
-    # HISTORIAL DEL RIVAL
-    # ========================================================
-
-    historial_rival = historial_equipo.get(
-        rival_id
-    )
-
-    if historial_rival is None:
+    if posicion not in CONFIG:
         continue
 
+    cfg = CONFIG[posicion]
 
-    # SOLO PARTIDOS ANTERIORES
+    historial_propio = historial_equipo.get(team_id)
+    historial_rival = historial_equipo.get(rival_id)
+
+    if historial_propio is None or historial_rival is None:
+        continue
+
+    historial_propio = historial_propio[
+        historial_propio["fecha_matchup"] < fecha_objetivo
+    ].copy()
+
     historial_rival = historial_rival[
-        historial_rival[
-            "fecha_matchup"
-        ] < fecha_objetivo
-    ]
+        historial_rival["fecha_matchup"] < fecha_objetivo
+    ].copy()
 
-
-    if len(historial_rival) < MIN_PARTIDOS_RIVAL:
+    if historial_propio.empty or historial_rival.empty:
         continue
 
+    contador_con_historial += 1
 
-    contador_historial += 1
+    resultado.at[
+        indice,
+        "propio_partidos_historicos"
+    ] = len(historial_propio)
 
     resultado.at[
         indice,
         "rival_partidos_historicos"
     ] = len(historial_rival)
 
+    # --------------------------------------------------------
+    # COMPONENTE 1: PROPIO EQUIPO
+    # --------------------------------------------------------
 
-    # ========================================================
-    # POSICIÓN
-    # ========================================================
+    propio_valores = []
+    propio_series = []
+    propio_fechas = []
 
-    posicion = fila[
-        "position_normalizada"
-    ]
-
-    if posicion == "ARQ":
-
-        variables_posicion = VARIABLES_ARQ
-
-    elif posicion == "DEF":
-
-        variables_posicion = VARIABLES_DEF
-
-    elif posicion == "VOL":
-
-        variables_posicion = VARIABLES_VOL
-
-    elif posicion == "DEL":
-
-        variables_posicion = VARIABLES_DEL
-
-    else:
-        continue
-
-
-    scores = []
-
-
-    # ========================================================
-    # PROCESAR CADA VARIABLE
-    # ========================================================
-
-    for variable_rival in variables_posicion:
-
-        columna_propia = MAPA_VARIABLES.get(
-            variable_rival
-        )
-
-        if columna_propia is None:
+    for variable in cfg.get("propio", []):
+        if variable not in variables_disponibles:
             continue
 
+        columna = f"sofascore_{variable}"
 
-        # ----------------------------------------------------
-        # HISTORIAL DEL RIVAL
-        # ----------------------------------------------------
-
-        serie_rival = pd.to_numeric(
-            historial_rival[
-                columna_propia
-            ],
-            errors="coerce"
-        ).dropna()
-
-
-        if len(serie_rival) == 0:
-            continue
-
-
-        promedio_rival = (
-            serie_rival.mean()
+        valor = promedio_historico(
+            historial_propio,
+            columna,
         )
 
+        if pd.isna(valor):
+            continue
 
-        # ----------------------------------------------------
-        # HISTORIAL DE TODA LA LIGA
-        #
-        # Solamente partidos anteriores.
-        # ----------------------------------------------------
-
-        liga_previa = df_equipo[
-            df_equipo[
-                "fecha_matchup"
-            ] < fecha_objetivo
-        ]
-
+        propio_valores.append(valor)
 
         serie_liga = pd.to_numeric(
-            liga_previa[
-                columna_propia
-            ],
-            errors="coerce"
-        ).dropna()
-
-
-        if len(serie_liga) == 0:
-            continue
-
-
-        # ----------------------------------------------------
-        # PERCENTIL DEL RIVAL
-        # ----------------------------------------------------
-
-        percentil = percentile_rank(
-            promedio_rival,
-            serie_liga
+            df_equipo[columna],
+            errors="coerce",
         )
 
+        propio_series.append(serie_liga)
+        propio_fechas.append(df_equipo["fecha_matchup"])
 
-        if pd.isna(percentil):
-            continue
-
-
-        # ----------------------------------------------------
-        # DIRECCIÓN
-        # ----------------------------------------------------
-
-        direccion = DIRECCION.get(
-            variable_rival,
-            +1
-        )
-
-
-        if direccion < 0:
-            percentil = (
-                1.0 - percentil
-            )
-
-
-        scores.append(
-            percentil
-        )
-
-
-    # ========================================================
-    # SCORE
-    # ========================================================
-
-    if len(scores) == 0:
-        continue
-
-
-    score = float(
-        np.mean(scores)
+    score_propio, n_propio = media_percentiles(
+        propio_valores,
+        propio_series,
+        propio_fechas,
+        fecha_objetivo,
+        +1,
     )
 
+    # --------------------------------------------------------
+    # COMPONENTE 2: RIVAL
+    # --------------------------------------------------------
 
-    if posicion == "ARQ":
+    rival_valores = []
+    rival_series = []
+    rival_fechas = []
 
-        resultado.at[
-            indice,
-            "matchup_arq"
-        ] = score
+    if "rival_concede" in cfg:
 
-    elif posicion == "DEF":
+        # Cuánto suele conceder/permitir el rival.
+        for variable in cfg["rival_concede"]:
+            if variable not in variables_disponibles:
+                continue
 
-        resultado.at[
-            indice,
-            "matchup_def"
-        ] = score
+            columna = f"rival_{variable}"
 
-    elif posicion == "VOL":
+            valor = promedio_historico(
+                historial_rival,
+                columna,
+            )
 
-        resultado.at[
-            indice,
-            "matchup_vol"
-        ] = score
+            if pd.isna(valor):
+                continue
 
-    elif posicion == "DEL":
+            rival_valores.append(valor)
 
-        resultado.at[
-            indice,
-            "matchup_del"
-        ] = score
+            serie_liga = pd.to_numeric(
+                df_equipo[columna],
+                errors="coerce",
+            )
 
+            rival_series.append(serie_liga)
+            rival_fechas.append(df_equipo["fecha_matchup"])
 
-    resultado.at[
-        indice,
-        "matchup_score"
-    ] = score
+        direccion_rival = +1
 
+    else:
+
+        # Producción del rival.
+        for variable in cfg.get("rival_produccion", []):
+            if variable not in variables_disponibles:
+                continue
+
+            columna = f"sofascore_{variable}"
+
+            valor = promedio_historico(
+                historial_rival,
+                columna,
+            )
+
+            if pd.isna(valor):
+                continue
+
+            rival_valores.append(valor)
+
+            serie_liga = pd.to_numeric(
+                df_equipo[columna],
+                errors="coerce",
+            )
+
+            rival_series.append(serie_liga)
+            rival_fechas.append(df_equipo["fecha_matchup"])
+
+        direccion_rival = cfg.get(
+            "direccion_rival",
+            +1,
+        )
+
+    score_rival, n_rival = media_percentiles(
+        rival_valores,
+        rival_series,
+        rival_fechas,
+        fecha_objetivo,
+        direccion_rival,
+    )
+
+    # --------------------------------------------------------
+    # COMPONENTE 3: INTERACCION
+    # --------------------------------------------------------
+
+    interaccion_scores = []
+
+    for variable in cfg.get("interaccion", []):
+
+        if variable not in variables_disponibles:
+            continue
+
+        columna_propia = f"sofascore_{variable}"
+        columna_rival = f"rival_{variable}"
+
+        propio = promedio_historico(
+            historial_propio,
+            columna_propia,
+        )
+
+        if cfg["tipo_interaccion"] == "rival_vs_propio":
+
+            rival = promedio_historico(
+                historial_rival,
+                f"sofascore_{variable}",
+            )
+
+            if pd.isna(propio) or pd.isna(rival):
+                continue
+
+            valor_interaccion = (
+                rival
+                / (abs(propio) + EPSILON)
+            )
+
+        elif cfg["tipo_interaccion"] == "propio_vs_concede":
+
+            concede = promedio_historico(
+                historial_rival,
+                columna_rival,
+            )
+
+            if pd.isna(propio) or pd.isna(concede):
+                continue
+
+            valor_interaccion = (
+                propio
+                / (abs(concede) + EPSILON)
+            )
+
+        else:
+
+            rival = promedio_historico(
+                historial_rival,
+                columna_propia,
+            )
+
+            if pd.isna(propio) or pd.isna(rival):
+                continue
+
+            valor_interaccion = (
+                propio
+                / (abs(rival) + EPSILON)
+            )
+
+        serie_liga = pd.to_numeric(
+            df_equipo[f"_ratio_{variable}"],
+            errors="coerce",
+        )
+
+        # Para rival_vs_propio necesitamos el inverso conceptual.
+        # El percentil se calcula sobre la misma escala ratio de
+        # partido para mantener una referencia histórica homogénea.
+        if cfg["tipo_interaccion"] == "rival_vs_propio":
+            valor_para_percentil = 1.0 / (
+                valor_interaccion + EPSILON
+            )
+        else:
+            valor_para_percentil = valor_interaccion
+
+        score = percentil_previo(
+            valor_para_percentil,
+            serie_liga,
+            df_equipo["fecha_matchup"],
+            fecha_objetivo,
+        )
+
+        if pd.isna(score):
+            continue
+
+        interaccion_scores.append(score)
+
+    if interaccion_scores:
+        score_interaccion = float(
+            np.mean(interaccion_scores)
+        )
+    else:
+        score_interaccion = np.nan
+
+    n_interaccion = len(interaccion_scores)
+
+    # --------------------------------------------------------
+    # SCORE FINAL
+    #
+    # Los componentes disponibles pesan igual.
+    # No forzamos un 40/30/30 antes de validar.
+    # --------------------------------------------------------
+
+    componentes = []
+
+    if not pd.isna(score_propio):
+        componentes.append(score_propio)
+
+    if not pd.isna(score_rival):
+        componentes.append(score_rival)
+
+    if not pd.isna(score_interaccion):
+        componentes.append(score_interaccion)
+
+    if not componentes:
+        continue
+
+    score_final = float(np.mean(componentes))
+
+    contador_con_matchup += 1
+
+    resultado.at[indice, "matchup_score"] = score_final
+    resultado.at[indice, "matchup_score_propio"] = score_propio
+    resultado.at[indice, "matchup_score_rival"] = score_rival
+    resultado.at[indice, "matchup_score_interaccion"] = score_interaccion
 
     resultado.at[
         indice,
         "matchup_variables_usadas"
-    ] = len(scores)
+    ] = n_propio + n_rival + n_interaccion
 
+    resultado.at[
+        indice,
+        "matchup_componentes"
+    ] = (
+        f"propio={n_propio};"
+        f"rival={n_rival};"
+        f"interaccion={n_interaccion}"
+    )
 
-    # ========================================================
-    # PROGRESO
-    # ========================================================
+    if posicion == "ARQ":
+        resultado.at[indice, "matchup_arq"] = score_final
+    elif posicion == "DEF":
+        resultado.at[indice, "matchup_def"] = score_final
+    elif posicion == "VOL":
+        resultado.at[indice, "matchup_vol"] = score_final
+    elif posicion == "DEL":
+        resultado.at[indice, "matchup_del"] = score_final
 
     if (indice + 1) % 2000 == 0:
-
         print(
-            f"Procesadas: "
-            f"{indice + 1}/{total}"
+            f"Procesadas: {indice + 1}/{total}"
         )
 
 
@@ -696,7 +803,7 @@ resultado = resultado.drop(
         "position_normalizada",
         "rival_team_id",
     ],
-    errors="ignore"
+    errors="ignore",
 )
 
 
@@ -706,7 +813,7 @@ resultado = resultado.drop(
 
 resultado.to_csv(
     ARCHIVO_SALIDA,
-    index=False
+    index=False,
 )
 
 
@@ -715,26 +822,14 @@ resultado.to_csv(
 # ============================================================
 
 print("=" * 60)
-print("MATCHUP CREADO CORRECTAMENTE")
+print("MATCHUP V3 CREADO CORRECTAMENTE")
 print("=" * 60)
 
-print(
-    f"FILAS: {len(resultado)}"
-)
-
-print(
-    f"COLUMNAS: {len(resultado.columns)}"
-)
-
-print(
-    f"ARCHIVO: {ARCHIVO_SALIDA}"
-)
-
-print(
-    f"FILAS CON HISTORIAL DEL RIVAL: "
-    f"{contador_historial}"
-)
-
+print(f"FILAS: {len(resultado)}")
+print(f"COLUMNAS: {len(resultado.columns)}")
+print(f"ARCHIVO: {ARCHIVO_SALIDA}")
+print(f"FILAS CON HISTORIAL: {contador_con_historial}")
+print(f"FILAS CON MATCHUP: {contador_con_matchup}")
 
 for columna in [
     "matchup_arq",
@@ -742,28 +837,22 @@ for columna in [
     "matchup_vol",
     "matchup_del",
     "matchup_score",
+    "matchup_score_propio",
+    "matchup_score_rival",
+    "matchup_score_interaccion",
 ]:
-
-    serie = resultado[
-        columna
-    ].dropna()
+    serie = pd.to_numeric(
+        resultado[columna],
+        errors="coerce",
+    ).dropna()
 
     print()
-    print(
-        columna.upper()
-    )
+    print(columna.upper())
 
-    if len(serie) == 0:
-
-        print(
-            "Sin datos"
-        )
-
+    if serie.empty:
+        print("Sin datos")
     else:
-
-        print(
-            serie.describe().to_string()
-        )
+        print(serie.describe().to_string())
 
 
 # ============================================================
@@ -778,12 +867,13 @@ columnas_muestra = [
     "rival_team_name",
     "position",
     "pitchapi_es_local",
+    "propio_partidos_historicos",
     "rival_partidos_historicos",
     "matchup_variables_usadas",
-    "matchup_arq",
-    "matchup_def",
-    "matchup_vol",
-    "matchup_del",
+    "matchup_componentes",
+    "matchup_score_propio",
+    "matchup_score_rival",
+    "matchup_score_interaccion",
     "matchup_score",
 ]
 
@@ -803,7 +893,7 @@ print(
     .drop_duplicates(
         subset=[
             "match_id",
-            "player_name"
+            "player_name",
         ]
     )
     .head(20)
