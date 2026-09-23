@@ -30,6 +30,11 @@ REQUEST_TIMEOUT = 40
 SLEEP_SOFA = 0.35
 SLEEP_PITCH = 0.15
 
+# La API de SofaScore puede devolver, dentro de una misma ronda,
+# el partido de la primera rueda y su partido espejo de la segunda rueda.
+# Para la Liga Profesional 2026 hay 30 equipos => 15 partidos por fecha.
+PARTIDOS_ESPERADOS_POR_FECHA = 15
+
 
 def normalizar(texto):
     if texto is None:
@@ -102,6 +107,75 @@ def cargar_pitch_key():
     )
 
 
+def clave_enfrentamiento(evento):
+    """
+    Identifica un enfrentamiento sin importar quién figure como local.
+
+    Esto evita tratar como dos partidos distintos:
+      Defensa y Justicia - Central Córdoba
+      Central Córdoba - Defensa y Justicia
+
+    Se usan los IDs de los equipos cuando están disponibles y, como
+    respaldo, sus nombres normalizados.
+    """
+    home = evento.get("homeTeam", {}) or {}
+    away = evento.get("awayTeam", {}) or {}
+
+    home_id = home.get("id")
+    away_id = away.get("id")
+
+    if home_id is not None and away_id is not None:
+        equipos = (f"id:{home_id}", f"id:{away_id}")
+    else:
+        equipos = (
+            f"nombre:{normalizar(home.get('name'))}",
+            f"nombre:{normalizar(away.get('name'))}",
+        )
+
+    return tuple(sorted(equipos))
+
+
+def filtrar_partidos_de_fecha(eventos, round_num):
+    """
+    SofaScore puede devolver partidos espejo de la segunda rueda al pedir
+    /events/round/{round}. Conservamos un solo evento por enfrentamiento.
+
+    La validación es deliberadamente estricta: si después de quitar los
+    espejos no quedan exactamente 15 partidos, no seguimos con PitchAPI.
+    Es preferible detener la automatización antes que contaminar el modelo.
+    """
+    unicos = []
+    vistos = set()
+
+    for evento in eventos:
+        clave = clave_enfrentamiento(evento)
+        if clave in vistos:
+            continue
+        vistos.add(clave)
+        unicos.append(evento)
+
+    if len(unicos) != PARTIDOS_ESPERADOS_POR_FECHA:
+        ejemplos = []
+        for evento in unicos:
+            local = evento.get("homeTeam", {}).get("name", "")
+            visitante = evento.get("awayTeam", {}).get("name", "")
+            ejemplos.append(f"{local} - {visitante}")
+
+        raise RuntimeError(
+            f"Fecha {round_num}: SofaScore devolvió {len(eventos)} eventos, "
+            f"pero después de eliminar partidos espejo quedaron {len(unicos)}. "
+            f"Se esperaban {PARTIDOS_ESPERADOS_POR_FECHA}. "
+            f"No se continuará para evitar datos duplicados o incompletos."
+        )
+
+    eliminados = len(eventos) - len(unicos)
+    print(
+        f"Fecha {round_num}: {len(eventos)} eventos recibidos -> "
+        f"{len(unicos)} partidos reales ({eliminados} espejos/duplicados eliminados)."
+    )
+    return unicos
+
+
 def obtener_round_sofascore(round_num):
     url = (
         f"{SOFA_BASE}/unique-tournament/{SOFA_TOURNAMENT_ID}/"
@@ -111,7 +185,7 @@ def obtener_round_sofascore(round_num):
     eventos = data.get("events", [])
     if not eventos:
         raise RuntimeError(f"SofaScore no devolvió partidos para la Fecha {round_num}.")
-    return eventos
+    return filtrar_partidos_de_fecha(eventos, round_num)
 
 
 def descargar_sofascore_round(round_num):
