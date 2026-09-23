@@ -92,6 +92,34 @@ def normalizar_nombre(nombre):
 # NORMALIZACIÓN DE IDS
 # ============================================================
 
+# ============================================================
+# NORMALIZACIÓN DE NOMBRES DE EQUIPOS
+# ============================================================
+
+ALIASES_EQUIPOS = {
+    "instituto": "instituto de cordoba",
+    "instituto de cordoba": "instituto de cordoba",
+}
+
+
+def normalizar_equipo(nombre):
+    """
+    Normaliza el nombre del equipo y aplica
+    alias conocidos entre PitchAPI y SofaScore.
+    """
+
+    nombre_norm = normalizar_nombre(nombre)
+
+    return ALIASES_EQUIPOS.get(
+        nombre_norm,
+        nombre_norm
+    )
+
+
+# ============================================================
+# NORMALIZACIÓN DE IDS
+# ============================================================
+
 def normalizar_id(valor):
     """
     Convierte un ID a string limpio.
@@ -665,11 +693,11 @@ def buscar_sofascore(
     Se permite una diferencia máxima de 2 días.
     """
 
-    home_norm = normalizar_nombre(
+    home_norm = normalizar_equipo(
         home_team
     )
 
-    away_norm = normalizar_nombre(
+    away_norm = normalizar_equipo(
         away_team
     )
 
@@ -681,11 +709,11 @@ def buscar_sofascore(
 
     for partido in partidos_sofascore:
 
-        sf_home = normalizar_nombre(
+        sf_home = normalizar_equipo(
             partido.get("home_team")
         )
 
-        sf_away = normalizar_nombre(
+        sf_away = normalizar_equipo(
             partido.get("away_team")
         )
 
