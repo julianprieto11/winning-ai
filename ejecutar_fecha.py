@@ -319,7 +319,7 @@ def construir_mapeo(eventos, pitch_matches):
             if fecha_sofa(evento) == str(p.get("date") or "")[:10]
         ]
         puntuados = sorted(
-            ((match_score(evento, p) for p in candidatos)),
+            ((match_score(evento, p), p) for p in candidatos),
             key=lambda x: x[0],
             reverse=True,
         )
