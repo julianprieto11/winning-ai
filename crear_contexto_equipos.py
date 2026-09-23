@@ -103,6 +103,12 @@ ALIASES_EQUIPOS = {
     "ca independiente": "ca independiente",
     "union": "club atletico union de santa fe",
     "club atletico union de santa fe": "club atletico union de santa fe",
+    "talleres": "ca talleres",
+    "ca talleres": "ca talleres",
+    "gimnasia lp": "gimnasia y esgrima",
+    "gimnasia y esgrima": "gimnasia y esgrima",
+    "central cordoba de santiago": "central cordoba",
+    "central cordoba": "central cordoba",
 }
 
 
