@@ -62,6 +62,9 @@ for ruta in glob.glob(os.path.join(PARTIDOS, "*.json")):
                     "rating": stats.get("rating"),
                 }
 
+    except Exception:
+        pass
+
 # Intento adicional por nombre cuando no hay player_id en el dataset.
 por_nombre = {}
 for ruta in glob.glob(os.path.join(PARTIDOS, "*.json")):
