@@ -336,6 +336,79 @@ df_equipo = (
     .first()
 )
 
+# ------------------------------------------------------------
+# NORMALIZACION DE LA PERSPECTIVA EQUIPO <-> RIVAL
+#
+# En contexto_equipos.csv puede ocurrir que una estadistica
+# aparezca como NaN en sofascore_X para un equipo, mientras
+# que la misma estadistica si exista como rival_X en la fila
+# de su oponente. Como cada partido tiene dos perspectivas,
+# ambas columnas contienen la misma informacion vista desde
+# lados opuestos.
+#
+# Recuperamos esos valores antes de construir historiales.
+# Esto evita que la disponibilidad de PROPIO/RIVAL/INTERACCION
+# dependa de si la estadistica vino cargada en una perspectiva
+# concreta del partido.
+# ------------------------------------------------------------
+
+# Obtener el rival de cada fila equipo-partido.
+mapa_rivales = (
+    df[["match_id", "team_id", "rival_team_id"]]
+    .dropna(subset=["match_id", "team_id"])
+    .drop_duplicates(subset=["match_id", "team_id"])
+)
+
+df_equipo = df_equipo.merge(
+    mapa_rivales,
+    on=["match_id", "team_id"],
+    how="left",
+)
+
+for variable in sorted(variables_disponibles):
+    propia = f"sofascore_{variable}"
+    concedida = f"rival_{variable}"
+
+    # Perspectiva del rival en el mismo partido.
+    contraparte = df_equipo[
+        ["match_id", "team_id", propia, concedida]
+    ].copy()
+
+    contraparte = contraparte.rename(
+        columns={
+            "team_id": "_rival_team_id_join",
+            propia: "_oponente_sofascore",
+            concedida: "_oponente_rival",
+        }
+    )
+
+    df_equipo = df_equipo.merge(
+        contraparte,
+        left_on=["match_id", "rival_team_id"],
+        right_on=["match_id", "_rival_team_id_join"],
+        how="left",
+        suffixes=("", "_contraparte"),
+    )
+
+    # sofascore_X del equipo = rival_X de la contraparte.
+    df_equipo[propia] = df_equipo[propia].combine_first(
+        df_equipo["_oponente_rival"]
+    )
+
+    # rival_X del equipo = sofascore_X de la contraparte.
+    df_equipo[concedida] = df_equipo[concedida].combine_first(
+        df_equipo["_oponente_sofascore"]
+    )
+
+    df_equipo = df_equipo.drop(
+        columns=[
+            "_rival_team_id_join",
+            "_oponente_sofascore",
+            "_oponente_rival",
+        ],
+        errors="ignore",
+    )
+
 df_equipo = df_equipo.sort_values(
     ["fecha_matchup", "match_id", "team_id"]
 ).reset_index(drop=True)
