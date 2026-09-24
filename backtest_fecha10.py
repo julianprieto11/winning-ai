@@ -2097,8 +2097,8 @@ def construir_candidatos(
                     "matchup_variables_usadas"
                 ],
 
-                "starter_fecha10": objetivo[
-                    "starter_fecha10"
+                "starter_fecha10": titularidad[
+                    "titular_2_de_3"
                 ],
             }
         )
