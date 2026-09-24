@@ -3956,8 +3956,6 @@ def main():
 
         "tipo_registro": "Tipo",
 
-        "orden": "Orden",
-
         "position": "Posición",
 
         "player_name": "Jugador",
@@ -3973,8 +3971,6 @@ def main():
         "contexto_explicativo": "Contexto",
 
         "prediccion_modelo_c": "Predicción Modelo C",
-
-        "score_contextual": "Score",
 
         "partidos_historicos": "Historial",
 
@@ -4026,8 +4022,6 @@ def main():
     # --------------------------------------------------------
 
     for col in [
-
-        "Score",
 
         "Promedio",
 
