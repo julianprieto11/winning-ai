@@ -4029,23 +4029,15 @@ def main():
 
         "Score",
 
-        "Score selección",
-
         "Promedio",
 
         "P90",
-
-        "Factor contexto",
 
         "Factor confianza",
 
         "Matchup score",
 
         "Predicción Modelo C",
-
-        "Score diversidad",
-
-        "Score FLEX",
 
         "Sim promedio",
 
