@@ -318,10 +318,14 @@ def distancia_fechas(sofa, pitch):
 
 
 def match_score(sofa, pitch):
-    distancia = distancia_fechas(sofa, pitch)
-    if distancia > 1:
-        return 0.0
+    """
+    Puntúa la correspondencia entre un partido de SofaScore y uno de
+    PitchAPI usando la identidad del enfrentamiento: LOCAL + VISITANTE.
 
+    La fecha NO es requisito para mapear. Puede utilizarse únicamente
+    como criterio secundario cuando existen varios registros que
+    representan el mismo LOCAL + VISITANTE.
+    """
     s_home = normalizar(sofa.get("homeTeam", {}).get("name"))
     s_away = normalizar(sofa.get("awayTeam", {}).get("name"))
     p_home = normalizar(pitch.get("home_team", {}).get("name"))
@@ -331,85 +335,108 @@ def match_score(sofa, pitch):
         SequenceMatcher(None, s_home, p_home).ratio()
         + SequenceMatcher(None, s_away, p_away).ratio()
     ) / 2
-    invertido = (
-        SequenceMatcher(None, s_home, p_away).ratio()
-        + SequenceMatcher(None, s_away, p_home).ratio()
-    ) / 2
 
-    score_nombres = max(directo, invertido)
-
-    # La coincidencia exacta de fecha sigue teniendo prioridad.
-    # Si PitchAPI trae el partido un día corrido por zona horaria,
-    # permitimos hasta 1 día de diferencia sin relajar la exigencia
-    # sobre los equipos.
-    if distancia == 0:
-        return score_nombres
-    return score_nombres * 0.995
+    # Para el mapeo de un partido futuro importa conservar la localía.
+    # No consideramos como equivalentes LOCAL/VISITANTE invertidos.
+    return directo
 
 
 def construir_mapeo(eventos, pitch_matches):
+    """
+    Mapea SofaScore -> PitchAPI por LOCAL + VISITANTE.
+
+    La fecha/hora del partido futuro no se utiliza como condición de
+    entrada. Si hay varios registros con el mismo enfrentamiento y
+    misma orientación, la fecha se usa solamente para elegir el
+    candidato más cercano al evento de SofaScore. Si además hay
+    duplicados exactos, se resuelve de forma determinista por ID.
+    """
     resultado = {}
+
     for evento in eventos:
         event_id = str(evento["id"])
-        # PitchAPI puede registrar el mismo partido un día corrido por
-        # zona horaria. No limitar los candidatos a fecha exacta: esa
-        # tolerancia ya está controlada por match_score(), que acepta
-        # como máximo 1 día de diferencia y sigue exigiendo coincidencia
-        # fuerte de equipos.
-        candidatos = [
+        s_home = normalizar(evento.get("homeTeam", {}).get("name"))
+        s_away = normalizar(evento.get("awayTeam", {}).get("name"))
+
+        # Primera prioridad: coincidencia exacta de LOCAL + VISITANTE.
+        exactos = [
             p for p in pitch_matches
-            if distancia_fechas(evento, p) <= 1
+            if normalizar(p.get("home_team", {}).get("name")) == s_home
+            and normalizar(p.get("away_team", {}).get("name")) == s_away
         ]
-        puntuados = sorted(
-            ((match_score(evento, p), p) for p in candidatos),
-            key=lambda x: x[0],
-            reverse=True,
-        )
-        if not puntuados or puntuados[0][0] < 0.90:
+
+        if exactos:
+            candidatos = exactos
+        else:
+            # Respaldo: misma orientación y similitud alta de nombres.
+            candidatos = [
+                p for p in pitch_matches
+                if (
+                    SequenceMatcher(
+                        None,
+                        s_home,
+                        normalizar(p.get("home_team", {}).get("name"))
+                    ).ratio() >= 0.90
+                    and
+                    SequenceMatcher(
+                        None,
+                        s_away,
+                        normalizar(p.get("away_team", {}).get("name"))
+                    ).ratio() >= 0.90
+                )
+            ]
+
+        if not candidatos:
             local = evento.get("homeTeam", {}).get("name", "")
             visitante = evento.get("awayTeam", {}).get("name", "")
             raise RuntimeError(
                 f"No se pudo mapear con seguridad SofaScore {event_id}: "
                 f"{local} - {visitante}"
             )
-        score, pitch = puntuados[0]
-        if len(puntuados) > 1 and score == puntuados[1][0]:
-            # PitchAPI puede devolver registros duplicados del mismo
-            # enfrentamiento y misma fecha. Si los candidatos
-            # representan exactamente el mismo partido, no es una
-            # ambigüedad real y podemos resolverla de forma determinista.
-            def clave_pitch_match(p):
-                return (
-                    str(p.get("date") or "")[:10],
-                    tuple(sorted((
-                        normalizar(p.get("home_team", {}).get("name")),
-                        normalizar(p.get("away_team", {}).get("name")),
-                    ))),
-                )
 
-            clave_top = clave_pitch_match(puntuados[0][1])
-            empates_equivalentes = [
-                p for s, p in puntuados
-                if s == score and clave_pitch_match(p) == clave_top
-            ]
-            todos_los_empates = [p for s, p in puntuados if s == score]
+        # Entre partidos con el mismo LOCAL + VISITANTE, la fecha solo
+        # desempata. Para el partido futuro, esto permite encontrar el
+        # fixture correcto aunque esté muy alejado del histórico.
+        candidatos = sorted(
+            candidatos,
+            key=lambda p: (
+                -match_score(evento, p),
+                distancia_fechas(evento, p),
+                str(p.get("date") or ""),
+                str(p.get("id", "")),
+            ),
+        )
 
-            if len(empates_equivalentes) == len(todos_los_empates):
-                pitch = sorted(
-                    empates_equivalentes,
-                    key=lambda p: str(p.get("id", ""))
-                )[0]
-                print(
-                    f"  [AVISO] PitchAPI duplicado para SofaScore "
-                    f"{event_id}: score {score:.3f}. "
-                    f"Se usa {pitch.get('id')}."
-                )
-            else:
-                raise RuntimeError(
-                    f"Mapeo ambiguo para SofaScore {event_id}: "
-                    f"dos partidos PitchAPI con score {score:.3f}"
-                )
+        mejor_score = match_score(evento, candidatos[0])
+
+        if mejor_score < 0.90:
+            local = evento.get("homeTeam", {}).get("name", "")
+            visitante = evento.get("awayTeam", {}).get("name", "")
+            raise RuntimeError(
+                f"No se pudo mapear con seguridad SofaScore {event_id}: "
+                f"{local} - {visitante}"
+            )
+
+        mejores = [
+            p for p in candidatos
+            if match_score(evento, p) == mejor_score
+            and distancia_fechas(evento, p) == distancia_fechas(evento, candidatos[0])
+        ]
+
+        pitch = sorted(
+            mejores,
+            key=lambda p: str(p.get("id", ""))
+        )[0]
+
+        if len(mejores) > 1:
+            print(
+                f"  [AVISO] PitchAPI duplicado para SofaScore "
+                f"{event_id}: score {mejor_score:.3f}. "
+                f"Se usa {pitch.get('id')}."
+            )
+
         resultado[event_id] = str(pitch["id"])
+
     return resultado
 
 
