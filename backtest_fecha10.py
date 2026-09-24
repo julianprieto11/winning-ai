@@ -5,7 +5,7 @@ import random
 import numpy as np
 import pandas as pd
 import openpyxl
-from openpyxl.styles import Alignment, Font
+from openpyxl.styles import Alignment, Font, Border, Side, PatternFill
 
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
@@ -4117,8 +4117,9 @@ def main():
         ws.auto_filter.ref = ws.dimensions
 
         # Alto de cada fila de jugador.
+        # 65 puntos son aproximadamente 87 píxeles.
         for fila in range(2, ws.max_row + 1):
-            ws.row_dimensions[fila].height = 40.5
+            ws.row_dimensions[fila].height = 65
 
         # Anchos solicitados.
         anchos = {
@@ -4134,21 +4135,83 @@ def main():
                     ws.column_dimensions[celda.column_letter].width = ancho
                     break
 
-        # Contexto en varias líneas para aprovechar el ancho/alto.
-        if "Contexto" in df_excel.columns:
-            indice_contexto = list(df_excel.columns).index("Contexto") + 1
-            for fila in range(2, ws.max_row + 1):
-                ws.cell(fila, indice_contexto).alignment = Alignment(
+        # ====================================================
+        # FORMATO VISUAL POR EQUIPO / PERFIL
+        # ====================================================
+
+        borde_fino = Side(style="thin")
+        borde_grueso = Side(style="medium")
+
+        rellenos = {
+            "SEGURO": PatternFill(fill_type="solid", fgColor="E2F0D9"),
+            "INTERMEDIO": PatternFill(fill_type="solid", fgColor="FFF2CC"),
+            "ARRIESGADO": PatternFill(fill_type="solid", fgColor="F4CCCC"),
+        }
+
+        max_col = ws.max_column
+        fila_inicio_equipo = None
+        perfil_equipo = None
+
+        # Detectar cada bloque de perfil y aplicar fondo + bordes.
+        for fila in range(2, ws.max_row + 2):
+            perfil = ws.cell(fila, 1).value if fila <= ws.max_row else None
+
+            if perfil_equipo is None and perfil in rellenos:
+                fila_inicio_equipo = fila
+                perfil_equipo = perfil
+
+            cambio_equipo = (
+                perfil_equipo is not None
+                and perfil != perfil_equipo
+            )
+
+            if cambio_equipo:
+                fila_fin_equipo = fila - 1
+
+                for fila_equipo in range(
+                    fila_inicio_equipo,
+                    fila_fin_equipo + 1
+                ):
+                    for col in range(1, max_col + 1):
+                        celda = ws.cell(fila_equipo, col)
+
+                        celda.fill = rellenos[perfil_equipo]
+
+                        celda.border = Border(
+                            left=borde_grueso if col == 1 else borde_fino,
+                            right=borde_grueso if col == max_col else borde_fino,
+                            top=borde_grueso if fila_equipo == fila_inicio_equipo else borde_fino,
+                            bottom=borde_grueso if fila_equipo == fila_fin_equipo else borde_fino,
+                        )
+
+                fila_inicio_equipo = None
+                perfil_equipo = None
+
+                if perfil in rellenos:
+                    fila_inicio_equipo = fila
+                    perfil_equipo = perfil
+
+        # Todas las celdas quedan centradas y alineadas verticalmente.
+        for fila in range(2, ws.max_row + 1):
+            if ws.cell(fila, 1).value is None:
+                continue
+
+            ws.row_dimensions[fila].height = 65
+
+            for col in range(1, ws.max_column + 1):
+                ws.cell(fila, col).alignment = Alignment(
+                    horizontal="center",
+                    vertical="center",
                     wrap_text=True,
-                    vertical="top"
                 )
 
         # Encabezados destacados.
         for celda in ws[1]:
             celda.font = Font(bold=True)
             celda.alignment = Alignment(
-                wrap_text=True,
-                vertical="center"
+                horizontal="center",
+                vertical="center",
+                wrap_text=True
             )
 
         ws.row_dimensions[1].height = 30
