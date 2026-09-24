@@ -864,225 +864,155 @@ MAPEO_PITCHAPI = {
 
 
 # ============================================================
-# CARGAR LINEUPS PITCHAPI
+# ============================================================
+# CONSTRUIR CANDIDATOS DE LA FECHA OBJETIVO
+#
+# La fecha objetivo todavía no tiene lineups reales.
+# Por eso NO se deben usar lineups históricos como si fueran
+# la alineación de la fecha objetivo.
+#
+# Los jugadores candidatos se obtienen del histórico disponible
+# antes del corte y se vinculan a los clubes de los partidos
+# de la fecha objetivo. La titularidad esperada se sigue tratando
+# como una señal histórica mediante mapa_lineups.
 # ============================================================
 
-def cargar_lineups_fecha10():
+def normalizar_equipo_objetivo(valor):
 
-    lineups = {}
+    texto = normalizar_texto(valor)
 
-    archivos = glob.glob(
-        os.path.join(
-            LINEUPS_DIR,
-            "*_lineups.json"
-        )
-    )
+    reemplazos = {
+        "instituto de cordoba": "instituto",
+        "instituto": "instituto",
+        "ca independiente": "independiente",
+        "independiente": "independiente",
+        "ca talleres": "talleres",
+        "talleres": "talleres",
+        "club atletico union de santa fe": "union",
+        "union de santa fe": "union",
+        "union": "union",
+        "gimnasia y esgrima": "gimnasia",
+        "gimnasia lp": "gimnasia",
+        "central cordoba de santiago": "central cordoba",
+        "central cordoba": "central cordoba",
+    }
 
-    ids_objetivo = set(
-        MAPEO_PITCHAPI.values()
-    )
-
-    for archivo in archivos:
-
-        nombre = os.path.basename(
-            archivo
-        )
-
-        match_id = nombre.replace(
-            "_lineups.json",
-            ""
-        )
-
-        if match_id not in ids_objetivo:
-            continue
-
-        try:
-
-            with open(
-                archivo,
-                "r",
-                encoding="utf-8"
-            ) as f:
-
-                data = json.load(f)
-
-        except Exception:
-
-            continue
-
-        data = data.get(
-            "data",
-            {}
-        )
-
-        if not data:
-            continue
-
-        lineups[match_id] = data
-
-    print()
-    print("=" * 70)
-    print(
-        "LINEUPS FECHA 10:",
-        len(lineups)
-    )
-    print("=" * 70)
-
-    for match_id in sorted(lineups):
-
-        data = lineups[match_id]
-
-        print(
-            match_id,
-            "|",
-            data.get(
-                "home_team",
-                {}
-            ).get(
-                "name",
-                ""
-            ),
-            "-",
-            data.get(
-                "away_team",
-                {}
-            ).get(
-                "name",
-                ""
-            ),
-        )
-
-    return lineups
+    return reemplazos.get(texto, texto)
 
 
-# ============================================================
-# CONSTRUIR MAPA DE JUGADORES FECHA 10
-# ============================================================
-
-def construir_jugadores_objetivo(
-    lineups,
-    info_fecha10=None
-):
+def construir_jugadores_objetivo(historico, partidos_objetivo):
 
     jugadores = {}
 
-    if info_fecha10 is None:
-        info_fecha10 = {}
+    if historico.empty or partidos_objetivo.empty:
+        return jugadores
 
-    for match_id, data in lineups.items():
+    historico = historico.copy()
+    historico["player_id"] = (
+        historico["player_id"].astype(str)
+    )
 
-        info = info_fecha10.get(str(match_id), {})
+    historico["_equipo_objetivo"] = (
+        historico["team_name"]
+        .map(normalizar_equipo_objetivo)
+    )
 
-        fecha_partido = info.get(
-            "fecha_partido",
-            pd.NaT
+    # Último club conocido de cada jugador antes de la fecha objetivo.
+    ultimos = (
+        historico
+        .sort_values(["player_id", "date"])
+        .groupby("player_id", as_index=False)
+        .tail(1)
+    )
+
+    clubes_objetivo = {}
+
+    for _, partido in partidos_objetivo.iterrows():
+
+        home_nombre = str(
+            partido.get("home_team_name", "")
+        )
+        away_nombre = str(
+            partido.get("away_team_name", "")
         )
 
-        event_id = info.get(
-            "event_id",
-            ""
+        home_key = normalizar_equipo_objetivo(home_nombre)
+        away_key = normalizar_equipo_objetivo(away_nombre)
+
+        clubes_objetivo[home_key] = {
+            "team_name_fixture": home_nombre,
+            "team_key": home_key,
+            "rival_name": away_nombre,
+            "rival_key": away_key,
+            "es_local": True,
+            "event_id": str(partido.get("sofascore_id", "")),
+            "fecha_partido": partido.get("fecha", pd.NaT),
+        }
+
+        clubes_objetivo[away_key] = {
+            "team_name_fixture": away_nombre,
+            "team_key": away_key,
+            "rival_name": home_nombre,
+            "rival_key": home_key,
+            "es_local": False,
+            "event_id": str(partido.get("sofascore_id", "")),
+            "fecha_partido": partido.get("fecha", pd.NaT),
+        }
+
+    # IDs de equipo del histórico, para que matchup conserve una
+    # referencia estable aunque SofaScore y PitchAPI nombren distinto.
+    equipo_id_por_clave = (
+        ultimos
+        .assign(
+            _team_key=ultimos["team_name"].map(
+                normalizar_equipo_objetivo
+            )
         )
+        .drop_duplicates("_team_key")
+        .set_index("_team_key")["team_id"]
+        .astype(str)
+        .to_dict()
+        if "team_id" in ultimos.columns
+        else {}
+    )
 
-        for lado in [
-            "home",
-            "away"
-        ]:
+    for _, fila in ultimos.iterrows():
 
-            equipo = data.get(
-                f"{lado}_team",
-                {}
-            ) or {}
+        player_id = str(fila["player_id"])
+        team_name = str(fila.get("team_name", ""))
+        team_key = normalizar_equipo_objetivo(team_name)
 
-            rival = data.get(
-                "away_team" if lado == "home" else "home_team",
-                {}
-            ) or {}
+        objetivo = clubes_objetivo.get(team_key)
 
-            team_id = str(
-                equipo.get("id", "")
-            )
+        if objetivo is None:
+            continue
 
-            team_name = equipo.get(
-                "name",
-                ""
-            )
+        rival_key = objetivo["rival_key"]
 
-            rival_team_id = str(
-                rival.get("id", "")
-            )
-
-            rival_team_name = rival.get(
-                "name",
-                ""
-            )
-
-            bloque = data.get(
-                lado,
-                {}
-            ) or {}
-
-            starters = bloque.get(
-                "starters",
-                []
-            ) or []
-
-            subs = bloque.get(
-                "subs",
-                []
-            ) or []
-
-            for jugador in starters:
-
-                player_id = str(
-                    jugador.get("player_id", "")
-                )
-
-                if not player_id:
-                    continue
-
-                jugadores[player_id] = {
-                    "player_id": player_id,
-                    "player_name": jugador.get("name", ""),
-                    "team_id": team_id,
-                    "team_name": team_name,
-                    "match_id_fecha10": match_id,
-                    "starter_fecha10": True,
-                    "fecha_partido": fecha_partido,
-                    "event_id": event_id,
-                    "rival_team_id": rival_team_id,
-                    "rival_team_name": rival_team_name,
-                    "es_local": lado == "home",
-                }
-
-            for jugador in subs:
-
-                player_id = str(
-                    jugador.get("player_id", "")
-                )
-
-                if not player_id:
-                    continue
-
-                if player_id not in jugadores:
-                    jugadores[player_id] = {
-                        "player_id": player_id,
-                        "player_name": jugador.get("name", ""),
-                        "team_id": team_id,
-                        "team_name": team_name,
-                        "match_id_fecha10": match_id,
-                        "starter_fecha10": False,
-                        "fecha_partido": fecha_partido,
-                        "event_id": event_id,
-                        "rival_team_id": rival_team_id,
-                        "rival_team_name": rival_team_name,
-                        "es_local": lado == "home",
-                    }
+        jugadores[player_id] = {
+            "player_id": player_id,
+            "player_name": str(fila.get("player_name", "")),
+            "team_id": str(fila.get("team_id", "")),
+            "team_name": team_name,
+            "team_key": team_key,
+            "match_id_fecha_objetivo": objetivo["event_id"],
+            "fecha_partido": objetivo["fecha_partido"],
+            "event_id": objetivo["event_id"],
+            "rival_team_id": str(
+                equipo_id_por_clave.get(rival_key, "")
+            ),
+            "rival_team_name": objetivo["rival_name"],
+            "es_local": objetivo["es_local"],
+        }
 
     return jugadores
 
 
 # ============================================================
 # MAPA DE TITULARIDADES HISTÓRICAS
+# ============================================================
+
+
 # ============================================================
 
 def construir_mapa_lineups_historicos():
@@ -1967,73 +1897,21 @@ def construir_candidatos(
 
         # ----------------------------------------------------
         # LOCALÍA + RIVAL
+        #
+        # La información pertenece al fixture de la fecha objetivo.
+        # Nunca se reconstruye desde un lineup histórico.
         # ----------------------------------------------------
 
-        match_id_fecha10 = objetivo[
-            "match_id_fecha10"
-        ]
+        es_local = bool(
+            objetivo.get("es_local", False)
+        )
 
-        lineup = None
+        rival_name = str(
+            objetivo.get("rival_team_name", "")
+        )
 
-        for mid, data in (
-            LINEUPS_GLOBAL.items()
-        ):
-
-            if mid == match_id_fecha10:
-
-                lineup = data
-                break
-
-        if lineup is None:
+        if not rival_name:
             continue
-
-        home_team = (
-            lineup.get(
-                "home_team",
-                {}
-            )
-            or {}
-        )
-
-        away_team = (
-            lineup.get(
-                "away_team",
-                {}
-            )
-            or {}
-        )
-
-        home_id = str(
-            home_team.get(
-                "id",
-                ""
-            )
-        )
-
-        home_name = home_team.get(
-            "name",
-            ""
-        )
-
-        away_name = away_team.get(
-            "name",
-            ""
-        )
-
-        es_local = (
-            str(
-                objetivo[
-                    "team_id"
-                ]
-            )
-            == home_id
-        )
-
-        rival_name = (
-            away_name
-            if es_local
-            else home_name
-        )
 
         # ----------------------------------------------------
         # CONTEXTO DEL EQUIPO
@@ -3063,57 +2941,20 @@ def main():
         return
 
     # --------------------------------------------------------
-    # INFORMACIÓN FECHA 10 PARA MATCHUP
+    # FECHA OBJETIVO
     # --------------------------------------------------------
 
-    info_fecha10 = {}
-
-    for _, partido in partidos_fecha10.iterrows():
-
-        sofa_id = str(partido["sofascore_id"])
-        pitch_id = MAPEO_PITCHAPI.get(sofa_id)
-
-        if not pitch_id:
-            continue
-
-        info_fecha10[str(pitch_id)] = {
-            "fecha_partido": pd.Timestamp(partido["fecha"]).normalize(),
-            "event_id": sofa_id,
-        }
-
-    # --------------------------------------------------------
-    # LINEUPS
-    # --------------------------------------------------------
-
-    LINEUPS_GLOBAL = (
-        cargar_lineups_fecha10()
-    )
-
-    if len(
-        LINEUPS_GLOBAL
-    ) != 15:
-
-        print(
-            "ADVERTENCIA: se esperaban 15 lineups."
-        )
-
-    # --------------------------------------------------------
-    # JUGADORES
-    # --------------------------------------------------------
-
-    jugadores_objetivo = (
-        construir_jugadores_objetivo(
-            LINEUPS_GLOBAL,
-            info_fecha10
-        )
+    # El fixture de la fecha objetivo se obtiene de los JSON de
+    # SofaScore. Todavía no necesita lineups reales.
+    jugadores_objetivo = construir_jugadores_objetivo(
+        historico_hasta_corte,
+        partidos_fecha10
     )
 
     print()
     print(
-        "Jugadores únicos encontrados en Fecha 10:",
-        len(
-            jugadores_objetivo
-        )
+        f"Jugadores candidatos de Fecha {FECHA_OBJETIVO}:",
+        len(jugadores_objetivo)
     )
 
     # --------------------------------------------------------
