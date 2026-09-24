@@ -4104,6 +4104,22 @@ def main():
 
         ws = writer.book["Equipos"]
 
+        # Separar visualmente cada uno de los 3 equipos/perfiles.
+        # Se inserta una fila en blanco cuando cambia el Perfil.
+        perfiles = [
+            ws.cell(fila, 1).value
+            for fila in range(2, ws.max_row + 1)
+        ]
+        filas_separacion = []
+        for fila in range(ws.max_row, 2, -1):
+            perfil_actual = ws.cell(fila, 1).value
+            perfil_anterior = ws.cell(fila - 1, 1).value
+            if perfil_actual != perfil_anterior:
+                filas_separacion.append(fila)
+
+        for fila in filas_separacion:
+            ws.insert_rows(fila, 1)
+
         # Encabezado fijo y autofiltro.
         ws.freeze_panes = "A2"
         ws.auto_filter.ref = ws.dimensions
