@@ -605,7 +605,7 @@ def main():
     sufijo = f"fecha{fecha_objetivo}"
     motor.SALIDA_CANDIDATOS = f"datos/candidatos_{sufijo}_final.csv"
     motor.SALIDA_EQUIPOS = f"datos/{sufijo}_equipos_predichos.csv"
-    motor.SALIDA_EQUIPOS_EXCEL = f"datos/{sufijo}_equipos_predichos_excel.csv"
+    motor.SALIDA_EQUIPOS_EXCEL = f"datos/{sufijo}_equipos_predichos_excel.xlsx"
     motor.SALIDA_SIMULACIONES = f"datos/{sufijo}_simulaciones.csv"
 
     motor.main()
