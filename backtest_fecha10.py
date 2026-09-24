@@ -997,8 +997,7 @@ def construir_jugadores_objetivo(historico, partidos_objetivo):
             "team_key": team_key,
             "match_id_fecha_objetivo": objetivo["event_id"],
             "fecha_partido": objetivo["fecha_partido"],
-            "event_id": objetivo["event_id"],            "rival_team_id": str(
-                equipo_id_por_clave.get(rival_key, "")
+            "event_id": objetivo["event_id"],            "rival_team_id": str(                equipo_id_por_clave.get(rival_key, "")
             ),
             "rival_team_name": objetivo["rival_name"],
             "es_local": objetivo["es_local"],
@@ -1998,7 +1997,6 @@ def construir_candidatos(
         )
         candidatos.append(
             {
-
                 "player_id": player_id,
 
                 "player_name": objetivo[
@@ -2997,8 +2995,7 @@ def generar_contexto_jugador(jugador):
                         partes.append(
                             "el rival suele generar más tiros y xG, "
                             "elevando el volumen potencial de atajadas"
-                        )
-                    elif valor < mediana * 0.92:
+                        )                    elif valor < mediana * 0.92:
                         partes.append(
                             "el rival suele generar menos tiros y xG, "
                             "reduciendo el volumen esperado de atajadas"
@@ -3632,6 +3629,11 @@ def main():
                         ""
                     ),
 
+                    "fecha_partido": jugador.get(
+                        "fecha_partido",
+                        pd.NaT
+                    ),
+
                     "score_contextual": jugador[
                         "score_contextual"
                     ],
@@ -3827,6 +3829,11 @@ def main():
                         ""
                     ),
 
+                    "fecha_partido": jugador.get(
+                        "fecha_partido",
+                        pd.NaT
+                    ),
+
                     "score_contextual": jugador[
                         "score_contextual"
                     ],
@@ -3997,7 +4004,6 @@ def main():
         "titular_mismo_equipo": (
             "Titular mismo equipo"
         ),
-
         "titular_otro_equipo": (
             "Titular otro equipo"
         ),
