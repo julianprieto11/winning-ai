@@ -4,6 +4,8 @@ import os
 import random
 import numpy as np
 import pandas as pd
+import openpyxl
+from openpyxl.styles import Alignment, Font
 
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
@@ -34,7 +36,7 @@ PARTIDOS_DIR = "datos/partidos"
 
 SALIDA_CANDIDATOS = "datos/candidatos_fecha10_final.csv"
 SALIDA_EQUIPOS = "datos/fecha10_equipos_predichos.csv"
-SALIDA_EQUIPOS_EXCEL = "datos/fecha10_equipos_predichos_excel.csv"
+SALIDA_EQUIPOS_EXCEL = "datos/fecha10_equipos_predichos_excel.xlsx"
 SALIDA_SIMULACIONES = "datos/fecha10_simulaciones.csv"
 
 N_SIMULACIONES = 10000
@@ -3974,8 +3976,6 @@ def main():
 
         "score_contextual": "Score",
 
-        "score_seleccion": "Score selección",
-
         "partidos_historicos": "Historial",
 
         "participaciones_ultimos_3": "Participaciones últimos 3",
@@ -3986,28 +3986,7 @@ def main():
 
         "p90": "P90",
 
-        "factor_contexto": "Factor contexto",
-
         "factor_confianza": "Factor confianza",
-
-        "score_diversidad": "Score diversidad",
-
-        "veces_usado_otros_equipos": (
-            "Usado en otros equipos"
-        ),
-
-        "score_flex": "Score FLEX",
-
-        "flex_repetido": "FLEX repetido",
-
-        "veces_flex_usado": "FLEX usado antes",
-
-        "titular_mismo_equipo": (
-            "Titular mismo equipo"
-        ),
-        "titular_otro_equipo": (
-            "Titular otro equipo"
-        ),
 
         "sim_promedio_equipo": "Sim promedio",
 
@@ -4109,12 +4088,62 @@ def main():
     # GUARDAR ARCHIVO PARA EXCEL
     # --------------------------------------------------------
 
-    df_excel.to_csv(
+    # --------------------------------------------------------
+    # EXPORTAR XLSX CON FORMATO PARA LECTURA
+    # --------------------------------------------------------
+
+    with pd.ExcelWriter(
         SALIDA_EQUIPOS_EXCEL,
-        index=False,
-        sep=";",
-        encoding="utf-8-sig"
-    )
+        engine="openpyxl"
+    ) as writer:
+        df_excel.to_excel(
+            writer,
+            index=False,
+            sheet_name="Equipos"
+        )
+
+        ws = writer.book["Equipos"]
+
+        # Encabezado fijo y autofiltro.
+        ws.freeze_panes = "A2"
+        ws.auto_filter.ref = ws.dimensions
+
+        # Alto de cada fila de jugador.
+        for fila in range(2, ws.max_row + 1):
+            ws.row_dimensions[fila].height = 40.5
+
+        # Anchos solicitados.
+        anchos = {
+            "Jugador": 22.25,
+            "Club": 24,
+            "Rival": 24,
+            "Contexto": 90,
+        }
+
+        for nombre_columna, ancho in anchos.items():
+            for celda in ws[1]:
+                if celda.value == nombre_columna:
+                    ws.column_dimensions[celda.column_letter].width = ancho
+                    break
+
+        # Contexto en varias líneas para aprovechar el ancho/alto.
+        if "Contexto" in df_excel.columns:
+            indice_contexto = list(df_excel.columns).index("Contexto") + 1
+            for fila in range(2, ws.max_row + 1):
+                ws.cell(fila, indice_contexto).alignment = Alignment(
+                    wrap_text=True,
+                    vertical="top"
+                )
+
+        # Encabezados destacados.
+        for celda in ws[1]:
+            celda.font = Font(bold=True)
+            celda.alignment = Alignment(
+                wrap_text=True,
+                vertical="center"
+            )
+
+        ws.row_dimensions[1].height = 30
 
     # --------------------------------------------------------
     # GUARDAR SIMULACIONES
