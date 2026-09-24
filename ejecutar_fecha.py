@@ -238,7 +238,7 @@ def obtener_round_sofascore(round_num):
     return filtrar_partidos_de_fecha(eventos, round_num)
 
 
-def descargar_sofascore_round(round_num):
+def descargar_sofascore_round(round_num, recolectar_detalle=True):
     eventos = obtener_round_sofascore(round_num)
     SOFA_DIR.mkdir(parents=True, exist_ok=True)
     print()
@@ -250,6 +250,24 @@ def descargar_sofascore_round(round_num):
         local = evento.get("homeTeam", {}).get("name", "")
         visitante = evento.get("awayTeam", {}).get("name", "")
         print(f"{i:02d}/{len(eventos):02d} | {event_id} | {local} - {visitante}")
+
+        # La fecha objetivo todavía no se jugó. Para predicción solamente
+        # necesitamos la identidad del fixture (local/visitante) y los
+        # datos públicos del evento. No debemos pedir lineups, incidents
+        # ni statistics del partido futuro.
+        if not recolectar_detalle:
+            payload = {
+                "event": {"event": evento},
+                "lineups": {"status": "future_match_not_collected"},
+                "incidents": {"status": "future_match_not_collected"},
+                "statistics": {"status": "future_match_not_collected"},
+            }
+            (SOFA_DIR / f"{event_id}.json").write_text(
+                json.dumps(payload, ensure_ascii=False, indent=2),
+                encoding="utf-8"
+            )
+            continue
+
         try:
             lineups = request_json(f"{SOFA_BASE}/event/{event_id}/lineups")
         except Exception as error:
@@ -526,8 +544,17 @@ def main():
 
     api_key = cargar_pitch_key()
 
-    eventos_anterior = descargar_sofascore_round(fecha_anterior)
-    eventos_objetivo = descargar_sofascore_round(fecha_objetivo)
+    # Fecha anterior: ya disputada -> sí recolectamos datos reales.
+    eventos_anterior = descargar_sofascore_round(
+        fecha_anterior,
+        recolectar_detalle=True,
+    )
+
+    # Fecha objetivo: todavía no disputada -> solamente fixture/local/visitante.
+    eventos_objetivo = descargar_sofascore_round(
+        fecha_objetivo,
+        recolectar_detalle=False,
+    )
 
     pitch_matches = obtener_pitch_matches(api_key)
     todos = eventos_anterior + eventos_objetivo
@@ -541,7 +568,20 @@ def main():
     for sofa_id, pitch_id in sorted(mapeo.items()):
         print(f"{sofa_id} -> {pitch_id}")
 
-    for pitch_id in sorted(set(mapeo.values())):
+    # PitchAPI: descargar solamente partidos de la fecha anterior.
+    # Los partidos de la fecha objetivo son futuros y no tienen estadísticas
+    # reales que puedan utilizarse para la predicción.
+    pitch_ids_historicos = {
+        mapeo[str(evento["id"])]
+        for evento in eventos_anterior
+    }
+
+    print()
+    print("=" * 78)
+    print("PITCHAPI - HISTÓRICO FECHA ANTERIOR")
+    print("=" * 78)
+
+    for pitch_id in sorted(pitch_ids_historicos):
         print()
         print(f"PITCHAPI {pitch_id}")
         descargar_pitchapi_match(pitch_id, api_key)
