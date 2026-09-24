@@ -1,7 +1,7 @@
 import requests
 import json
 
-API_KEY = "pk_test_QWMXbKvU6nK1x81cECn-kK4ePC781lEMFjyftvALsdI"
+API_KEY = "pk_test_v-4YtMJL4MXC2Ydz6DhG2PgIKGNlVYF_v--vjjnZqig"
 
 match_id = "m_0MqdAY"
 
