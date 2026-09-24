@@ -2995,7 +2995,8 @@ def generar_contexto_jugador(jugador):
                         partes.append(
                             "el rival suele generar más tiros y xG, "
                             "elevando el volumen potencial de atajadas"
-                        )                    elif valor < mediana * 0.92:
+                        )
+                    elif valor < mediana * 0.92:
                         partes.append(
                             "el rival suele generar menos tiros y xG, "
                             "reduciendo el volumen esperado de atajadas"
