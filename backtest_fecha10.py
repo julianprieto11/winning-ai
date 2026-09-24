@@ -997,8 +997,7 @@ def construir_jugadores_objetivo(historico, partidos_objetivo):
             "team_key": team_key,
             "match_id_fecha_objetivo": objetivo["event_id"],
             "fecha_partido": objetivo["fecha_partido"],
-            "event_id": objetivo["event_id"],
-            "rival_team_id": str(
+            "event_id": objetivo["event_id"],            "rival_team_id": str(
                 equipo_id_por_clave.get(rival_key, "")
             ),
             "rival_team_name": objetivo["rival_name"],
@@ -1997,7 +1996,6 @@ def construir_candidatos(
             posicion,
             objetivo.get("fecha_partido", pd.NaT),
         )
-
         candidatos.append(
             {
 
@@ -2082,6 +2080,11 @@ def construir_candidatos(
                 "score_base": score_base,
 
                 "score_contextual": score_contextual,
+
+                "fecha_partido": objetivo.get(
+                    "fecha_partido",
+                    pd.NaT
+                ),
 
                 "matchup_arq": matchup["matchup_arq"],
 
@@ -2786,6 +2789,284 @@ def construir_flex(
 
 
 # ============================================================
+# CONTEXTO EXPLICATIVO PARA EXCEL
+# ============================================================
+
+def _numero_contexto(valor):
+    try:
+        if pd.isna(valor):
+            return np.nan
+        return float(valor)
+    except Exception:
+        return np.nan
+
+
+def _texto_numero(valor, decimales=2):
+    numero = _numero_contexto(valor)
+    if pd.isna(numero):
+        return ""
+    return f"{numero:.{decimales}f}"
+
+
+def generar_contexto_jugador(jugador):
+    """
+    Capa explicativa. NO modifica scores ni reglas de selección.
+
+    Usa:
+    - fixture objetivo (local/visitante + rival);
+    - matchup calculado previamente;
+    - participación/titularidad reciente;
+    - promedio y P90 históricos;
+    - estadísticas históricas del rival cuando están disponibles.
+
+    Nunca inventa una tendencia: si no hay evidencia suficiente,
+    simplemente omite esa parte de la explicación.
+    """
+    club = str(jugador.get("team_name", "") or "")
+    rival = str(jugador.get("rival", "") or "")
+    posicion = str(jugador.get("position", "") or "").upper()
+    local = jugador.get("es_local", False)
+
+    ubicacion = "Local" if bool(local) else "Visitante"
+    partes = []
+
+    if rival:
+        partes.append(f"{ubicacion} ante {rival}")
+
+    # --------------------------------------------------------
+    # MATCHUP
+    # --------------------------------------------------------
+    matchup = _numero_contexto(jugador.get("matchup_score"))
+    variables = _numero_contexto(jugador.get("matchup_variables_usadas"))
+
+    if not pd.isna(matchup):
+        if matchup >= 0.60:
+            frase_matchup = "el matchup es favorable"
+        elif matchup <= 0.40:
+            frase_matchup = "el matchup es menos favorable"
+        else:
+            frase_matchup = "el matchup es equilibrado"
+
+        if not pd.isna(variables) and variables > 0:
+            partes.append(
+                f"{frase_matchup} para {posicion} "
+                f"(score {matchup:.2f}; {int(variables)} variables)"
+            )
+        else:
+            partes.append(f"{frase_matchup} para {posicion}")
+
+    # --------------------------------------------------------
+    # TENDENCIA DEL RIVAL
+    # Se calcula solo con historial anterior a la fecha objetivo.
+    # --------------------------------------------------------
+    fecha_objetivo = jugador.get("fecha_partido", pd.NaT)
+    fecha_objetivo = pd.to_datetime(fecha_objetivo, errors="coerce")
+
+    rival_contexto = pd.DataFrame()
+
+    if (
+        not pd.isna(fecha_objetivo)
+        and not contexto_matchup.empty
+        and "team_name" in contexto_matchup.columns
+        and "date" in contexto_matchup.columns
+    ):
+        dfc = contexto_matchup.copy()
+        dfc["date"] = pd.to_datetime(dfc["date"], errors="coerce")
+
+        rival_normalizado = normalizar_texto(rival)
+
+        if rival_normalizado:
+            rival_contexto = dfc[
+                (dfc["date"] < fecha_objetivo.normalize())
+                & (
+                    dfc["team_name"]
+                    .map(normalizar_texto)
+                    == rival_normalizado
+                )
+            ].copy()
+
+    def promedio_rival(columnas):
+        valores = []
+        for columna in columnas:
+            if columna in rival_contexto.columns:
+                serie = pd.to_numeric(
+                    rival_contexto[columna],
+                    errors="coerce"
+                ).dropna()
+                if not serie.empty:
+                    valores.append(float(serie.mean()))
+        if not valores:
+            return np.nan
+        return float(np.mean(valores))
+
+    def mediana_liga(columnas):
+        if contexto_matchup.empty:
+            return np.nan
+
+        valores = []
+        dfc = contexto_matchup.copy()
+
+        if "date" in dfc.columns:
+            fechas = pd.to_datetime(dfc["date"], errors="coerce")
+            if not pd.isna(fecha_objetivo):
+                dfc = dfc[fechas < fecha_objetivo.normalize()]
+
+        for columna in columnas:
+            if columna in dfc.columns:
+                serie = pd.to_numeric(
+                    dfc[columna],
+                    errors="coerce"
+                ).dropna()
+                if not serie.empty:
+                    valores.append(float(serie.median()))
+
+        if not valores:
+            return np.nan
+        return float(np.mean(valores))
+
+    if not rival_contexto.empty:
+
+        if posicion == "DEL":
+            columnas = [
+                "rival_expectedGoals",
+                "rival_expectedGoalsOnTarget",
+                "rival_shotsOnGoal",
+                "rival_totalShotsInsideBox",
+                "rival_touchesInOppBox",
+                "rival_bigChanceCreated",
+            ]
+
+            valor = promedio_rival(columnas)
+
+            # En el historial del propio rival, rival_X representa
+            # lo que sus oponentes produjeron contra él: es decir,
+            # lo que el rival concedió.
+            if not pd.isna(valor):
+                mediana = mediana_liga(columnas)
+                if not pd.isna(mediana):
+                    if valor > mediana * 1.08:
+                        partes.append(
+                            "el rival viene concediendo un contexto alto "
+                            "de xG, tiros y presencia en el área"
+                        )
+                    elif valor < mediana * 0.92:
+                        partes.append(
+                            "el rival viene concediendo un contexto bajo "
+                            "de xG, tiros y presencia en el área"
+                        )
+
+        elif posicion == "VOL":
+            columnas = [
+                "sofascore_ballPossession",
+                "sofascore_passes",
+                "sofascore_accuratePasses",
+            ]
+
+            valor = promedio_rival(columnas)
+
+            if not pd.isna(valor):
+                mediana = mediana_liga(columnas)
+                if not pd.isna(mediana):
+                    if valor < mediana * 0.92:
+                        partes.append(
+                            "el rival suele tener menor volumen de "
+                            "posesión y pases, favoreciendo la participación"
+                            " del volante con pelota"
+                        )
+                    elif valor > mediana * 1.08:
+                        partes.append(
+                            "el rival suele dominar posesión y pases, "
+                            "lo que reduce el margen de circulación del volante"
+                        )
+
+        elif posicion == "ARQ":
+            columnas = [
+                "sofascore_shotsOnGoal",
+                "sofascore_totalShotsOnGoal",
+                "sofascore_expectedGoals",
+                "sofascore_totalShotsInsideBox",
+                "sofascore_touchesInOppBox",
+            ]
+
+            valor = promedio_rival(columnas)
+
+            if not pd.isna(valor):
+                mediana = mediana_liga(columnas)
+                if not pd.isna(mediana):
+                    if valor > mediana * 1.08:
+                        partes.append(
+                            "el rival suele generar más tiros y xG, "
+                            "elevando el volumen potencial de atajadas"
+                        )
+                    elif valor < mediana * 0.92:
+                        partes.append(
+                            "el rival suele generar menos tiros y xG, "
+                            "reduciendo el volumen esperado de atajadas"
+                        )
+
+        elif posicion == "DEF":
+            columnas = [
+                "rival_expectedGoals",
+                "rival_shotsOnGoal",
+                "rival_totalShotsInsideBox",
+                "rival_touchesInOppBox",
+            ]
+
+            valor = promedio_rival(columnas)
+
+            if not pd.isna(valor):
+                mediana = mediana_liga(columnas)
+                if not pd.isna(mediana):
+                    if valor < mediana * 0.92:
+                        partes.append(
+                            "el rival viene generando menos xG y tiros, "
+                            "un contexto más favorable para sostener acciones defensivas"
+                        )
+                    elif valor > mediana * 1.08:
+                        partes.append(
+                            "el rival viene generando más xG y tiros, "
+                            "por lo que el defensor tendrá mayor carga defensiva"
+                        )
+
+    # --------------------------------------------------------
+    # FORMA / REGULARIDAD DEL JUGADOR
+    # --------------------------------------------------------
+    participaciones = _numero_contexto(
+        jugador.get("participaciones_ultimos_3")
+    )
+    titulares = _numero_contexto(
+        jugador.get("titulares_ultimos_3")
+    )
+    promedio = _numero_contexto(
+        jugador.get("promedio")
+    )
+    p90 = _numero_contexto(
+        jugador.get("p90")
+    )
+
+    forma = []
+
+    if not pd.isna(participaciones):
+        forma.append(
+            f"{int(participaciones)}/3 participaciones recientes"
+        )
+
+    if not pd.isna(titulares):
+        forma.append(
+            f"{int(titulares)}/3 titularidades recientes"
+        )
+
+    if forma:
+        partes.append("viene con " + " y ".join(forma))
+
+    if not pd.isna(promedio) and not pd.isna(p90):
+        partes.append(
+            f"promedio histórico {promedio:.2f} y P90 {p90:.2f}"
+        )
+
+    return ". ".join(partes) + "." if partes else "Sin contexto adicional disponible."
+
+# ============================================================
 # SIMULACIONES
 # ============================================================
 
@@ -2997,8 +3278,7 @@ def main():
         mapa_lineups,
         contexto,
         forma,
-        local_visitante,
-        rendimiento,
+        local_visitante,        rendimiento,
         posiciones
     )
 
@@ -3635,6 +3915,14 @@ def main():
             )
 
     # --------------------------------------------------------
+    # GENERAR CONTEXTO EXPLICATIVO
+    # --------------------------------------------------------
+    # Es una columna de auditoría para entender la selección.
+    # NO participa del score ni modifica la selección.
+    for jugador in equipos_salida:
+        jugador["contexto_explicativo"] = generar_contexto_jugador(jugador)
+
+    # --------------------------------------------------------
     # GUARDAR CSV TÉCNICO
     # --------------------------------------------------------
 
@@ -3671,6 +3959,8 @@ def main():
         "es_local": "Local",
 
         "matchup_score": "Matchup score",
+
+        "contexto_explicativo": "Contexto",
 
         "prediccion_modelo_c": "Predicción Modelo C",
 
@@ -3997,8 +4287,7 @@ def main():
 
             print(
                 "Prob >=140:",
-                round(
-                    safe_float(
+                round(                    safe_float(
                         datos[0][
                             "prob_140"
                         ]
