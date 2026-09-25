@@ -238,6 +238,76 @@ def obtener_round_sofascore(round_num):
     return filtrar_partidos_de_fecha(eventos, round_num)
 
 
+def detectar_proxima_fecha(max_round=30):
+    """
+    Detecta automáticamente la próxima fecha completamente futura.
+
+    Se consideran candidatas las rondas del Clausura 2026 que:
+    - tengan exactamente 15 partidos válidos;
+    - todavía no hayan comenzado en su totalidad.
+
+    Se devuelve la primera ronda cuya fecha/hora más temprana sea posterior
+    al momento actual. Si no existe ninguna, se detiene con un mensaje claro.
+    """
+    import datetime as _dt
+
+    ahora = _dt.datetime.now(_dt.timezone.utc)
+
+    print()
+    print("=" * 78)
+    print("DETECCIÓN AUTOMÁTICA DE LA PRÓXIMA FECHA")
+    print("=" * 78)
+
+    for round_num in range(1, max_round + 1):
+        try:
+            eventos = obtener_round_sofascore(round_num)
+        except Exception as error:
+            print(f"Fecha {round_num}: no disponible para detección ({error})")
+            continue
+
+        timestamps = [
+            evento.get("startTimestamp")
+            for evento in eventos
+            if evento.get("startTimestamp") is not None
+        ]
+
+        if len(timestamps) != PARTIDOS_ESPERADOS_POR_FECHA:
+            print(
+                f"Fecha {round_num}: se encontraron {len(timestamps)} "
+                "horarios válidos; se omite."
+            )
+            continue
+
+        fechas = [
+            _dt.datetime.fromtimestamp(
+                int(timestamp),
+                tz=_dt.timezone.utc
+            )
+            for timestamp in timestamps
+        ]
+
+        inicio = min(fechas)
+        fin = max(fechas)
+
+        if inicio > ahora:
+            print(
+                f"Próxima fecha detectada: {round_num} "
+                f"(inicio {inicio.isoformat()}, "
+                f"último partido {fin.isoformat()})."
+            )
+            return round_num
+
+        print(
+            f"Fecha {round_num}: ya comenzó o está en curso "
+            f"(inicio {inicio.isoformat()})."
+        )
+
+    raise RuntimeError(
+        "No se encontró una próxima fecha completamente futura "
+        f"entre las rondas 1 y {max_round}."
+    )
+
+
 def descargar_sofascore_round(round_num, recolectar_detalle=True):
     eventos = obtener_round_sofascore(round_num)
     SOFA_DIR.mkdir(parents=True, exist_ok=True)
@@ -521,12 +591,21 @@ def calcular_corte(eventos_objetivo):
 
 
 def main():
-    if len(sys.argv) != 2:
-        raise SystemExit("Uso: python ejecutar_fecha.py <numero_fecha>")
-    try:
-        fecha_objetivo = int(sys.argv[1])
-    except ValueError:
-        raise SystemExit("La fecha debe ser un número entero.")
+    if len(sys.argv) > 2:
+        raise SystemExit(
+            "Uso: python ejecutar_fecha.py [numero_fecha]"
+        )
+
+    if len(sys.argv) == 2:
+        try:
+            fecha_objetivo = int(sys.argv[1])
+        except ValueError:
+            raise SystemExit("La fecha debe ser un número entero.")
+        modo_fecha = "manual"
+    else:
+        fecha_objetivo = detectar_proxima_fecha()
+        modo_fecha = "automática"
+
     if fecha_objetivo < 2:
         raise SystemExit("La primera fecha automatizable es la Fecha 2.")
 
@@ -537,6 +616,9 @@ def main():
     print(f"WINNING AI - ACTUALIZACIÓN Y PREDICCIÓN FECHA {fecha_objetivo}")
     print("=" * 78)
     print()
+    print(
+        f"Modo de fecha: {modo_fecha}"
+    )
     print(
         f"Se actualizará la Fecha {fecha_anterior} "
         f"y se preparará la Fecha {fecha_objetivo}."
