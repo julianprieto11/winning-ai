@@ -82,9 +82,12 @@ def agregar_pre_simulacion(candidatos, historico):
         errors="coerce"
     ).clip(0.0, 1.0)
 
+    # Influencia reforzada del matchup sobre el centro contextual.
+    # Antes: +/-10%. Ahora: +/-30%.
+    # 0.50 = neutro; 1.00 = +30%; 0.00 = -30%.
     factor_matchup = (
         1.0
-        + (matchup.fillna(0.50) - 0.50) * 0.20
+        + (matchup.fillna(0.50) - 0.50) * 0.60
     )
 
     centro_contextual = (
