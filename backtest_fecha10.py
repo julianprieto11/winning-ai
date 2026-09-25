@@ -2270,6 +2270,31 @@ def optimizar_tres_equipos_globalmente(candidatos):
         df["_club"] = df["team_name"].fillna("").astype(str)
         df["_position"] = df["position"].fillna("").astype(str)
 
+        # Una sola fila por jugador y perfil. Si hubiera duplicados,
+        # conservamos la de mayor score de selección para que posición
+        # y club sean coherentes con la variable binaria del optimizador.
+        df["_score_num"] = pd.to_numeric(
+            df["score_seleccion"],
+            errors="coerce"
+        ).fillna(-np.inf)
+
+        df = (
+            df
+            .sort_values(
+                "_score_num",
+                ascending=False
+            )
+            .drop_duplicates(
+                subset=["player_id"],
+                keep="first"
+            )
+            .drop(
+                columns=["_score_num"],
+                errors="ignore"
+            )
+            .reset_index(drop=True)
+        )
+
         dataframes[perfil] = df
 
     # --------------------------------------------------------
@@ -2346,6 +2371,13 @@ def optimizar_tres_equipos_globalmente(candidatos):
         dtype=float
     )
 
+    # Por defecto todos los x son binarios 0/1. Los jugadores que
+    # no existen en un perfil quedan explícitamente fijados a 0.
+    upper_bounds = np.ones(
+        n_variables,
+        dtype=float
+    )
+
     for perfil_idx, perfil in enumerate(perfiles):
 
         df = dataframes[perfil]
@@ -2362,6 +2394,10 @@ def optimizar_tres_equipos_globalmente(candidatos):
             0.0
         )
 
+        ids_disponibles = set(
+            scores.keys()
+        )
+
         for player_id in base_ids:
 
             idx = indice_por_id[player_id]
@@ -2370,6 +2406,12 @@ def optimizar_tres_equipos_globalmente(candidatos):
                 player_id,
                 0.0
             )
+
+            if player_id not in ids_disponibles:
+                upper_bounds[
+                    x_idx(perfil_idx, idx)
+                ] = 0.0
+                continue
 
             objetivo[
                 x_idx(perfil_idx, idx)
@@ -2626,7 +2668,7 @@ def optimizar_tres_equipos_globalmente(candidatos):
         ),
         bounds=Bounds(
             np.zeros(n_variables),
-            np.ones(n_variables)
+            upper_bounds
         ),
         constraints=LinearConstraint(
             matriz,
