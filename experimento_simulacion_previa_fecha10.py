@@ -59,12 +59,58 @@ def agregar_pre_simulacion(candidatos, historico):
     for c in m.columns:
         candidatos[c] = m[c]
 
-    media = pd.to_numeric(candidatos["pre_sim_media"], errors="coerce")
-    contexto = pd.to_numeric(candidatos["score_contextual"], errors="coerce")
-    delta = (contexto - media).fillna(0.0)
+    # Contextualizacion especifica del partido objetivo.
+    # El contexto del jugador/equipo y el matchup modifican el
+    # centro esperado de la distribucion historica.
+    #
+    # matchup_score esta normalizado entre 0 y 1:
+    # 0.50 = neutro; 0.00 = -10%; 1.00 = +10%.
+    # El limite evita que el matchup domine el historial.
 
-    for c in ["pre_sim_media", "pre_sim_p50", "pre_sim_p75", "pre_sim_p90", "pre_sim_p95"]:
-        candidatos[c + "_ajustada"] = pd.to_numeric(candidatos[c], errors="coerce") + delta
+    media = pd.to_numeric(
+        candidatos["pre_sim_media"],
+        errors="coerce"
+    )
+
+    contexto = pd.to_numeric(
+        candidatos["score_contextual"],
+        errors="coerce"
+    )
+
+    matchup = pd.to_numeric(
+        candidatos["matchup_score"],
+        errors="coerce"
+    ).clip(0.0, 1.0)
+
+    factor_matchup = (
+        1.0
+        + (matchup.fillna(0.50) - 0.50) * 0.20
+    )
+
+    centro_contextual = (
+        contexto * factor_matchup
+    ).fillna(media)
+
+    delta = (
+        centro_contextual - media
+    ).fillna(0.0)
+
+    for c in [
+        "pre_sim_media",
+        "pre_sim_p50",
+        "pre_sim_p75",
+        "pre_sim_p90",
+        "pre_sim_p95",
+    ]:
+        candidatos[c + "_ajustada"] = (
+            pd.to_numeric(
+                candidatos[c],
+                errors="coerce"
+            ) + delta
+        )
+
+    candidatos["pre_sim_factor_matchup"] = factor_matchup
+    candidatos["pre_sim_centro_contextual"] = centro_contextual
 
     candidatos["score_pre_sim_SEGURO"] = candidatos["pre_sim_p50_ajustada"]
     candidatos["score_pre_sim_INTERMEDIO"] = candidatos["pre_sim_p75_ajustada"]
