@@ -12,6 +12,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.impute import SimpleImputer
 from sklearn.ensemble import HistGradientBoostingRegressor
+from scipy.optimize import milp, LinearConstraint, Bounds
 
 # ============================================================
 # CONFIGURACIÓN
@@ -2207,10 +2208,619 @@ def calcular_score_seleccion(
 
 
 # ============================================================
+# OPTIMIZADOR GLOBAL DE LOS 3 EQUIPOS
+#
+# Construye SEGURO + INTERMEDIO + ARRIESGADO como una sola
+# optimización combinatoria. El contexto, matchup y Modelo C
+# ya están incorporados en score_seleccion antes de llegar aquí.
+#
+# Reglas preservadas:
+# - 10 titulares por perfil: 1 ARQ + 3 DEF + 3 VOL + 3 DEL.
+# - máximo 3 jugadores del mismo club por perfil.
+# - repetición entre perfiles: 0% / 30% / 45%.
+# - la penalización de repetición se aplica una sola vez al
+#   perfil posterior, aunque el jugador aparezca en ambos perfiles
+#   anteriores.
+# ============================================================
+
+def optimizar_tres_equipos_globalmente(candidatos):
+
+    perfiles = [
+        "SEGURO",
+        "INTERMEDIO",
+        "ARRIESGADO",
+    ]
+
+    posiciones_necesarias = {
+        "ARQ": 1,
+        "DEF": 3,
+        "VOL": 3,
+        "DEL": 3,
+    }
+
+    if candidatos is None or candidatos.empty:
+        return {
+            perfil: []
+            for perfil in perfiles
+        }
+
+    # --------------------------------------------------------
+    # SCORE DE CADA PERFIL
+    #
+    # Esto ocurre ANTES del optimizador.
+    # Por lo tanto, contexto + matchup + Modelo C participan
+    # directamente en la elección de la combinación.
+    # --------------------------------------------------------
+
+    dataframes = {}
+
+    for perfil in perfiles:
+        df = calcular_score_seleccion(
+            candidatos.copy(),
+            perfil
+        )
+
+        if df.empty:
+            return {
+                nombre: []
+                for nombre in perfiles
+            }
+
+        df["player_id"] = df["player_id"].astype(str)
+        df["_club"] = df["team_name"].fillna("").astype(str)
+        df["_position"] = df["position"].fillna("").astype(str)
+
+        dataframes[perfil] = df
+
+    # --------------------------------------------------------
+    # UNIFICAR CANDIDATOS POR PLAYER_ID
+    #
+    # Cada jugador puede tener una fila por partido objetivo.
+    # Si hubiera duplicados, el optimizador los trata como una
+    # sola identidad para evitar seleccionar dos veces al mismo
+    # jugador dentro de un perfil.
+    # --------------------------------------------------------
+
+    base_ids = sorted(
+        set().union(
+            *[
+                set(
+                    df["player_id"].astype(str)
+                )
+                for df in dataframes.values()
+            ]
+        )
+    )
+
+    if not base_ids:
+        return {
+            perfil: []
+            for perfil in perfiles
+        }
+
+    indice_por_id = {
+        player_id: posicion
+        for posicion, player_id in enumerate(base_ids)
+    }
+
+    # --------------------------------------------------------
+    # VARIABLES BINARIAS
+    #
+    # x(perfil, jugador) = 1 si el jugador entra en ese perfil.
+    #
+    # z(INTERMEDIO, jugador) = 1 si INTERMEDIO lo selecciona y
+    # además SEGURO ya lo seleccionó.
+    #
+    # z(ARRIESGADO, jugador) = 1 si ARRIESGADO lo selecciona y
+    # además aparece en SEGURO o INTERMEDIO.
+    # --------------------------------------------------------
+
+    n_players = len(base_ids)
+    n_x = len(perfiles) * n_players
+    n_z = 2 * n_players
+    n_variables = n_x + n_z
+
+    def x_idx(perfil_idx, player_idx):
+        return (
+            perfil_idx * n_players
+            + player_idx
+        )
+
+    def z_idx(perfil_idx, player_idx):
+        # perfil_idx 1 = INTERMEDIO
+        # perfil_idx 2 = ARRIESGADO
+        return (
+            n_x
+            + (perfil_idx - 1) * n_players
+            + player_idx
+        )
+
+    # --------------------------------------------------------
+    # FUNCIÓN OBJETIVO
+    #
+    # milp minimiza. Por eso usamos -score.
+    # --------------------------------------------------------
+
+    objetivo = np.zeros(
+        n_variables,
+        dtype=float
+    )
+
+    for perfil_idx, perfil in enumerate(perfiles):
+
+        df = dataframes[perfil]
+
+        scores = {
+            str(fila["player_id"]): safe_float(
+                fila["score_seleccion"]
+            )
+            for _, fila in df.iterrows()
+        }
+
+        penalizacion = PENALIZACION_REPETICION.get(
+            perfil,
+            0.0
+        )
+
+        for player_id in base_ids:
+
+            idx = indice_por_id[player_id]
+
+            score = scores.get(
+                player_id,
+                0.0
+            )
+
+            objetivo[
+                x_idx(perfil_idx, idx)
+            ] = -score
+
+            # El perfil SEGURO no tiene penalización.
+            if perfil_idx > 0:
+                objetivo[
+                    z_idx(perfil_idx, idx)
+                ] = (
+                    score
+                    * penalizacion
+                )
+
+    # --------------------------------------------------------
+    # RESTRICCIONES
+    # --------------------------------------------------------
+
+    filas = []
+    limites_inferiores = []
+    limites_superiores = []
+
+    def agregar_restriccion(
+        coeficientes,
+        minimo,
+        maximo
+    ):
+        fila = np.zeros(
+            n_variables,
+            dtype=float
+        )
+
+        for indice, valor in coeficientes.items():
+            fila[indice] = valor
+
+        filas.append(fila)
+        limites_inferiores.append(minimo)
+        limites_superiores.append(maximo)
+
+    # --------------------------------------------------------
+    # 1) EXACTAMENTE 10 JUGADORES POR PERFIL
+    # --------------------------------------------------------
+
+    for perfil_idx, _ in enumerate(perfiles):
+
+        coeficientes = {
+            x_idx(perfil_idx, player_idx): 1.0
+            for player_idx in range(n_players)
+        }
+
+        agregar_restriccion(
+            coeficientes,
+            10.0,
+            10.0
+        )
+
+    # --------------------------------------------------------
+    # 2) CUPO EXACTO POR POSICIÓN
+    # --------------------------------------------------------
+
+    for perfil_idx, perfil in enumerate(perfiles):
+
+        df = dataframes[perfil]
+
+        for posicion, cantidad in (
+            posiciones_necesarias.items()
+        ):
+
+            player_indices = set()
+
+            for _, fila in df.iterrows():
+
+                if fila["_position"] != posicion:
+                    continue
+
+                player_indices.add(
+                    indice_por_id[
+                        str(fila["player_id"])
+                    ]
+                )
+
+            coeficientes = {
+                x_idx(perfil_idx, player_idx): 1.0
+                for player_idx in player_indices
+            }
+
+            agregar_restriccion(
+                coeficientes,
+                float(cantidad),
+                float(cantidad)
+            )
+
+    # --------------------------------------------------------
+    # 3) MÁXIMO 3 JUGADORES DEL MISMO CLUB POR PERFIL
+    # --------------------------------------------------------
+
+    for perfil_idx, perfil in enumerate(perfiles):
+
+        df = dataframes[perfil]
+
+        clubes = (
+            df["_club"]
+            .dropna()
+            .astype(str)
+            .unique()
+            .tolist()
+        )
+
+        for club in clubes:
+
+            player_indices = {
+                indice_por_id[
+                    str(fila["player_id"])
+                ]
+                for _, fila in df.iterrows()
+                if fila["_club"] == club
+            }
+
+            coeficientes = {
+                x_idx(perfil_idx, player_idx): 1.0
+                for player_idx in player_indices
+            }
+
+            agregar_restriccion(
+                coeficientes,
+                0.0,
+                3.0
+            )
+
+    # --------------------------------------------------------
+    # 4) UN JUGADOR NO PUEDE APARECER DOS VECES EN EL MISMO
+    #    PERFIL, aunque el dataset tuviera filas duplicadas.
+    # --------------------------------------------------------
+
+    for perfil_idx, perfil in enumerate(perfiles):
+
+        df = dataframes[perfil]
+
+        jugadores = (
+            df["player_id"]
+            .astype(str)
+            .unique()
+            .tolist()
+        )
+
+        for player_id in jugadores:
+
+            player_idx = indice_por_id[player_id]
+
+            agregar_restriccion(
+                {
+                    x_idx(perfil_idx, player_idx): 1.0
+                },
+                0.0,
+                1.0
+            )
+
+    # --------------------------------------------------------
+    # 5) VARIABLES z PARA REPETICIÓN ENTRE PERFILES
+    #
+    # INTERMEDIO:
+    # z = x_INTERMEDIO AND x_SEGURO
+    #
+    # ARRIESGADO:
+    # z = x_ARRIESGADO AND
+    #     (x_SEGURO OR x_INTERMEDIO)
+    # --------------------------------------------------------
+
+    for player_idx in range(n_players):
+
+        # INTERMEDIO repetido con SEGURO.
+        agregar_restriccion(
+            {
+                z_idx(1, player_idx): 1.0,
+                x_idx(1, player_idx): -1.0,
+            },
+            -np.inf,
+            0.0
+        )
+
+        agregar_restriccion(
+            {
+                z_idx(1, player_idx): 1.0,
+                x_idx(0, player_idx): -1.0,
+            },
+            -np.inf,
+            0.0
+        )
+
+        agregar_restriccion(
+            {
+                z_idx(1, player_idx): 1.0,
+                x_idx(1, player_idx): -1.0,
+                x_idx(0, player_idx): -1.0,
+            },
+            -1.0,
+            np.inf
+        )
+
+        # ARRIESGADO repetido con cualquiera de los dos perfiles
+        # anteriores. La penalización se aplica una sola vez.
+        agregar_restriccion(
+            {
+                z_idx(2, player_idx): 1.0,
+                x_idx(2, player_idx): -1.0,
+            },
+            -np.inf,
+            0.0
+        )
+
+        agregar_restriccion(
+            {
+                z_idx(2, player_idx): 1.0,
+                x_idx(0, player_idx): -1.0,
+                x_idx(1, player_idx): -1.0,
+            },
+            -np.inf,
+            0.0
+        )
+
+        agregar_restriccion(
+            {
+                z_idx(2, player_idx): 1.0,
+                x_idx(2, player_idx): -1.0,
+                x_idx(0, player_idx): -1.0,
+            },
+            -1.0,
+            np.inf
+        )
+
+        agregar_restriccion(
+            {
+                z_idx(2, player_idx): 1.0,
+                x_idx(2, player_idx): -1.0,
+                x_idx(1, player_idx): -1.0,
+            },
+            -1.0,
+            np.inf
+        )
+
+    # --------------------------------------------------------
+    # RESOLVER MILP
+    # --------------------------------------------------------
+
+    matriz = np.vstack(
+        filas
+    )
+
+    resultado = milp(
+        c=objetivo,
+        integrality=np.ones(
+            n_variables,
+            dtype=int
+        ),
+        bounds=Bounds(
+            np.zeros(n_variables),
+            np.ones(n_variables)
+        ),
+        constraints=LinearConstraint(
+            matriz,
+            np.array(
+                limites_inferiores,
+                dtype=float
+            ),
+            np.array(
+                limites_superiores,
+                dtype=float
+            )
+        ),
+        options={
+            "time_limit": 60.0,
+            "mip_rel_gap": 0.0,
+        }
+    )
+
+    if not resultado.success:
+        print()
+        print(
+            "ADVERTENCIA OPTIMIZADOR GLOBAL:",
+            resultado.message
+        )
+        print(
+            "Se utilizará el motor anterior como fallback."
+        )
+
+        jugadores_usados = set()
+        salida = {}
+
+        for perfil in perfiles:
+
+            equipo = seleccionar_equipo(
+                candidatos,
+                perfil,
+                jugadores_usados=jugadores_usados,
+                seed=42
+            )
+
+            salida[perfil] = equipo
+
+            for jugador in equipo:
+                jugadores_usados.add(
+                    str(jugador["player_id"])
+                )
+
+        return salida
+
+    # --------------------------------------------------------
+    # RECONSTRUIR LOS 3 EQUIPOS
+    # --------------------------------------------------------
+
+    salida = {}
+
+    for perfil_idx, perfil in enumerate(perfiles):
+
+        df = dataframes[perfil]
+        seleccion = []
+
+        for player_idx, player_id in enumerate(base_ids):
+
+            valor = resultado.x[
+                x_idx(perfil_idx, player_idx)
+            ]
+
+            if valor < 0.5:
+                continue
+
+            filas_jugador = df[
+                df["player_id"].astype(str)
+                == player_id
+            ].copy()
+
+            if filas_jugador.empty:
+                continue
+
+            # Un único registro por jugador. Si hubiera duplicados,
+            # conservamos el primero con mayor score.
+            filas_jugador["_score_num"] = pd.to_numeric(
+                filas_jugador["score_seleccion"],
+                errors="coerce"
+            )
+
+            jugador = (
+                filas_jugador
+                .sort_values(
+                    "_score_num",
+                    ascending=False
+                )
+                .iloc[0]
+                .drop(
+                    labels=["_score_num"],
+                    errors="ignore"
+                )
+                .to_dict()
+            )
+
+            seleccion.append(
+                jugador
+            )
+
+        # Orden estable para la salida: ARQ, DEF, VOL, DEL.
+        orden_posiciones = {
+            "ARQ": 0,
+            "DEF": 1,
+            "VOL": 2,
+            "DEL": 3,
+        }
+
+        seleccion.sort(
+            key=lambda jugador: (
+                orden_posiciones.get(
+                    jugador.get("position", ""),
+                    99
+                ),
+                -safe_float(
+                    jugador.get(
+                        "score_seleccion",
+                        0
+                    )
+                ),
+            )
+        )
+
+        # Calcular la misma penalización de diversidad que utilizaba
+        # el motor anterior, pero después de conocer los 3 equipos
+        # globalmente optimizados.
+        ids_previos = set()
+
+        for perfil_anterior in perfiles:
+
+            if perfil_anterior == perfil:
+                break
+
+            ids_previos.update(
+                str(jugador["player_id"])
+                for jugador in salida.get(
+                    perfil_anterior,
+                    []
+                )
+            )
+
+        penalizacion = PENALIZACION_REPETICION.get(
+            perfil,
+            0.0
+        )
+
+        for jugador in seleccion:
+
+            player_id = str(
+                jugador["player_id"]
+            )
+
+            repetido = (
+                player_id in ids_previos
+            )
+
+            jugador[
+                "veces_usado_otros_equipos"
+            ] = int(
+                repetido
+            )
+
+            jugador[
+                "score_diversidad"
+            ] = (
+                safe_float(
+                    jugador.get(
+                        "score_seleccion",
+                        0
+                    )
+                )
+                *
+                (
+                    1.0
+                    -
+                    penalizacion
+                    *
+                    int(repetido)
+                )
+            )
+
+        salida[perfil] = seleccion
+
+    return salida
+
+
+# ============================================================
 # SELECCIÓN EQUIPO
 # ============================================================
 
 def seleccionar_equipo(
+
     candidatos,
     perfil_equipo,
     jugadores_usados=None,
@@ -3461,23 +4071,42 @@ def main():
     flex_por_perfil = {}
 
     # ========================================================
-    # GENERAR LOS 3 EQUIPOS
+    # OPTIMIZACIÓN GLOBAL DE LOS 3 EQUIPOS
+    #
+    # Los tres perfiles se resuelven juntos. El score ya contiene
+    # contexto + matchup + Modelo C, por lo que esas señales
+    # participan directamente en la combinación final.
+    # ========================================================
+
+    equipos_generados = optimizar_tres_equipos_globalmente(
+        principales
+    )
+
+    if any(
+        len(equipos_generados.get(perfil, [])) != 10
+        for perfil in [
+            "SEGURO",
+            "INTERMEDIO",
+            "ARRIESGADO"
+        ]
+    ):
+        print()
+        print(
+            "ADVERTENCIA: el optimizador global no pudo construir",
+            "los tres equipos completos."
+        )
+        return
+
+    # ========================================================
+    # GENERAR SALIDA, SIMULACIONES Y FLEX
     # ========================================================
 
     for nombre_perfil, base in perfiles:
 
-        equipo = seleccionar_equipo(
-            base,
+        equipo = equipos_generados.get(
             nombre_perfil,
-            jugadores_usados=(
-                jugadores_usados_global
-            ),
-            seed=42
+            []
         )
-
-        equipos_generados[
-            nombre_perfil
-        ] = equipo
 
         # ----------------------------------------------------
         # Guardar titulares del equipo
