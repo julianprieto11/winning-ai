@@ -58,8 +58,8 @@ PESO_MODELO_C = 0.30
 
 PENALIZACION_REPETICION = {
     "SEGURO": 0.00,
-    "INTERMEDIO": 0.30,
-    "ARRIESGADO": 0.45,
+    "INTERMEDIO": 0.45,
+    "ARRIESGADO": 0.60,
 }
 
 # ============================================================
