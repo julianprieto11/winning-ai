@@ -4115,16 +4115,6 @@ def main():
 
     titulares_por_perfil = {}
 
-    # Con los 3 equipos ya resueltos globalmente, conocemos desde
-    # el principio TODOS los titulares. FLEX debe usar este conjunto
-    # completo para evitar que un titular de un perfil aparezca luego
-    # como FLEX de otro perfil.
-    titulares_globales = {
-        str(jugador["player_id"])
-        for perfil_equipo in equipos_generados.values()
-        for jugador in perfil_equipo
-    }
-
     # ========================================================
     # REGISTRO GLOBAL DE FLEX
     #
@@ -4161,6 +4151,20 @@ def main():
             "los tres equipos completos."
         )
         return
+
+    # ========================================================
+    # REGISTRO GLOBAL DE TODOS LOS TITULARES
+    #
+    # Los tres equipos ya fueron resueltos globalmente. Ahora sí
+    # conocemos TODOS los titulares y FLEX puede penalizarlos
+    # independientemente del orden de procesamiento.
+    # ========================================================
+
+    titulares_globales = {
+        str(jugador["player_id"])
+        for perfil_equipo in equipos_generados.values()
+        for jugador in perfil_equipo
+    }
 
     # ========================================================
     # GENERAR SALIDA, SIMULACIONES Y FLEX
