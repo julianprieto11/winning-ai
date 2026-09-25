@@ -3127,8 +3127,16 @@ def construir_flex(
     perfil_equipo,
     jugadores_titulares_equipo,
     jugadores_titulares_otros,
+    jugadores_titulares_global=None,
     flex_usados_global=None
 ):
+
+    if jugadores_titulares_global is None:
+        jugadores_titulares_global = set(
+            jugadores_titulares_equipo
+        ).union(
+            jugadores_titulares_otros
+        )
 
     if flex_usados_global is None:
         flex_usados_global = set()
@@ -3249,6 +3257,11 @@ def construir_flex(
             )
         )
 
+        # Un jugador que ya fue titular en CUALQUIERA de los
+        # otros perfiles queda penalizado también como FLEX.
+        #
+        # El conjunto es global: no depende de si el perfil anterior
+        # ya fue procesado en el bucle principal.
         disponibles[
             "titular_otro_equipo"
         ] = (
@@ -3258,7 +3271,7 @@ def construir_flex(
             ]
             .astype(str)
             .isin(
-                jugadores_titulares_otros
+                jugadores_titulares_global
             )
         )
 
@@ -4102,6 +4115,16 @@ def main():
 
     titulares_por_perfil = {}
 
+    # Con los 3 equipos ya resueltos globalmente, conocemos desde
+    # el principio TODOS los titulares. FLEX debe usar este conjunto
+    # completo para evitar que un titular de un perfil aparezca luego
+    # como FLEX de otro perfil.
+    titulares_globales = {
+        str(jugador["player_id"])
+        for perfil_equipo in equipos_generados.values()
+        for jugador in perfil_equipo
+    }
+
     # ========================================================
     # REGISTRO GLOBAL DE FLEX
     #
@@ -4439,6 +4462,10 @@ def main():
 
             jugadores_titulares_otros=(
                 titulares_otros_equipos
+            ),
+
+            jugadores_titulares_global=(
+                titulares_globales
             ),
 
             flex_usados_global=(
