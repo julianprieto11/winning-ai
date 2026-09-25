@@ -2,6 +2,7 @@ import json
 import glob
 import os
 import random
+import unicodedata
 import numpy as np
 import pandas as pd
 import openpyxl
@@ -619,7 +620,18 @@ def normalizar_texto(valor):
     if pd.isna(valor):
         return ""
 
-    return str(valor).strip().lower()
+    texto = str(valor).strip().lower()
+
+    # Normalización común para evitar que acentos, mayúsculas o
+    # pequeñas diferencias ortográficas creen clubes distintos.
+    texto = unicodedata.normalize("NFKD", texto)
+    texto = "".join(
+        caracter
+        for caracter in texto
+        if not unicodedata.combining(caracter)
+    )
+
+    return texto
 
 
 def convertir_fecha(valor):
@@ -884,20 +896,80 @@ def normalizar_equipo_objetivo(valor):
 
     texto = normalizar_texto(valor)
 
+    # Catálogo canónico de clubes. SofaScore, PitchAPI y el histórico
+    # pueden utilizar nombres diferentes para el mismo equipo.
     reemplazos = {
         "instituto de cordoba": "instituto",
         "instituto": "instituto",
+
         "ca independiente": "independiente",
         "independiente": "independiente",
+
         "ca talleres": "talleres",
         "talleres": "talleres",
+
         "club atletico union de santa fe": "union",
         "union de santa fe": "union",
         "union": "union",
+
         "gimnasia y esgrima": "gimnasia",
         "gimnasia lp": "gimnasia",
+        "gimnasia": "gimnasia",
+
+        "gimnasia y esgrima mendoza": "gimnasia mendoza",
+        "gimnasia de mendoza": "gimnasia mendoza",
+        "gimnasia mendoza": "gimnasia mendoza",
+
         "central cordoba de santiago": "central cordoba",
         "central cordoba": "central cordoba",
+
+        "club atletico belgrano": "belgrano",
+        "belgrano": "belgrano",
+
+        "estudiantes de rio cuarto": "estudiantes rio cuarto",
+        "estudiantes rc": "estudiantes rio cuarto",
+        "estudiantes de rcuarto": "estudiantes rio cuarto",
+        "estudiantes rio cuarto": "estudiantes rio cuarto",
+
+        "club atletico platense": "platense",
+        "platense": "platense",
+
+        "velez sarsfield": "velez",
+        "velez": "velez",
+
+        "atletico tucuman": "atletico tucuman",
+        "atletico de tucuman": "atletico tucuman",
+
+        "club atletico lanus": "lanus",
+        "ca lanus": "lanus",
+        "lanus": "lanus",
+
+        "estudiantes de la plata": "estudiantes la plata",
+        "estudiantes": "estudiantes la plata",
+
+        "racing club": "racing",
+        "racing": "racing",
+
+        "boca juniors": "boca",
+        "boca": "boca",
+
+        "river plate": "river",
+        "river": "river",
+
+        "rosario central": "rosario central",
+        "san lorenzo": "san lorenzo",
+        "banfield": "banfield",
+        "huracan": "huracan",
+        "sarmiento": "sarmiento",
+        "tigre": "tigre",
+        "aldosivi": "aldosivi",
+        "barracas central": "barracas central",
+        "defensa y justicia": "defensa y justicia",
+        "deportivo riestra": "riestra",
+        "riestra": "riestra",
+        "newells old boys": "newells",
+        "newells": "newells",
+        "independiente rivadavia": "independiente rivadavia",
     }
 
     return reemplazos.get(texto, texto)
