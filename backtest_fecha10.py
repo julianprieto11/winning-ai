@@ -74,13 +74,9 @@ PENALIZACION_REPETICION = {
 # queda bloqueado completamente.
 PENALIZACION_FLEX_TITULAR_MISMO = 1.00
 
-# Si fue titular de otro de los equipos, recibe una
-# penalización dependiendo del perfil.
-PENALIZACION_FLEX_TITULAR_OTRO = {
-    "SEGURO": 0.00,
-    "INTERMEDIO": 0.18,
-    "ARRIESGADO": 0.30,
-}
+# Un jugador que sea titular en CUALQUIERA de los tres equipos
+# queda bloqueado completamente como FLEX en todos los perfiles.
+# La penalización anterior por "titular de otro equipo" deja de existir.
 
 # ============================================================
 # MATCHUP / MODELO C
@@ -3297,13 +3293,6 @@ def construir_flex(
 
             continue
 
-        penalizacion_titular_otro = (
-            PENALIZACION_FLEX_TITULAR_OTRO.get(
-                perfil_equipo,
-                0.0
-            )
-        )
-
         # ----------------------------------------------------
         # TODOS LOS DISPONIBLES SON NUEVOS FLEX
         # ----------------------------------------------------
@@ -3383,20 +3372,8 @@ def construir_flex(
         # Ya fue eliminado mediante bloqueo absoluto.
         # ----------------------------------------------------
 
-        # ----------------------------------------------------
-        # PENALIZACIÓN POR SER TITULAR DE OTRO EQUIPO
-        # ----------------------------------------------------
-
-        disponibles.loc[
-            disponibles[
-                "titular_otro_equipo"
-            ],
-            "score_flex"
-        ] *= (
-            1
-            -
-            penalizacion_titular_otro
-        )
+        # Los titulares de cualquiera de los tres equipos ya fueron
+        # eliminados arriba. Por lo tanto no reciben FLEX.
 
         # ----------------------------------------------------
         # ORDEN
