@@ -14,7 +14,17 @@ SALIDA_FLEX = "datos/fecha10_pre_simulacion_flex.csv"
 def simular_distribucion(valores, rng):
     valores = pd.to_numeric(pd.Series(valores), errors="coerce").dropna()
     if valores.empty:
-        return {"pre_sim_n": 0}
+        return {
+            "pre_sim_n": 0,
+            "pre_sim_media": np.nan,
+            "pre_sim_p50": np.nan,
+            "pre_sim_p75": np.nan,
+            "pre_sim_p90": np.nan,
+            "pre_sim_p95": np.nan,
+            "pre_sim_std": np.nan,
+            "pre_sim_prob_10": np.nan,
+            "pre_sim_prob_15": np.nan,
+        }
     muestra = rng.choice(valores.to_numpy(float), size=N_SIM, replace=True)
     return {
         "pre_sim_n": int(len(valores)),
@@ -126,6 +136,9 @@ def main():
     print("Simulaciones por jugador:", N_SIM)
 
     historico = pd.read_csv(motor.HISTORICO_FILE, low_memory=False)
+    # El motor compara la fecha histórica contra un Timestamp.
+    # Normalizamos aquí para evitar mezclar strings con fechas.
+    historico["date"] = pd.to_datetime(historico["date"], errors="coerce")
     partidos = motor.cargar_partidos_fecha10()
     jugadores = motor.construir_jugadores_objetivo(historico, partidos)
     mapa = motor.construir_mapa_lineups_historicos()
