@@ -63,8 +63,11 @@ def agregar_pre_simulacion(candidatos, historico):
     # El contexto del jugador/equipo y el matchup modifican el
     # centro esperado de la distribucion historica.
     #
-    # matchup_score esta normalizado entre 0 y 1:
-    # 0.50 = neutro; 0.00 = -10%; 1.00 = +10%.
+    # matchup_score esta normalizado entre 0 y 1.
+    # La influencia es continua: no hay tramos ni saltos.
+    # 0.50 = neutro; 0.00 = -30%; 1.00 = +30%.
+    # Ej.: 0.60 = +6%; 0.623 = +7.38%; 0.75 = +15%.
+    #
     # El limite evita que el matchup domine el historial.
 
     media = pd.to_numeric(
@@ -82,9 +85,8 @@ def agregar_pre_simulacion(candidatos, historico):
         errors="coerce"
     ).clip(0.0, 1.0)
 
-    # Influencia reforzada del matchup sobre el centro contextual.
-    # Antes: +/-10%. Ahora: +/-30%.
-    # 0.50 = neutro; 1.00 = +30%; 0.00 = -30%.
+    # Influencia continua del matchup sobre el centro contextual.
+    # Cada valor entre 0 y 1 recibe su porcentaje exacto.
     factor_matchup = (
         1.0
         + (matchup.fillna(0.50) - 0.50) * 0.60
