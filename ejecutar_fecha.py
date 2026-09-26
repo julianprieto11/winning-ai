@@ -684,13 +684,31 @@ def main():
     motor.CORTE_HISTORICO = pd.Timestamp(corte)
     motor.MAPEO_PITCHAPI = mapeo
 
-    sufijo = f"fecha{fecha_objetivo}"
-    motor.SALIDA_CANDIDATOS = f"datos/candidatos_{sufijo}_final.csv"
-    motor.SALIDA_EQUIPOS = f"datos/{sufijo}_equipos_predichos.csv"
-    motor.SALIDA_EQUIPOS_EXCEL = f"datos/{sufijo}_equipos_predichos_excel.xlsx"
-    motor.SALIDA_SIMULACIONES = f"datos/{sufijo}_simulaciones.csv"
+    # ========================================================
+    # SELECCIÓN CON PRE-SIMULACIÓN CONTEXTUALIZADA
+    #
+    # Primero se generan las distribuciones históricas de cada
+    # jugador y se ajusta su centro esperado con contexto + matchup.
+    # El matchup tiene influencia continua (0.50 = neutro; 0.623
+    # recibe exactamente +7.38%, etc.). Recién después se ejecuta
+    # el optimizador global de los tres perfiles.
+    # ========================================================
 
-    motor.main()
+    import experimento_simulacion_previa as experimento
+
+    experimento.FECHA_OBJETIVO = fecha_objetivo
+    experimento.CORTE = pd.Timestamp(corte)
+    experimento.SALIDA_CANDIDATOS = (
+        f"datos/fecha{fecha_objetivo}_pre_simulacion_candidatos.csv"
+    )
+    experimento.SALIDA_EQUIPOS = (
+        f"datos/fecha{fecha_objetivo}_pre_simulacion_equipos.csv"
+    )
+    experimento.SALIDA_FLEX = (
+        f"datos/fecha{fecha_objetivo}_pre_simulacion_flex.csv"
+    )
+
+    experimento.main()
 
     print()
     print("=" * 78)
@@ -701,10 +719,9 @@ def main():
     print(f"Corte histórico: {corte}")
     print()
     print("Archivos:")
-    print(f" - {motor.SALIDA_CANDIDATOS}")
-    print(f" - {motor.SALIDA_EQUIPOS}")
-    print(f" - {motor.SALIDA_EQUIPOS_EXCEL}")
-    print(f" - {motor.SALIDA_SIMULACIONES}")
+    print(f" - {experimento.SALIDA_CANDIDATOS}")
+    print(f" - {experimento.SALIDA_EQUIPOS}")
+    print(f" - {experimento.SALIDA_FLEX}")
 
 
 if __name__ == "__main__":
