@@ -1,0 +1,260 @@
+import numpy as np
+import pandas as pd
+
+POSICIONES_TAPADO = ("DEF", "VOL", "DEL")
+MIN_POTENCIAL_PERCENTIL = 0.60
+TOP_TAPADOS_POR_POSICION = 10
+
+
+def _percentil_serie(serie):
+    s = pd.to_numeric(serie, errors="coerce")
+    if s.notna().sum() <= 1:
+        return pd.Series(0.5, index=serie.index)
+    return s.rank(method="average", pct=True)
+
+
+def calcular_minutos_esperados(historico, candidatos):
+    """
+    Proxy de minutos esperados usando solamente historial anterior
+    al partido objetivo. Combina promedio total y promedio reciente,
+    y utiliza la continuidad de titularidad de los últimos 3 partidos.
+    """
+    resultado = candidatos.copy()
+
+    if historico is None or historico.empty:
+        resultado["minutos_esperados"] = np.nan
+        return resultado
+
+    h = historico.copy()
+
+    if "date" not in h.columns or "minutes_played" not in h.columns:
+        resultado["minutos_esperados"] = np.nan
+        return resultado
+
+    h["date"] = pd.to_datetime(h["date"], errors="coerce")
+    h["minutes_played"] = pd.to_numeric(
+        h["minutes_played"], errors="coerce"
+    )
+
+    salida = []
+
+    for _, jugador in resultado.iterrows():
+        pid = str(jugador.get("player_id", ""))
+        club = str(jugador.get("team_name", ""))
+        corte = pd.to_datetime(
+            jugador.get("fecha_partido", pd.NaT),
+            errors="coerce"
+        )
+
+        serie = h[
+            (h["player_id"].astype(str) == pid)
+            & (h["team_name"].astype(str) == club)
+            & h["date"].notna()
+        ].copy()
+
+        if pd.notna(corte):
+            serie = serie[serie["date"] < corte]
+
+        serie = serie.sort_values("date")
+
+        if serie.empty:
+            salida.append(np.nan)
+            continue
+
+        minutos = serie["minutes_played"].dropna()
+
+        if minutos.empty:
+            salida.append(np.nan)
+            continue
+
+        promedio_total = float(minutos.mean())
+        ultimos_5 = minutos.tail(5)
+        pesos = np.arange(1, len(ultimos_5) + 1)
+        promedio_reciente = float(
+            np.average(ultimos_5, weights=pesos)
+        )
+
+        esperado = promedio_total * 0.35 + promedio_reciente * 0.65
+
+        titulares_3 = pd.to_numeric(
+            pd.Series([jugador.get("titulares_ultimos_3", 0)]),
+            errors="coerce"
+        ).iloc[0]
+
+        participaciones_3 = pd.to_numeric(
+            pd.Series([jugador.get("participaciones_ultimos_3", 0)]),
+            errors="coerce"
+        ).iloc[0]
+
+        if pd.notna(titulares_3) and pd.notna(participaciones_3):
+            if titulares_3 >= 2:
+                esperado *= 1.05
+            elif participaciones_3 == 0:
+                esperado *= 0.85
+
+        salida.append(float(np.clip(esperado, 0.0, 90.0)))
+
+    resultado["minutos_esperados"] = salida
+    return resultado
+
+
+def detectar_tapados(candidatos, historico=None):
+    """
+    Detector independiente de TAPADOS.
+
+    Busca potencial contextual alto con reconocimiento tradicional
+    relativamente bajo. No modifica titulares ni FLEX.
+
+    Potencial:
+      35% P90 simulado ajustado
+      25% P75 simulado ajustado
+      15% score contextual
+      10% Modelo C
+      10% minutos esperados
+       5% forma reciente
+
+    Reconocimiento tradicional:
+      50% score contextual
+      30% promedio histórico
+      20% forma reciente
+
+    El matchup y el contexto ya influyen en los percentiles
+    simulados ajustados, por lo que no se vuelven a sumar aquí.
+    """
+    df = candidatos.copy()
+
+    if df.empty:
+        return df
+
+    df = calcular_minutos_esperados(historico, df)
+
+    columnas = [
+        "pre_sim_p75_ajustada",
+        "pre_sim_p90_ajustada",
+        "score_contextual",
+        "prediccion_modelo_c",
+        "minutos_esperados",
+        "weighted_recent",
+        "promedio",
+    ]
+
+    for col in columnas:
+        if col not in df.columns:
+            df[col] = np.nan
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    df["tapado_p90_pct"] = _percentil_serie(
+        df["pre_sim_p90_ajustada"]
+    )
+    df["tapado_p75_pct"] = _percentil_serie(
+        df["pre_sim_p75_ajustada"]
+    )
+    df["tapado_contexto_pct"] = _percentil_serie(
+        df["score_contextual"]
+    )
+    df["tapado_modelo_c_pct"] = _percentil_serie(
+        df["prediccion_modelo_c"]
+    )
+    df["tapado_minutos_pct"] = _percentil_serie(
+        df["minutos_esperados"]
+    )
+    df["tapado_forma_pct"] = _percentil_serie(
+        df["weighted_recent"]
+    )
+
+    df["tapado_potencial"] = (
+        df["tapado_p90_pct"] * 0.35
+        + df["tapado_p75_pct"] * 0.25
+        + df["tapado_contexto_pct"] * 0.15
+        + df["tapado_modelo_c_pct"] * 0.10
+        + df["tapado_minutos_pct"] * 0.10
+        + df["tapado_forma_pct"] * 0.05
+    )
+
+    df["tapado_reconocimiento"] = (
+        _percentil_serie(df["score_contextual"]) * 0.50
+        + _percentil_serie(df["promedio"]) * 0.30
+        + _percentil_serie(df["weighted_recent"]) * 0.20
+    )
+
+    df["tapado_gap"] = (
+        df["tapado_potencial"]
+        - df["tapado_reconocimiento"]
+    )
+
+    df["score_tapado"] = (
+        df["tapado_gap"] * 0.70
+        + df["tapado_potencial"] * 0.30
+    )
+
+    df["tapado_potencial_suficiente"] = (
+        df["tapado_potencial"] >= MIN_POTENCIAL_PERCENTIL
+    )
+
+    df["ranking_tapado"] = np.nan
+
+    for posicion in POSICIONES_TAPADO:
+        mask = (
+            df["position"].astype(str).str.upper() == posicion
+        )
+
+        grupo = df.loc[
+            mask & df["tapado_potencial_suficiente"]
+        ].copy()
+
+        if grupo.empty:
+            continue
+
+        ordenado = grupo.sort_values(
+            ["score_tapado", "tapado_potencial"],
+            ascending=False
+        )
+
+        df.loc[ordenado.index, "ranking_tapado"] = np.arange(
+            1, len(ordenado) + 1
+        )
+
+    df["es_tapado_candidato"] = df["ranking_tapado"].notna()
+
+    return df
+
+
+def seleccionar_tapados(
+    candidatos_con_tapados,
+    usados=None,
+    cantidad_por_posicion=1,
+):
+    """
+    Selecciona los mejores tapados por posición y evita reutilizar
+    jugadores ya usados por titulares/FLEX u otros tapados.
+    """
+    usados = {str(x) for x in (usados or set())}
+    salida = []
+
+    for posicion in POSICIONES_TAPADO:
+        grupo = candidatos_con_tapados[
+            (
+                candidatos_con_tapados["position"].astype(str).str.upper()
+                == posicion
+            )
+            & (
+                candidatos_con_tapados["es_tapado_candidato"] == True
+            )
+            & (
+                ~candidatos_con_tapados["player_id"].astype(str).isin(usados)
+            )
+        ].copy()
+
+        if grupo.empty:
+            continue
+
+        grupo = grupo.sort_values(
+            ["score_tapado", "tapado_potencial"],
+            ascending=False
+        )
+
+        for _, jugador in grupo.head(cantidad_por_posicion).iterrows():
+            salida.append(jugador.to_dict())
+            usados.add(str(jugador["player_id"]))
+
+    return salida
