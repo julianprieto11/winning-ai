@@ -132,7 +132,7 @@ def construir_flex(candidatos, equipos):
     return flex_por_perfil
 
 
-def exportar_excel(equipos, flex_por_perfil):
+def exportar_excel(equipos, flex_por_perfil, candidatos):
     filas = []
     for perfil in ["SEGURO", "INTERMEDIO", "ARRIESGADO"]:
         for tipo, jugadores in [
@@ -162,6 +162,37 @@ def exportar_excel(equipos, flex_por_perfil):
                     "Sim P90": j.get("pre_sim_p90_ajustada", ""),
                     "Factor matchup": j.get("pre_sim_factor_matchup", ""),
                 })
+
+    # Los TAPADOS van al final del Excel, después de los 3 perfiles y sus 6 FLEX.
+    for posicion in ["DEF", "VOL", "DEL"]:
+        grupo = candidatos[
+            (candidatos["position"] == posicion)
+            & (candidatos["es_tapado_candidato"] == True)
+        ].sort_values("score_tapado", ascending=False).head(3)
+
+        for _, j in grupo.iterrows():
+            filas.append({
+                "Perfil": "TAPADOS",
+                "Tipo": "TAPADO",
+                "Posición": j.get("position", ""),
+                "Jugador": j.get("player_name", ""),
+                "Club": j.get("team_name", ""),
+                "Rival": j.get("rival", ""),
+                "Local": j.get("es_local", ""),
+                "Matchup score": j.get("matchup_score", ""),
+                "Contexto": motor.generar_contexto_jugador(j),
+                "Predicción Modelo C": j.get("prediccion_modelo_c", ""),
+                "Historial": j.get("partidos_historicos", ""),
+                "Participaciones últimos 3": j.get("participaciones_ultimos_3", ""),
+                "Titulares últimos 3": j.get("titulares_ultimos_3", ""),
+                "Promedio": j.get("promedio", ""),
+                "P90": j.get("p90", ""),
+                "Factor confianza": j.get("factor_confianza", ""),
+                "Sim P50": j.get("pre_sim_p50_ajustada", ""),
+                "Sim P75": j.get("pre_sim_p75_ajustada", ""),
+                "Sim P90": j.get("pre_sim_p90_ajustada", ""),
+                "Factor matchup": j.get("pre_sim_factor_matchup", ""),
+            })
 
     df = pd.DataFrame(filas)
     columnas_numericas = [
@@ -209,6 +240,7 @@ def exportar_excel(equipos, flex_por_perfil):
             "SEGURO": PatternFill(fill_type="solid", fgColor="E2F0D9"),
             "INTERMEDIO": PatternFill(fill_type="solid", fgColor="FFF2CC"),
             "ARRIESGADO": PatternFill(fill_type="solid", fgColor="F4CCCC"),
+            "TAPADOS": PatternFill(fill_type="solid", fgColor="D9EAF7"),
         }
 
         # Fondo + borde fino en cada celda y borde grueso alrededor de cada perfil.
@@ -241,6 +273,25 @@ def exportar_excel(equipos, flex_por_perfil):
                 if perfil in rellenos:
                     fila_inicio = fila
                     perfil_actual = perfil
+
+        # Bloque final de TAPADOS: no pertenece a ningún perfil.
+        filas_tapados = [
+            fila for fila in range(2, ws.max_row + 1)
+            if ws.cell(fila, 1).value == "TAPADOS"
+        ]
+        if filas_tapados:
+            inicio_tapados = min(filas_tapados)
+            fin_tapados = max(filas_tapados)
+            for f in range(inicio_tapados, fin_tapados + 1):
+                for col in range(1, ws.max_column + 1):
+                    celda = ws.cell(f, col)
+                    celda.fill = rellenos["TAPADOS"]
+                    celda.border = Border(
+                        left=borde_grueso if col == 1 else borde_fino,
+                        right=borde_grueso if col == ws.max_column else borde_fino,
+                        top=borde_grueso if f == inicio_tapados else borde_fino,
+                        bottom=borde_grueso if f == fin_tapados else borde_fino,
+                    )
 
         for fila in range(2, ws.max_row + 1):
             if ws.cell(fila, 1).value is None:
@@ -302,7 +353,7 @@ def main():
     equipos = motor.optimizar_tres_equipos_globalmente(candidatos.copy())
     guardar_equipos(equipos)
     flex = construir_flex(candidatos, equipos)
-    exportar_excel(equipos, flex)
+    exportar_excel(equipos, flex, candidatos)
 
     print()
     print("TAPADOS DETECTADOS:")
