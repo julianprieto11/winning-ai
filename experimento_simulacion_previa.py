@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 from openpyxl.styles import Alignment, Font, Border, Side, PatternFill
 import backtest_fecha10 as motor
+import detector_tapados
 
 FECHA_OBJETIVO = motor.FECHA_OBJETIVO
 CORTE = motor.CORTE_HISTORICO
@@ -13,6 +14,7 @@ SALIDA_CANDIDATOS = f"datos/fecha{FECHA_OBJETIVO}_pre_simulacion_candidatos.csv"
 SALIDA_EQUIPOS = f"datos/fecha{FECHA_OBJETIVO}_pre_simulacion_equipos.csv"
 SALIDA_FLEX = f"datos/fecha{FECHA_OBJETIVO}_pre_simulacion_flex.csv"
 SALIDA_EXCEL = f"datos/fecha{FECHA_OBJETIVO}_equipos_predichos_excel.xlsx"
+SALIDA_TAPADOS = f"datos/fecha{FECHA_OBJETIVO}_tapados.csv"
 
 
 def simular_distribucion(valores, rng):
@@ -284,6 +286,16 @@ def main():
     modelo, columnas = motor.entrenar_modelo_c()
     candidatos = motor.agregar_prediccion_modelo_c(candidatos, modelo, columnas)
     candidatos = agregar_pre_simulacion(candidatos, historico)
+
+    # Detector independiente de TAPADOS.
+    # No modifica titulares ni el optimizador en esta etapa.
+    candidatos_tapados = detector_tapados.detectar_tapados(
+        candidatos.copy(), historico
+    )
+    candidatos_tapados.to_csv(
+        SALIDA_TAPADOS, index=False, encoding="utf-8-sig"
+    )
+    candidatos = candidatos_tapados
     candidatos.to_csv(SALIDA_CANDIDATOS, index=False, encoding="utf-8-sig")
 
     activar_score_pre_simulacion()
@@ -291,6 +303,26 @@ def main():
     guardar_equipos(equipos)
     flex = construir_flex(candidatos, equipos)
     exportar_excel(equipos, flex)
+
+    print()
+    print("TAPADOS DETECTADOS:")
+    for posicion in ["DEF", "VOL", "DEL"]:
+        grupo = candidatos[
+            (candidatos["position"] == posicion)
+            & (candidatos["es_tapado_candidato"] == True)
+        ].sort_values("score_tapado", ascending=False).head(3)
+        print()
+        print(">>>", posicion)
+        for _, j in grupo.iterrows():
+            print(
+                j["player_name"], "|", j["team_name"],
+                "| score tapado:", round(float(j["score_tapado"]), 3),
+                "| potencial:", round(float(j["tapado_potencial"]), 3),
+                "| gap:", round(float(j["tapado_gap"]), 3),
+                "| P90:", round(float(j["pre_sim_p90_ajustada"]), 2),
+                "| matchup:", round(float(j["matchup_score"]), 3)
+                if pd.notna(j["matchup_score"]) else "| matchup: N/D"
+            )
 
     print()
     print("=" * 72)
@@ -318,6 +350,7 @@ def main():
     print("-", SALIDA_CANDIDATOS)
     print("-", SALIDA_EQUIPOS)
     print("-", SALIDA_FLEX)
+    print("-", SALIDA_TAPADOS)
     print("-", SALIDA_EXCEL)
     print(f"Los puntos reales de Fecha {FECHA_OBJETIVO} NO se usan para seleccionar.")
 
