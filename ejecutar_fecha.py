@@ -496,12 +496,23 @@ def guardar_mapeo(mapeo):
     )
 
 
-def ejecutar_script(nombre):
+def ejecutar_script(nombre, *args):
     print()
     print("=" * 78)
     print(f"EJECUTANDO {nombre}")
     print("=" * 78)
-    subprocess.run([sys.executable, str(ROOT / nombre)], cwd=ROOT, check=True)
+
+    comando = [
+        sys.executable,
+        str(ROOT / nombre),
+        *[str(arg) for arg in args],
+    ]
+
+    subprocess.run(
+        comando,
+        cwd=ROOT,
+        check=True
+    )
 
 
 def calcular_corte(eventos_objetivo):
@@ -592,6 +603,22 @@ def main():
     ejecutar_script("calcular_forma_local_visitante.py")
     ejecutar_script("calcular_rendimiento_reciente.py")
     ejecutar_script("crear_matchup.py")
+
+    # --------------------------------------------------------
+    # CERRAR LA EXPERIENCIA DE LA FECHA ANTERIOR
+    #
+    # En este punto dataset_winning_pitchapi.csv ya fue actualizado
+    # con los puntos reales de la fecha anterior.
+    #
+    # El cerebro de aprendizaje compara esas predicciones con esos
+    # puntos y actualiza su memoria ANTES de predecir la fecha nueva.
+    # --------------------------------------------------------
+
+    ejecutar_script(
+        "aprendizaje_fecha.py",
+        "actualizar",
+        fecha_anterior
+    )
 
     corte = calcular_corte(eventos_objetivo)
 
