@@ -566,12 +566,23 @@ def guardar_mapeo(mapeo):
     )
 
 
-def ejecutar_script(nombre):
+def ejecutar_script(nombre, *args):
     print()
     print("=" * 78)
     print(f"EJECUTANDO {nombre}")
     print("=" * 78)
-    subprocess.run([sys.executable, str(ROOT / nombre)], cwd=ROOT, check=True)
+
+    comando = [
+        sys.executable,
+        str(ROOT / nombre),
+        *[str(arg) for arg in args],
+    ]
+
+    subprocess.run(
+        comando,
+        cwd=ROOT,
+        check=True
+    )
 
 
 def calcular_corte(eventos_objetivo):
@@ -675,6 +686,19 @@ def main():
     ejecutar_script("calcular_rendimiento_reciente.py")
     ejecutar_script("crear_matchup.py")
 
+    # --------------------------------------------------------
+    # CERRAR LA FECHA ANTERIOR Y APRENDER ANTES DE PREDECIR
+    # LA FECHA NUEVA.
+    #
+    # La memoria solo puede utilizar información de fechas ya
+    # disputadas. La Fecha objetivo todavía no entra en memoria.
+    # --------------------------------------------------------
+    ejecutar_script(
+        "aprendizaje_fecha.py",
+        "actualizar",
+        fecha_anterior
+    )
+
     corte = calcular_corte(eventos_objetivo)
 
     import pandas as pd
@@ -682,6 +706,7 @@ def main():
 
     motor.FECHA_OBJETIVO = fecha_objetivo
     motor.CORTE_HISTORICO = pd.Timestamp(corte)
+    motor.FECHA_CORTE_MODELO_C = pd.Timestamp(corte)
     motor.MAPEO_PITCHAPI = mapeo
 
     # ========================================================
