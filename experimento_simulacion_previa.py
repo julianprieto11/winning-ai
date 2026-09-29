@@ -17,6 +17,11 @@ SALIDA_FLEX = f"datos/fecha{FECHA_OBJETIVO}_pre_simulacion_flex.csv"
 SALIDA_EXCEL = f"datos/fecha{FECHA_OBJETIVO}_equipos_predichos_excel.xlsx"
 SALIDA_TAPADOS = f"datos/fecha{FECHA_OBJETIVO}_tapados.csv"
 
+# Guardamos una única referencia al score PRO original. El replay histórico
+# ejecuta varias fechas dentro del mismo proceso y no debemos encadenar
+# monkey-patches ni aplicar el aprendizaje dos veces.
+SCORE_PRO_ORIGINAL = motor.calcular_score_seleccion
+
 
 def simular_distribucion(valores, rng):
     valores = pd.to_numeric(pd.Series(valores), errors="coerce").dropna()
@@ -81,7 +86,7 @@ def agregar_pre_simulacion(candidatos, historico):
 
 
 def activar_score_pre_simulacion():
-    original = motor.calcular_score_seleccion
+    original = SCORE_PRO_ORIGINAL
 
     def score_experimental(df, perfil):
         r = original(df, perfil).copy()
