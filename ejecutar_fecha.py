@@ -634,8 +634,13 @@ def main():
     motor.SALIDA_EQUIPOS = f"datos/{sufijo}_equipos_predichos.csv"
     motor.SALIDA_EQUIPOS_EXCEL = f"datos/{sufijo}_equipos_predichos_excel.csv"
     motor.SALIDA_SIMULACIONES = f"datos/{sufijo}_simulaciones.csv"
+    motor.SALIDA_TAPADOS = f"datos/{sufijo}_tapados.csv"
 
     motor.main()
+
+    # Integrar TAPADOS como capa independiente. No modifica titulares/FLEX.
+    import integrar_tapados_fecha
+    integrar_tapados_fecha.integrar_fecha(fecha_objetivo, corte)
 
     print()
     print("=" * 78)

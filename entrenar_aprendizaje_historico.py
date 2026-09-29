@@ -60,6 +60,7 @@ def ejecutar_fecha_historica(numero):
     motor.SALIDA_EQUIPOS = f"datos/{sufijo}_equipos_predichos.csv"
     motor.SALIDA_EQUIPOS_EXCEL = f"datos/{sufijo}_equipos_predichos_excel.csv"
     motor.SALIDA_SIMULACIONES = f"datos/{sufijo}_simulaciones.csv"
+    motor.SALIDA_TAPADOS = f"datos/{sufijo}_tapados.csv"
 
     print()
     print("=" * 78)
@@ -69,6 +70,12 @@ def ejecutar_fecha_historica(numero):
     print("Memoria disponible: solo fechas anteriores")
 
     motor.main()
+
+    # Los TAPADOS se integran después del motor principal para no alterar
+    # la selección de TITULARES ni FLEX. Luego quedan disponibles para
+    # el mismo cierre de aprendizaje de la fecha.
+    import integrar_tapados_fecha
+    integrar_tapados_fecha.integrar_fecha(numero, corte)
 
     aprendizaje_fecha.registrar_resultados_fecha(numero)
 
