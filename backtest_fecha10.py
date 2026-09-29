@@ -2995,7 +2995,7 @@ def main():
     print()
     print("=" * 70)
     print(
-        "WINNING AI - BACKTEST FECHA 10"
+        f"WINNING AI - BACKTEST FECHA {FECHA_OBJETIVO}"
     )
     print("=" * 70)
 
@@ -3116,7 +3116,7 @@ def main():
 
     print()
     print(
-        "Jugadores únicos encontrados en Fecha 10:",
+        f"Jugadores únicos encontrados en Fecha {FECHA_OBJETIVO}:",
         len(
             jugadores_objetivo
         )
