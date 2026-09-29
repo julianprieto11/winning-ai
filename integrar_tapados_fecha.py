@@ -281,7 +281,7 @@ def integrar_fecha(fecha_numero, corte=None):
                 "Prob ≥100": "",
                 "Prob ≥140": "",
             }
-            for j in df_tapados.to_dict("records")
+            for i, j in enumerate(df_tapados.to_dict("records"))
         ])
 
         # Mantener las columnas existentes y agregar las nuevas de TAPADOS.
