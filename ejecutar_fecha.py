@@ -732,6 +732,12 @@ def main():
     experimento.SALIDA_FLEX = (
         f"datos/fecha{fecha_objetivo}_pre_simulacion_flex.csv"
     )
+    experimento.SALIDA_EXCEL = (
+        f"datos/fecha{fecha_objetivo}_equipos_predichos_excel.xlsx"
+    )
+    experimento.SALIDA_TAPADOS = (
+        f"datos/fecha{fecha_objetivo}_tapados.csv"
+    )
 
     experimento.main()
 
