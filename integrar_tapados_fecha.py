@@ -304,6 +304,14 @@ def integrar_fecha(fecha_numero, corte=None):
             encoding="utf-8-sig",
         )
 
+        # Mantener también un XLSX real con los TAPADOS ya integrados.
+        excel_xlsx_path = excel_path.with_suffix(".xlsx")
+        excel.to_excel(
+            excel_xlsx_path,
+            index=False,
+            sheet_name="Equipos",
+        )
+
     df_tapados.to_csv(
         tapados_path,
         index=False,
