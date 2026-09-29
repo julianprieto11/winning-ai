@@ -2,17 +2,18 @@ import json
 import glob
 import os
 import random
+import unicodedata
 import numpy as np
 import pandas as pd
-
-from aprendizaje_fecha import aplicar_correccion
-from simulacion_previa import agregar_pre_simulacion
+import openpyxl
+from openpyxl.styles import Alignment, Font, Border, Side, PatternFill
 
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.impute import SimpleImputer
 from sklearn.ensemble import HistGradientBoostingRegressor
+from scipy.optimize import milp, LinearConstraint, Bounds
 
 # ============================================================
 # CONFIGURACIÓN
@@ -37,8 +38,7 @@ PARTIDOS_DIR = "datos/partidos"
 
 SALIDA_CANDIDATOS = "datos/candidatos_fecha10_final.csv"
 SALIDA_EQUIPOS = "datos/fecha10_equipos_predichos.csv"
-SALIDA_EQUIPOS_EXCEL = "datos/fecha10_equipos_predichos_excel.csv"
-SALIDA_EQUIPOS_XLSX = "datos/fecha10_equipos_predichos_excel.xlsx"
+SALIDA_EQUIPOS_EXCEL = "datos/fecha10_equipos_predichos_excel.xlsx"
 SALIDA_SIMULACIONES = "datos/fecha10_simulaciones.csv"
 
 N_SIMULACIONES = 10000
@@ -59,8 +59,8 @@ PESO_MODELO_C = 0.30
 
 PENALIZACION_REPETICION = {
     "SEGURO": 0.00,
-    "INTERMEDIO": 0.30,
-    "ARRIESGADO": 0.45,
+    "INTERMEDIO": 0.45,
+    "ARRIESGADO": 0.60,
 }
 
 # ============================================================
@@ -74,13 +74,9 @@ PENALIZACION_REPETICION = {
 # queda bloqueado completamente.
 PENALIZACION_FLEX_TITULAR_MISMO = 1.00
 
-# Si fue titular de otro de los equipos, recibe una
-# penalización dependiendo del perfil.
-PENALIZACION_FLEX_TITULAR_OTRO = {
-    "SEGURO": 0.00,
-    "INTERMEDIO": 0.18,
-    "ARRIESGADO": 0.30,
-}
+# Un jugador que sea titular en CUALQUIERA de los tres equipos
+# queda bloqueado completamente como FLEX en todos los perfiles.
+# La penalización anterior por "titular de otro equipo" deja de existir.
 
 # ============================================================
 # MATCHUP / MODELO C
@@ -620,7 +616,18 @@ def normalizar_texto(valor):
     if pd.isna(valor):
         return ""
 
-    return str(valor).strip().lower()
+    texto = str(valor).strip().lower()
+
+    # Normalización común para evitar que acentos, mayúsculas o
+    # pequeñas diferencias ortográficas creen clubes distintos.
+    texto = unicodedata.normalize("NFKD", texto)
+    texto = "".join(
+        caracter
+        for caracter in texto
+        if not unicodedata.combining(caracter)
+    )
+
+    return texto
 
 
 def convertir_fecha(valor):
@@ -799,7 +806,7 @@ def cargar_partidos_fecha10():
     if df.empty:
 
         print(
-            f"ERROR: no se encontraron partidos de Fecha {FECHA_OBJETIVO}."
+            "ERROR: no se encontraron partidos de Fecha 10."
         )
 
         return df
@@ -813,7 +820,7 @@ def cargar_partidos_fecha10():
     print()
     print("=" * 70)
     print(
-        f"PARTIDOS FECHA {FECHA_OBJETIVO} ENCONTRADOS:",
+        "PARTIDOS FECHA 10 ENCONTRADOS:",
         len(df)
     )
     print("=" * 70)
@@ -868,199 +875,213 @@ MAPEO_PITCHAPI = {
 
 
 # ============================================================
-# CARGAR LINEUPS PITCHAPI
+# ============================================================
+# CONSTRUIR CANDIDATOS DE LA FECHA OBJETIVO
+#
+# La fecha objetivo todavía no tiene lineups reales.
+# Por eso NO se deben usar lineups históricos como si fueran
+# la alineación de la fecha objetivo.
+#
+# Los jugadores candidatos se obtienen del histórico disponible
+# antes del corte y se vinculan a los clubes de los partidos
+# de la fecha objetivo. La titularidad esperada se sigue tratando
+# como una señal histórica mediante mapa_lineups.
 # ============================================================
 
-def _clave_equipos_lineup(data):
-    """Clave normalizada del cruce para vincular PitchAPI con SofaScore."""
-    home = (data.get("home_team") or {}).get("name", "")
-    away = (data.get("away_team") or {}).get("name", "")
-    return tuple(sorted([normalizar_texto(home), normalizar_texto(away)]))
+def normalizar_equipo_objetivo(valor):
+
+    texto = normalizar_texto(valor)
+
+    # Catálogo canónico de clubes. SofaScore, PitchAPI y el histórico
+    # pueden utilizar nombres diferentes para el mismo equipo.
+    reemplazos = {
+        "instituto de cordoba": "instituto",
+        "instituto": "instituto",
+
+        "ca independiente": "independiente",
+        "independiente": "independiente",
+
+        "ca talleres": "talleres",
+        "talleres": "talleres",
+
+        "club atletico union de santa fe": "union",
+        "union de santa fe": "union",
+        "union": "union",
+
+        "gimnasia y esgrima": "gimnasia",
+        "gimnasia lp": "gimnasia",
+        "gimnasia": "gimnasia",
+
+        "gimnasia y esgrima mendoza": "gimnasia mendoza",
+        "gimnasia de mendoza": "gimnasia mendoza",
+        "gimnasia mendoza": "gimnasia mendoza",
+
+        "central cordoba de santiago": "central cordoba",
+        "central cordoba": "central cordoba",
+
+        "club atletico belgrano": "belgrano",
+        "belgrano": "belgrano",
+
+        "estudiantes de rio cuarto": "estudiantes rio cuarto",
+        "estudiantes rc": "estudiantes rio cuarto",
+        "estudiantes de rcuarto": "estudiantes rio cuarto",
+        "estudiantes rio cuarto": "estudiantes rio cuarto",
+
+        "club atletico platense": "platense",
+        "platense": "platense",
+
+        "velez sarsfield": "velez",
+        "velez": "velez",
+
+        "atletico tucuman": "atletico tucuman",
+        "atletico de tucuman": "atletico tucuman",
+
+        "club atletico lanus": "lanus",
+        "ca lanus": "lanus",
+        "lanus": "lanus",
+
+        "estudiantes de la plata": "estudiantes la plata",
+        "estudiantes": "estudiantes la plata",
+
+        "racing club": "racing",
+        "racing": "racing",
+
+        "boca juniors": "boca",
+        "boca": "boca",
+
+        "river plate": "river",
+        "river": "river",
+
+        "rosario central": "rosario central",
+        "san lorenzo": "san lorenzo",
+        "banfield": "banfield",
+        "huracan": "huracan",
+        "sarmiento": "sarmiento",
+        "tigre": "tigre",
+        "aldosivi": "aldosivi",
+        "barracas central": "barracas central",
+        "defensa y justicia": "defensa y justicia",
+        "deportivo riestra": "riestra",
+        "riestra": "riestra",
+        "newells old boys": "newells",
+        "newells": "newells",
+        "independiente rivadavia": "independiente rivadavia",
+    }
+
+    return reemplazos.get(texto, texto)
 
 
-def cargar_lineups_fecha10(partidos_objetivo=None):
-    """
-    Carga los lineups PitchAPI de la ronda objetivo.
-
-    El mapeo se resuelve por los dos equipos, no por IDs hardcodeados,
-    para que el motor pueda reutilizarse en el replay Fecha 1..11.
-    """
-    lineups = {}
-
-    archivos = glob.glob(os.path.join(LINEUPS_DIR, "*_lineups.json"))
-
-    objetivos = {}
-    if partidos_objetivo is not None and not partidos_objetivo.empty:
-        for _, partido in partidos_objetivo.iterrows():
-            clave = tuple(sorted([
-                normalizar_texto(partido.get("home_team_name", "")),
-                normalizar_texto(partido.get("away_team_name", "")),
-            ]))
-            objetivos[clave] = partido
-
-    for archivo in archivos:
-        match_id = os.path.basename(archivo).replace("_lineups.json", "")
-
-        try:
-            with open(archivo, "r", encoding="utf-8") as f:
-                data = json.load(f).get("data", {})
-        except Exception:
-            continue
-
-        if not data:
-            continue
-
-        if objetivos and _clave_equipos_lineup(data) not in objetivos:
-            continue
-
-        lineups[match_id] = data
-
-    print()
-    print("=" * 70)
-    print("LINEUPS RONDA", FECHA_OBJETIVO, ":", len(lineups))
-    print("=" * 70)
-
-    for match_id in sorted(lineups):
-        data = lineups[match_id]
-        print(
-            match_id,
-            "|",
-            (data.get("home_team") or {}).get("name", ""),
-            "-",
-            (data.get("away_team") or {}).get("name", ""),
-        )
-
-    return lineups
-
-
-# ============================================================
-# CONSTRUIR MAPA DE JUGADORES FECHA 10
-# ============================================================
-
-def construir_jugadores_objetivo(
-    lineups,
-    info_fecha10=None
-):
+def construir_jugadores_objetivo(historico, partidos_objetivo):
 
     jugadores = {}
 
-    if info_fecha10 is None:
-        info_fecha10 = {}
+    if historico.empty or partidos_objetivo.empty:
+        return jugadores
 
-    for match_id, data in lineups.items():
+    historico = historico.copy()
+    historico["player_id"] = (
+        historico["player_id"].astype(str)
+    )
 
-        info = info_fecha10.get(str(match_id), {})
+    historico["_equipo_objetivo"] = (
+        historico["team_name"]
+        .map(normalizar_equipo_objetivo)
+    )
 
-        fecha_partido = info.get(
-            "fecha_partido",
-            pd.NaT
+    # Último club conocido de cada jugador antes de la fecha objetivo.
+    ultimos = (
+        historico
+        .sort_values(["player_id", "date"])
+        .groupby("player_id", as_index=False)
+        .tail(1)
+    )
+
+    clubes_objetivo = {}
+
+    for _, partido in partidos_objetivo.iterrows():
+
+        home_nombre = str(
+            partido.get("home_team_name", "")
+        )
+        away_nombre = str(
+            partido.get("away_team_name", "")
         )
 
-        event_id = info.get(
-            "event_id",
-            ""
+        home_key = normalizar_equipo_objetivo(home_nombre)
+        away_key = normalizar_equipo_objetivo(away_nombre)
+
+        clubes_objetivo[home_key] = {
+            "team_name_fixture": home_nombre,
+            "team_key": home_key,
+            "rival_name": away_nombre,
+            "rival_key": away_key,
+            "es_local": True,
+            "event_id": str(partido.get("sofascore_id", "")),
+            "fecha_partido": partido.get("fecha", pd.NaT),
+        }
+
+        clubes_objetivo[away_key] = {
+            "team_name_fixture": away_nombre,
+            "team_key": away_key,
+            "rival_name": home_nombre,
+            "rival_key": home_key,
+            "es_local": False,
+            "event_id": str(partido.get("sofascore_id", "")),
+            "fecha_partido": partido.get("fecha", pd.NaT),
+        }
+
+    # IDs de equipo del histórico, para que matchup conserve una
+    # referencia estable aunque SofaScore y PitchAPI nombren distinto.
+    equipo_id_por_clave = (
+        ultimos
+        .assign(
+            _team_key=ultimos["team_name"].map(
+                normalizar_equipo_objetivo
+            )
         )
+        .drop_duplicates("_team_key")
+        .set_index("_team_key")["team_id"]
+        .astype(str)
+        .to_dict()
+        if "team_id" in ultimos.columns
+        else {}
+    )
 
-        for lado in [
-            "home",
-            "away"
-        ]:
+    for _, fila in ultimos.iterrows():
 
-            equipo = data.get(
-                f"{lado}_team",
-                {}
-            ) or {}
+        player_id = str(fila["player_id"])
+        team_name = str(fila.get("team_name", ""))
+        team_key = normalizar_equipo_objetivo(team_name)
 
-            rival = data.get(
-                "away_team" if lado == "home" else "home_team",
-                {}
-            ) or {}
+        objetivo = clubes_objetivo.get(team_key)
 
-            team_id = str(
-                equipo.get("id", "")
-            )
+        if objetivo is None:
+            continue
 
-            team_name = equipo.get(
-                "name",
-                ""
-            )
+        rival_key = objetivo["rival_key"]
 
-            rival_team_id = str(
-                rival.get("id", "")
-            )
-
-            rival_team_name = rival.get(
-                "name",
-                ""
-            )
-
-            bloque = data.get(
-                lado,
-                {}
-            ) or {}
-
-            starters = bloque.get(
-                "starters",
-                []
-            ) or []
-
-            subs = bloque.get(
-                "subs",
-                []
-            ) or []
-
-            for jugador in starters:
-
-                player_id = str(
-                    jugador.get("player_id", "")
-                )
-
-                if not player_id:
-                    continue
-
-                jugadores[player_id] = {
-                    "player_id": player_id,
-                    "player_name": jugador.get("name", ""),
-                    "team_id": team_id,
-                    "team_name": team_name,
-                    "match_id_fecha10": match_id,
-                    "starter_fecha10": True,
-                    "fecha_partido": fecha_partido,
-                    "event_id": event_id,
-                    "rival_team_id": rival_team_id,
-                    "rival_team_name": rival_team_name,
-                    "es_local": lado == "home",
-                }
-
-            for jugador in subs:
-
-                player_id = str(
-                    jugador.get("player_id", "")
-                )
-
-                if not player_id:
-                    continue
-
-                if player_id not in jugadores:
-                    jugadores[player_id] = {
-                        "player_id": player_id,
-                        "player_name": jugador.get("name", ""),
-                        "team_id": team_id,
-                        "team_name": team_name,
-                        "match_id_fecha10": match_id,
-                        "starter_fecha10": False,
-                        "fecha_partido": fecha_partido,
-                        "event_id": event_id,
-                        "rival_team_id": rival_team_id,
-                        "rival_team_name": rival_team_name,
-                        "es_local": lado == "home",
-                    }
+        jugadores[player_id] = {
+            "player_id": player_id,
+            "player_name": str(fila.get("player_name", "")),
+            "team_id": str(fila.get("team_id", "")),
+            "team_name": team_name,
+            "team_key": team_key,
+            "match_id_fecha_objetivo": objetivo["event_id"],
+            "fecha_partido": objetivo["fecha_partido"],
+            "event_id": objetivo["event_id"],            "rival_team_id": str(                equipo_id_por_clave.get(rival_key, "")
+            ),
+            "rival_team_name": objetivo["rival_name"],
+            "es_local": objetivo["es_local"],
+        }
 
     return jugadores
 
 
 # ============================================================
 # MAPA DE TITULARIDADES HISTÓRICAS
+# ============================================================
+
+
 # ============================================================
 
 def construir_mapa_lineups_historicos():
@@ -1945,73 +1966,21 @@ def construir_candidatos(
 
         # ----------------------------------------------------
         # LOCALÍA + RIVAL
+        #
+        # La información pertenece al fixture de la fecha objetivo.
+        # Nunca se reconstruye desde un lineup histórico.
         # ----------------------------------------------------
 
-        match_id_fecha10 = objetivo[
-            "match_id_fecha10"
-        ]
+        es_local = bool(
+            objetivo.get("es_local", False)
+        )
 
-        lineup = None
+        rival_name = str(
+            objetivo.get("rival_team_name", "")
+        )
 
-        for mid, data in (
-            LINEUPS_GLOBAL.items()
-        ):
-
-            if mid == match_id_fecha10:
-
-                lineup = data
-                break
-
-        if lineup is None:
+        if not rival_name:
             continue
-
-        home_team = (
-            lineup.get(
-                "home_team",
-                {}
-            )
-            or {}
-        )
-
-        away_team = (
-            lineup.get(
-                "away_team",
-                {}
-            )
-            or {}
-        )
-
-        home_id = str(
-            home_team.get(
-                "id",
-                ""
-            )
-        )
-
-        home_name = home_team.get(
-            "name",
-            ""
-        )
-
-        away_name = away_team.get(
-            "name",
-            ""
-        )
-
-        es_local = (
-            str(
-                objetivo[
-                    "team_id"
-                ]
-            )
-            == home_id
-        )
-
-        rival_name = (
-            away_name
-            if es_local
-            else home_name
-        )
 
         # ----------------------------------------------------
         # CONTEXTO DEL EQUIPO
@@ -2097,10 +2066,8 @@ def construir_candidatos(
             posicion,
             objetivo.get("fecha_partido", pd.NaT),
         )
-
         candidatos.append(
             {
-
                 "player_id": player_id,
 
                 "player_name": objetivo[
@@ -2183,6 +2150,11 @@ def construir_candidatos(
 
                 "score_contextual": score_contextual,
 
+                "fecha_partido": objetivo.get(
+                    "fecha_partido",
+                    pd.NaT
+                ),
+
                 "matchup_arq": matchup["matchup_arq"],
 
                 "matchup_def": matchup["matchup_def"],
@@ -2197,8 +2169,8 @@ def construir_candidatos(
                     "matchup_variables_usadas"
                 ],
 
-                "starter_fecha10": objetivo[
-                    "starter_fecha10"
+                "starter_fecha10": titularidad[
+                    "titular_2_de_3"
                 ],
             }
         )
@@ -2300,49 +2272,657 @@ def calcular_score_seleccion(
         * PESO_MODELO_C
     )
 
+    return df
+
+
+# ============================================================
+# OPTIMIZADOR GLOBAL DE LOS 3 EQUIPOS
+#
+# Construye SEGURO + INTERMEDIO + ARRIESGADO como una sola
+# optimización combinatoria. El contexto, matchup y Modelo C
+# ya están incorporados en score_seleccion antes de llegar aquí.
+#
+# Reglas preservadas:
+# - 10 titulares por perfil: 1 ARQ + 3 DEF + 3 VOL + 3 DEL.
+# - máximo 3 jugadores del mismo club por perfil.
+# - repetición entre perfiles: 0% / 30% / 45%.
+# - la penalización de repetición se aplica una sola vez al
+#   perfil posterior, aunque el jugador aparezca en ambos perfiles
+#   anteriores.
+# ============================================================
+
+def optimizar_tres_equipos_globalmente(candidatos):
+
+    perfiles = [
+        "SEGURO",
+        "INTERMEDIO",
+        "ARRIESGADO",
+    ]
+
+    posiciones_necesarias = {
+        "ARQ": 1,
+        "DEF": 3,
+        "VOL": 3,
+        "DEL": 3,
+    }
+
+    if candidatos is None or candidatos.empty:
+        return {
+            perfil: []
+            for perfil in perfiles
+        }
+
     # --------------------------------------------------------
-    # SIMULACIÓN PREVIA POR JUGADOR
+    # SCORE DE CADA PERFIL
     #
-    # Si está disponible, esta simulación pasa a ser la base real
-    # de selección. Se calcula ANTES de elegir titulares/FLEX y
-    # utiliza solamente historial anterior a la fecha objetivo.
+    # Esto ocurre ANTES del optimizador.
+    # Por lo tanto, contexto + matchup + Modelo C participan
+    # directamente en la elección de la combinación.
     # --------------------------------------------------------
 
-    columna_pre_sim = "score_pre_sim_" + perfil_equipo
+    dataframes = {}
 
-    if columna_pre_sim in df.columns:
-        score_pre_sim = pd.to_numeric(
-            df[columna_pre_sim],
+    for perfil in perfiles:
+        df = calcular_score_seleccion(
+            candidatos.copy(),
+            perfil
+        )
+
+        if df.empty:
+            return {
+                nombre: []
+                for nombre in perfiles
+            }
+
+        df["player_id"] = df["player_id"].astype(str)
+        df["_club"] = df["team_name"].fillna("").astype(str)
+        df["_position"] = df["position"].fillna("").astype(str)
+
+        # Una sola fila por jugador y perfil. Si hubiera duplicados,
+        # conservamos la de mayor score de selección para que posición
+        # y club sean coherentes con la variable binaria del optimizador.
+        df["_score_num"] = pd.to_numeric(
+            df["score_seleccion"],
             errors="coerce"
+        ).fillna(-np.inf)
+
+        df = (
+            df
+            .sort_values(
+                "_score_num",
+                ascending=False
+            )
+            .drop_duplicates(
+                subset=["player_id"],
+                keep="first"
+            )
+            .drop(
+                columns=["_score_num"],
+                errors="ignore"
+            )
+            .reset_index(drop=True)
         )
 
-        # La simulación previa reemplaza el score de selección
-        # tradicional. Modelo C y contexto siguen disponibles como
-        # señales/features y el aprendizaje se aplica después.
-        df["score_seleccion"] = score_pre_sim.fillna(
-            df["score_seleccion"]
+        dataframes[perfil] = df
+
+    # --------------------------------------------------------
+    # UNIFICAR CANDIDATOS POR PLAYER_ID
+    #
+    # Cada jugador puede tener una fila por partido objetivo.
+    # Si hubiera duplicados, el optimizador los trata como una
+    # sola identidad para evitar seleccionar dos veces al mismo
+    # jugador dentro de un perfil.
+    # --------------------------------------------------------
+
+    base_ids = sorted(
+        set().union(
+            *[
+                set(
+                    df["player_id"].astype(str)
+                )
+                for df in dataframes.values()
+            ]
         )
-
-        df["motor_seleccion"] = "PRE_SIMULACION"
-
-    else:
-        df["motor_seleccion"] = "MOTOR_BASE"
-
-    # --------------------------------------------------------
-    # CEREBRO DE APRENDIZAJE
-    # --------------------------------------------------------
-
-    df["score_seleccion_sin_aprendizaje"] = df["score_seleccion"]
-
-    df = aplicar_correccion(
-        df,
-        FECHA_OBJETIVO
     )
 
-    # La selección utiliza el score corregido.
-    df["score_seleccion"] = df["prediccion_final"]
+    if not base_ids:
+        return {
+            perfil: []
+            for perfil in perfiles
+        }
 
-    return df
+    indice_por_id = {
+        player_id: posicion
+        for posicion, player_id in enumerate(base_ids)
+    }
+
+    # --------------------------------------------------------
+    # VARIABLES BINARIAS
+    #
+    # x(perfil, jugador) = 1 si el jugador entra en ese perfil.
+    #
+    # z(INTERMEDIO, jugador) = 1 si INTERMEDIO lo selecciona y
+    # además SEGURO ya lo seleccionó.
+    #
+    # z(ARRIESGADO, jugador) = 1 si ARRIESGADO lo selecciona y
+    # además aparece en SEGURO o INTERMEDIO.
+    # --------------------------------------------------------
+
+    n_players = len(base_ids)
+    n_x = len(perfiles) * n_players
+    n_z = 2 * n_players
+    n_variables = n_x + n_z
+
+    def x_idx(perfil_idx, player_idx):
+        return (
+            perfil_idx * n_players
+            + player_idx
+        )
+
+    def z_idx(perfil_idx, player_idx):
+        # perfil_idx 1 = INTERMEDIO
+        # perfil_idx 2 = ARRIESGADO
+        return (
+            n_x
+            + (perfil_idx - 1) * n_players
+            + player_idx
+        )
+
+    # --------------------------------------------------------
+    # FUNCIÓN OBJETIVO
+    #
+    # milp minimiza. Por eso usamos -score.
+    # --------------------------------------------------------
+
+    objetivo = np.zeros(
+        n_variables,
+        dtype=float
+    )
+
+    # Por defecto todos los x son binarios 0/1. Los jugadores que
+    # no existen en un perfil quedan explícitamente fijados a 0.
+    upper_bounds = np.ones(
+        n_variables,
+        dtype=float
+    )
+
+    for perfil_idx, perfil in enumerate(perfiles):
+
+        df = dataframes[perfil]
+
+        scores = {
+            str(fila["player_id"]): safe_float(
+                fila["score_seleccion"]
+            )
+            for _, fila in df.iterrows()
+        }
+
+        penalizacion = PENALIZACION_REPETICION.get(
+            perfil,
+            0.0
+        )
+
+        ids_disponibles = set(
+            scores.keys()
+        )
+
+        for player_id in base_ids:
+
+            idx = indice_por_id[player_id]
+
+            score = scores.get(
+                player_id,
+                0.0
+            )
+
+            if player_id not in ids_disponibles:
+                upper_bounds[
+                    x_idx(perfil_idx, idx)
+                ] = 0.0
+                continue
+
+            objetivo[
+                x_idx(perfil_idx, idx)
+            ] = -score
+
+            # El perfil SEGURO no tiene penalización.
+            if perfil_idx > 0:
+                objetivo[
+                    z_idx(perfil_idx, idx)
+                ] = (
+                    score
+                    * penalizacion
+                )
+
+    # --------------------------------------------------------
+    # RESTRICCIONES
+    # --------------------------------------------------------
+
+    filas = []
+    limites_inferiores = []
+    limites_superiores = []
+
+    def agregar_restriccion(
+        coeficientes,
+        minimo,
+        maximo
+    ):
+        fila = np.zeros(
+            n_variables,
+            dtype=float
+        )
+
+        for indice, valor in coeficientes.items():
+            fila[indice] = valor
+
+        filas.append(fila)
+        limites_inferiores.append(minimo)
+        limites_superiores.append(maximo)
+
+    # --------------------------------------------------------
+    # 1) EXACTAMENTE 10 JUGADORES POR PERFIL
+    # --------------------------------------------------------
+
+    for perfil_idx, _ in enumerate(perfiles):
+
+        coeficientes = {
+            x_idx(perfil_idx, player_idx): 1.0
+            for player_idx in range(n_players)
+        }
+
+        agregar_restriccion(
+            coeficientes,
+            10.0,
+            10.0
+        )
+
+    # --------------------------------------------------------
+    # 2) CUPO EXACTO POR POSICIÓN
+    # --------------------------------------------------------
+
+    for perfil_idx, perfil in enumerate(perfiles):
+
+        df = dataframes[perfil]
+
+        for posicion, cantidad in (
+            posiciones_necesarias.items()
+        ):
+
+            player_indices = set()
+
+            for _, fila in df.iterrows():
+
+                if fila["_position"] != posicion:
+                    continue
+
+                player_indices.add(
+                    indice_por_id[
+                        str(fila["player_id"])
+                    ]
+                )
+
+            coeficientes = {
+                x_idx(perfil_idx, player_idx): 1.0
+                for player_idx in player_indices
+            }
+
+            agregar_restriccion(
+                coeficientes,
+                float(cantidad),
+                float(cantidad)
+            )
+
+    # --------------------------------------------------------
+    # 3) MÁXIMO 3 JUGADORES DEL MISMO CLUB POR PERFIL
+    # --------------------------------------------------------
+
+    for perfil_idx, perfil in enumerate(perfiles):
+
+        df = dataframes[perfil]
+
+        clubes = (
+            df["_club"]
+            .dropna()
+            .astype(str)
+            .unique()
+            .tolist()
+        )
+
+        for club in clubes:
+
+            player_indices = {
+                indice_por_id[
+                    str(fila["player_id"])
+                ]
+                for _, fila in df.iterrows()
+                if fila["_club"] == club
+            }
+
+            coeficientes = {
+                x_idx(perfil_idx, player_idx): 1.0
+                for player_idx in player_indices
+            }
+
+            agregar_restriccion(
+                coeficientes,
+                0.0,
+                3.0
+            )
+
+    # --------------------------------------------------------
+    # 4) UN JUGADOR NO PUEDE APARECER DOS VECES EN EL MISMO
+    #    PERFIL, aunque el dataset tuviera filas duplicadas.
+    # --------------------------------------------------------
+
+    for perfil_idx, perfil in enumerate(perfiles):
+
+        df = dataframes[perfil]
+
+        jugadores = (
+            df["player_id"]
+            .astype(str)
+            .unique()
+            .tolist()
+        )
+
+        for player_id in jugadores:
+
+            player_idx = indice_por_id[player_id]
+
+            agregar_restriccion(
+                {
+                    x_idx(perfil_idx, player_idx): 1.0
+                },
+                0.0,
+                1.0
+            )
+
+    # --------------------------------------------------------
+    # 5) VARIABLES z PARA REPETICIÓN ENTRE PERFILES
+    #
+    # INTERMEDIO:
+    # z = x_INTERMEDIO AND x_SEGURO
+    #
+    # ARRIESGADO:
+    # z = x_ARRIESGADO AND
+    #     (x_SEGURO OR x_INTERMEDIO)
+    # --------------------------------------------------------
+
+    for player_idx in range(n_players):
+
+        # INTERMEDIO repetido con SEGURO.
+        agregar_restriccion(
+            {
+                z_idx(1, player_idx): 1.0,
+                x_idx(1, player_idx): -1.0,
+            },
+            -np.inf,
+            0.0
+        )
+
+        agregar_restriccion(
+            {
+                z_idx(1, player_idx): 1.0,
+                x_idx(0, player_idx): -1.0,
+            },
+            -np.inf,
+            0.0
+        )
+
+        agregar_restriccion(
+            {
+                z_idx(1, player_idx): 1.0,
+                x_idx(1, player_idx): -1.0,
+                x_idx(0, player_idx): -1.0,
+            },
+            -1.0,
+            np.inf
+        )
+
+        # ARRIESGADO repetido con cualquiera de los dos perfiles
+        # anteriores. La penalización se aplica una sola vez.
+        agregar_restriccion(
+            {
+                z_idx(2, player_idx): 1.0,
+                x_idx(2, player_idx): -1.0,
+            },
+            -np.inf,
+            0.0
+        )
+
+        agregar_restriccion(
+            {
+                z_idx(2, player_idx): 1.0,
+                x_idx(0, player_idx): -1.0,
+                x_idx(1, player_idx): -1.0,
+            },
+            -np.inf,
+            0.0
+        )
+
+        agregar_restriccion(
+            {
+                z_idx(2, player_idx): 1.0,
+                x_idx(2, player_idx): -1.0,
+                x_idx(0, player_idx): -1.0,
+            },
+            -1.0,
+            np.inf
+        )
+
+        agregar_restriccion(
+            {
+                z_idx(2, player_idx): 1.0,
+                x_idx(2, player_idx): -1.0,
+                x_idx(1, player_idx): -1.0,
+            },
+            -1.0,
+            np.inf
+        )
+
+    # --------------------------------------------------------
+    # RESOLVER MILP
+    # --------------------------------------------------------
+
+    matriz = np.vstack(
+        filas
+    )
+
+    resultado = milp(
+        c=objetivo,
+        integrality=np.ones(
+            n_variables,
+            dtype=int
+        ),
+        bounds=Bounds(
+            np.zeros(n_variables),
+            upper_bounds
+        ),
+        constraints=LinearConstraint(
+            matriz,
+            np.array(
+                limites_inferiores,
+                dtype=float
+            ),
+            np.array(
+                limites_superiores,
+                dtype=float
+            )
+        ),
+        options={
+            "time_limit": 60.0,
+            "mip_rel_gap": 0.0,
+        }
+    )
+
+    if not resultado.success:
+        print()
+        print(
+            "ADVERTENCIA OPTIMIZADOR GLOBAL:",
+            resultado.message
+        )
+        print(
+            "Se utilizará el motor anterior como fallback."
+        )
+
+        jugadores_usados = set()
+        salida = {}
+
+        for perfil in perfiles:
+
+            equipo = seleccionar_equipo(
+                candidatos,
+                perfil,
+                jugadores_usados=jugadores_usados,
+                seed=42
+            )
+
+            salida[perfil] = equipo
+
+            for jugador in equipo:
+                jugadores_usados.add(
+                    str(jugador["player_id"])
+                )
+
+        return salida
+
+    # --------------------------------------------------------
+    # RECONSTRUIR LOS 3 EQUIPOS
+    # --------------------------------------------------------
+
+    salida = {}
+
+    for perfil_idx, perfil in enumerate(perfiles):
+
+        df = dataframes[perfil]
+        seleccion = []
+
+        for player_idx, player_id in enumerate(base_ids):
+
+            valor = resultado.x[
+                x_idx(perfil_idx, player_idx)
+            ]
+
+            if valor < 0.5:
+                continue
+
+            filas_jugador = df[
+                df["player_id"].astype(str)
+                == player_id
+            ].copy()
+
+            if filas_jugador.empty:
+                continue
+
+            # Un único registro por jugador. Si hubiera duplicados,
+            # conservamos el primero con mayor score.
+            filas_jugador["_score_num"] = pd.to_numeric(
+                filas_jugador["score_seleccion"],
+                errors="coerce"
+            )
+
+            jugador = (
+                filas_jugador
+                .sort_values(
+                    "_score_num",
+                    ascending=False
+                )
+                .iloc[0]
+                .drop(
+                    labels=["_score_num"],
+                    errors="ignore"
+                )
+                .to_dict()
+            )
+
+            seleccion.append(
+                jugador
+            )
+
+        # Orden estable para la salida: ARQ, DEF, VOL, DEL.
+        orden_posiciones = {
+            "ARQ": 0,
+            "DEF": 1,
+            "VOL": 2,
+            "DEL": 3,
+        }
+
+        seleccion.sort(
+            key=lambda jugador: (
+                orden_posiciones.get(
+                    jugador.get("position", ""),
+                    99
+                ),
+                -safe_float(
+                    jugador.get(
+                        "score_seleccion",
+                        0
+                    )
+                ),
+            )
+        )
+
+        # Calcular la misma penalización de diversidad que utilizaba
+        # el motor anterior, pero después de conocer los 3 equipos
+        # globalmente optimizados.
+        ids_previos = set()
+
+        for perfil_anterior in perfiles:
+
+            if perfil_anterior == perfil:
+                break
+
+            ids_previos.update(
+                str(jugador["player_id"])
+                for jugador in salida.get(
+                    perfil_anterior,
+                    []
+                )
+            )
+
+        penalizacion = PENALIZACION_REPETICION.get(
+            perfil,
+            0.0
+        )
+
+        for jugador in seleccion:
+
+            player_id = str(
+                jugador["player_id"]
+            )
+
+            repetido = (
+                player_id in ids_previos
+            )
+
+            jugador[
+                "veces_usado_otros_equipos"
+            ] = int(
+                repetido
+            )
+
+            jugador[
+                "score_diversidad"
+            ] = (
+                safe_float(
+                    jugador.get(
+                        "score_seleccion",
+                        0
+                    )
+                )
+                *
+                (
+                    1.0
+                    -
+                    penalizacion
+                    *
+                    int(repetido)
+                )
+            )
+
+        salida[perfil] = seleccion
+
+    return salida
 
 
 # ============================================================
@@ -2350,6 +2930,7 @@ def calcular_score_seleccion(
 # ============================================================
 
 def seleccionar_equipo(
+
     candidatos,
     perfil_equipo,
     jugadores_usados=None,
@@ -2614,8 +3195,16 @@ def construir_flex(
     perfil_equipo,
     jugadores_titulares_equipo,
     jugadores_titulares_otros,
+    jugadores_titulares_global=None,
     flex_usados_global=None
 ):
+
+    if jugadores_titulares_global is None:
+        jugadores_titulares_global = set(
+            jugadores_titulares_equipo
+        ).union(
+            jugadores_titulares_otros
+        )
 
     if flex_usados_global is None:
         flex_usados_global = set()
@@ -2704,13 +3293,6 @@ def construir_flex(
 
             continue
 
-        penalizacion_titular_otro = (
-            PENALIZACION_FLEX_TITULAR_OTRO.get(
-                perfil_equipo,
-                0.0
-            )
-        )
-
         # ----------------------------------------------------
         # TODOS LOS DISPONIBLES SON NUEVOS FLEX
         # ----------------------------------------------------
@@ -2736,6 +3318,11 @@ def construir_flex(
             )
         )
 
+        # Un jugador que ya fue titular en CUALQUIERA de los
+        # otros perfiles queda penalizado también como FLEX.
+        #
+        # El conjunto es global: no depende de si el perfil anterior
+        # ya fue procesado en el bucle principal.
         disponibles[
             "titular_otro_equipo"
         ] = (
@@ -2745,7 +3332,7 @@ def construir_flex(
             ]
             .astype(str)
             .isin(
-                jugadores_titulares_otros
+                jugadores_titulares_global
             )
         )
 
@@ -2785,20 +3372,8 @@ def construir_flex(
         # Ya fue eliminado mediante bloqueo absoluto.
         # ----------------------------------------------------
 
-        # ----------------------------------------------------
-        # PENALIZACIÓN POR SER TITULAR DE OTRO EQUIPO
-        # ----------------------------------------------------
-
-        disponibles.loc[
-            disponibles[
-                "titular_otro_equipo"
-            ],
-            "score_flex"
-        ] *= (
-            1
-            -
-            penalizacion_titular_otro
-        )
+        # Los titulares de cualquiera de los tres equipos ya fueron
+        # eliminados arriba. Por lo tanto no reciben FLEX.
 
         # ----------------------------------------------------
         # ORDEN
@@ -2928,6 +3503,284 @@ def construir_flex(
 
 
 # ============================================================
+# CONTEXTO EXPLICATIVO PARA EXCEL
+# ============================================================
+
+def _numero_contexto(valor):
+    try:
+        if pd.isna(valor):
+            return np.nan
+        return float(valor)
+    except Exception:
+        return np.nan
+
+
+def _texto_numero(valor, decimales=2):
+    numero = _numero_contexto(valor)
+    if pd.isna(numero):
+        return ""
+    return f"{numero:.{decimales}f}"
+
+
+def generar_contexto_jugador(jugador):
+    """
+    Capa explicativa. NO modifica scores ni reglas de selección.
+
+    Usa:
+    - fixture objetivo (local/visitante + rival);
+    - matchup calculado previamente;
+    - participación/titularidad reciente;
+    - promedio y P90 históricos;
+    - estadísticas históricas del rival cuando están disponibles.
+
+    Nunca inventa una tendencia: si no hay evidencia suficiente,
+    simplemente omite esa parte de la explicación.
+    """
+    club = str(jugador.get("team_name", "") or "")
+    rival = str(jugador.get("rival", "") or "")
+    posicion = str(jugador.get("position", "") or "").upper()
+    local = jugador.get("es_local", False)
+
+    ubicacion = "Local" if bool(local) else "Visitante"
+    partes = []
+
+    if rival:
+        partes.append(f"{ubicacion} ante {rival}")
+
+    # --------------------------------------------------------
+    # MATCHUP
+    # --------------------------------------------------------
+    matchup = _numero_contexto(jugador.get("matchup_score"))
+    variables = _numero_contexto(jugador.get("matchup_variables_usadas"))
+
+    if not pd.isna(matchup):
+        if matchup >= 0.60:
+            frase_matchup = "el matchup es favorable"
+        elif matchup <= 0.40:
+            frase_matchup = "el matchup es menos favorable"
+        else:
+            frase_matchup = "el matchup es equilibrado"
+
+        if not pd.isna(variables) and variables > 0:
+            partes.append(
+                f"{frase_matchup} para {posicion} "
+                f"(score {matchup:.2f}; {int(variables)} variables)"
+            )
+        else:
+            partes.append(f"{frase_matchup} para {posicion}")
+
+    # --------------------------------------------------------
+    # TENDENCIA DEL RIVAL
+    # Se calcula solo con historial anterior a la fecha objetivo.
+    # --------------------------------------------------------
+    fecha_objetivo = jugador.get("fecha_partido", pd.NaT)
+    fecha_objetivo = pd.to_datetime(fecha_objetivo, errors="coerce")
+
+    rival_contexto = pd.DataFrame()
+
+    if (
+        not pd.isna(fecha_objetivo)
+        and not contexto_matchup.empty
+        and "team_name" in contexto_matchup.columns
+        and "date" in contexto_matchup.columns
+    ):
+        dfc = contexto_matchup.copy()
+        dfc["date"] = pd.to_datetime(dfc["date"], errors="coerce")
+
+        rival_normalizado = normalizar_texto(rival)
+
+        if rival_normalizado:
+            rival_contexto = dfc[
+                (dfc["date"] < fecha_objetivo.normalize())
+                & (
+                    dfc["team_name"]
+                    .map(normalizar_texto)
+                    == rival_normalizado
+                )
+            ].copy()
+
+    def promedio_rival(columnas):
+        valores = []
+        for columna in columnas:
+            if columna in rival_contexto.columns:
+                serie = pd.to_numeric(
+                    rival_contexto[columna],
+                    errors="coerce"
+                ).dropna()
+                if not serie.empty:
+                    valores.append(float(serie.mean()))
+        if not valores:
+            return np.nan
+        return float(np.mean(valores))
+
+    def mediana_liga(columnas):
+        if contexto_matchup.empty:
+            return np.nan
+
+        valores = []
+        dfc = contexto_matchup.copy()
+
+        if "date" in dfc.columns:
+            fechas = pd.to_datetime(dfc["date"], errors="coerce")
+            if not pd.isna(fecha_objetivo):
+                dfc = dfc[fechas < fecha_objetivo.normalize()]
+
+        for columna in columnas:
+            if columna in dfc.columns:
+                serie = pd.to_numeric(
+                    dfc[columna],
+                    errors="coerce"
+                ).dropna()
+                if not serie.empty:
+                    valores.append(float(serie.median()))
+
+        if not valores:
+            return np.nan
+        return float(np.mean(valores))
+
+    if not rival_contexto.empty:
+
+        if posicion == "DEL":
+            columnas = [
+                "rival_expectedGoals",
+                "rival_expectedGoalsOnTarget",
+                "rival_shotsOnGoal",
+                "rival_totalShotsInsideBox",
+                "rival_touchesInOppBox",
+                "rival_bigChanceCreated",
+            ]
+
+            valor = promedio_rival(columnas)
+
+            # En el historial del propio rival, rival_X representa
+            # lo que sus oponentes produjeron contra él: es decir,
+            # lo que el rival concedió.
+            if not pd.isna(valor):
+                mediana = mediana_liga(columnas)
+                if not pd.isna(mediana):
+                    if valor > mediana * 1.08:
+                        partes.append(
+                            "el rival viene concediendo un contexto alto "
+                            "de xG, tiros y presencia en el área"
+                        )
+                    elif valor < mediana * 0.92:
+                        partes.append(
+                            "el rival viene concediendo un contexto bajo "
+                            "de xG, tiros y presencia en el área"
+                        )
+
+        elif posicion == "VOL":
+            columnas = [
+                "sofascore_ballPossession",
+                "sofascore_passes",
+                "sofascore_accuratePasses",
+            ]
+
+            valor = promedio_rival(columnas)
+
+            if not pd.isna(valor):
+                mediana = mediana_liga(columnas)
+                if not pd.isna(mediana):
+                    if valor < mediana * 0.92:
+                        partes.append(
+                            "el rival suele tener menor volumen de "
+                            "posesión y pases, favoreciendo la participación"
+                            " del volante con pelota"
+                        )
+                    elif valor > mediana * 1.08:
+                        partes.append(
+                            "el rival suele dominar posesión y pases, "
+                            "lo que reduce el margen de circulación del volante"
+                        )
+
+        elif posicion == "ARQ":
+            columnas = [
+                "sofascore_shotsOnGoal",
+                "sofascore_totalShotsOnGoal",
+                "sofascore_expectedGoals",
+                "sofascore_totalShotsInsideBox",
+                "sofascore_touchesInOppBox",
+            ]
+
+            valor = promedio_rival(columnas)
+
+            if not pd.isna(valor):
+                mediana = mediana_liga(columnas)
+                if not pd.isna(mediana):
+                    if valor > mediana * 1.08:
+                        partes.append(
+                            "el rival suele generar más tiros y xG, "
+                            "elevando el volumen potencial de atajadas"
+                        )
+                    elif valor < mediana * 0.92:
+                        partes.append(
+                            "el rival suele generar menos tiros y xG, "
+                            "reduciendo el volumen esperado de atajadas"
+                        )
+
+        elif posicion == "DEF":
+            columnas = [
+                "rival_expectedGoals",
+                "rival_shotsOnGoal",
+                "rival_totalShotsInsideBox",
+                "rival_touchesInOppBox",
+            ]
+
+            valor = promedio_rival(columnas)
+
+            if not pd.isna(valor):
+                mediana = mediana_liga(columnas)
+                if not pd.isna(mediana):
+                    if valor < mediana * 0.92:
+                        partes.append(
+                            "el rival viene generando menos xG y tiros, "
+                            "un contexto más favorable para sostener acciones defensivas"
+                        )
+                    elif valor > mediana * 1.08:
+                        partes.append(
+                            "el rival viene generando más xG y tiros, "
+                            "por lo que el defensor tendrá mayor carga defensiva"
+                        )
+
+    # --------------------------------------------------------
+    # FORMA / REGULARIDAD DEL JUGADOR
+    # --------------------------------------------------------
+    participaciones = _numero_contexto(
+        jugador.get("participaciones_ultimos_3")
+    )
+    titulares = _numero_contexto(
+        jugador.get("titulares_ultimos_3")
+    )
+    promedio = _numero_contexto(
+        jugador.get("promedio")
+    )
+    p90 = _numero_contexto(
+        jugador.get("p90")
+    )
+
+    forma = []
+
+    if not pd.isna(participaciones):
+        forma.append(
+            f"{int(participaciones)}/3 participaciones recientes"
+        )
+
+    if not pd.isna(titulares):
+        forma.append(
+            f"{int(titulares)}/3 titularidades recientes"
+        )
+
+    if forma:
+        partes.append("viene con " + " y ".join(forma))
+
+    if not pd.isna(promedio) and not pd.isna(p90):
+        partes.append(
+            f"promedio histórico {promedio:.2f} y P90 {p90:.2f}"
+        )
+
+    return ". ".join(partes) + "." if partes else "Sin contexto adicional disponible."
+
+# ============================================================
 # SIMULACIONES
 # ============================================================
 
@@ -3025,7 +3878,7 @@ def main():
     print()
     print("=" * 70)
     print(
-        f"WINNING AI - BACKTEST FECHA {FECHA_OBJETIVO}"
+        "WINNING AI - BACKTEST FECHA 10"
     )
     print("=" * 70)
 
@@ -3083,73 +3936,20 @@ def main():
         return
 
     # --------------------------------------------------------
-    # LINEUPS
-    #
-    # Se resuelven dinámicamente contra los partidos de la ronda.
-    # Esto permite reutilizar el motor para Fecha 1..11.
+    # FECHA OBJETIVO
     # --------------------------------------------------------
 
-    LINEUPS_GLOBAL = cargar_lineups_fecha10(partidos_fecha10)
-
-    if len(LINEUPS_GLOBAL) != len(partidos_fecha10):
-        print(
-            "ADVERTENCIA: lineups encontrados:",
-            len(LINEUPS_GLOBAL),
-            "| partidos:",
-            len(partidos_fecha10)
-        )
-
-    # --------------------------------------------------------
-    # INFORMACIÓN DE CADA PARTIDO PARA MATCHUP
-    #
-    # Vinculamos cada lineup PitchAPI con su partido SofaScore
-    # por los dos equipos, sin depender de IDs hardcodeados.
-    # --------------------------------------------------------
-
-    info_fecha10 = {}
-
-    partidos_por_clave = {}
-
-    for _, partido in partidos_fecha10.iterrows():
-        clave = tuple(sorted([
-            normalizar_texto(partido["home_team_name"]),
-            normalizar_texto(partido["away_team_name"]),
-        ]))
-        partidos_por_clave[clave] = partido
-
-    for pitch_id, lineup in LINEUPS_GLOBAL.items():
-        clave = _clave_equipos_lineup(lineup)
-        partido = partidos_por_clave.get(clave)
-
-        if partido is None:
-            continue
-
-        info_fecha10[str(pitch_id)] = {
-            "fecha_partido": pd.Timestamp(
-                partido["fecha"]
-            ).normalize(),
-            "event_id": str(
-                partido["sofascore_id"]
-            ),
-        }
-
-    # --------------------------------------------------------
-    # JUGADORES
-    # --------------------------------------------------------
-
-    jugadores_objetivo = (
-        construir_jugadores_objetivo(
-            LINEUPS_GLOBAL,
-            info_fecha10
-        )
+    # El fixture de la fecha objetivo se obtiene de los JSON de
+    # SofaScore. Todavía no necesita lineups reales.
+    jugadores_objetivo = construir_jugadores_objetivo(
+        historico_hasta_corte,
+        partidos_fecha10
     )
 
     print()
     print(
-        f"Jugadores únicos encontrados en Fecha {FECHA_OBJETIVO}:",
-        len(
-            jugadores_objetivo
-        )
+        f"Jugadores candidatos de Fecha {FECHA_OBJETIVO}:",
+        len(jugadores_objetivo)
     )
 
     # --------------------------------------------------------
@@ -3192,8 +3992,7 @@ def main():
         mapa_lineups,
         contexto,
         forma,
-        local_visitante,
-        rendimiento,
+        local_visitante,        rendimiento,
         posiciones
     )
 
@@ -3237,27 +4036,6 @@ def main():
     else:
 
         candidatos["prediccion_modelo_c"] = np.nan
-
-    # --------------------------------------------------------
-    # SIMULACIÓN PREVIA
-    #
-    # Se ejecuta sobre TODOS los candidatos antes de separar
-    # titulares/FLEX y antes del optimizador.
-    # --------------------------------------------------------
-
-    candidatos = agregar_pre_simulacion(
-        candidatos,
-        historico_hasta_corte,
-        CORTE_HISTORICO,
-        n_sim=N_SIMULACIONES,
-        seed=42,
-    )
-
-    print()
-    print(
-        "Simulación previa por jugador:",
-        f"{candidatos['pre_simulacion_activa'].sum():,}/{len(candidatos):,}"
-    )
 
     # --------------------------------------------------------
     # ESTABILIDAD
@@ -3397,23 +4175,56 @@ def main():
     flex_por_perfil = {}
 
     # ========================================================
-    # GENERAR LOS 3 EQUIPOS
+    # OPTIMIZACIÓN GLOBAL DE LOS 3 EQUIPOS
+    #
+    # Los tres perfiles se resuelven juntos. El score ya contiene
+    # contexto + matchup + Modelo C, por lo que esas señales
+    # participan directamente en la combinación final.
+    # ========================================================
+
+    equipos_generados = optimizar_tres_equipos_globalmente(
+        principales
+    )
+
+    if any(
+        len(equipos_generados.get(perfil, [])) != 10
+        for perfil in [
+            "SEGURO",
+            "INTERMEDIO",
+            "ARRIESGADO"
+        ]
+    ):
+        print()
+        print(
+            "ADVERTENCIA: el optimizador global no pudo construir",
+            "los tres equipos completos."
+        )
+        return
+
+    # ========================================================
+    # REGISTRO GLOBAL DE TODOS LOS TITULARES
+    #
+    # Los tres equipos ya fueron resueltos globalmente. Ahora sí
+    # conocemos TODOS los titulares y FLEX puede penalizarlos
+    # independientemente del orden de procesamiento.
+    # ========================================================
+
+    titulares_globales = {
+        str(jugador["player_id"])
+        for perfil_equipo in equipos_generados.values()
+        for jugador in perfil_equipo
+    }
+
+    # ========================================================
+    # GENERAR SALIDA, SIMULACIONES Y FLEX
     # ========================================================
 
     for nombre_perfil, base in perfiles:
 
-        equipo = seleccionar_equipo(
-            base,
+        equipo = equipos_generados.get(
             nombre_perfil,
-            jugadores_usados=(
-                jugadores_usados_global
-            ),
-            seed=42
+            []
         )
-
-        equipos_generados[
-            nombre_perfil
-        ] = equipo
 
         # ----------------------------------------------------
         # Guardar titulares del equipo
@@ -3568,77 +4379,17 @@ def main():
                         ""
                     ),
 
+                    "fecha_partido": jugador.get(
+                        "fecha_partido",
+                        pd.NaT
+                    ),
+
                     "score_contextual": jugador[
                         "score_contextual"
                     ],
 
-                    "motor_seleccion": jugador.get(
-                        "motor_seleccion",
-                        "MOTOR_BASE"
-                    ),
-
-                    "pre_sim_media_ajustada": jugador.get(
-                        "pre_sim_media_ajustada",
-                        ""
-                    ),
-
-                    "pre_sim_p50_ajustada": jugador.get(
-                        "pre_sim_p50_ajustada",
-                        ""
-                    ),
-
-                    "pre_sim_p75_ajustada": jugador.get(
-                        "pre_sim_p75_ajustada",
-                        ""
-                    ),
-
-                    "pre_sim_p90_ajustada": jugador.get(
-                        "pre_sim_p90_ajustada",
-                        ""
-                    ),
-
-                    "pre_sim_p95_ajustada": jugador.get(
-                        "pre_sim_p95_ajustada",
-                        ""
-                    ),
-
-                    "pre_sim_factor_matchup": jugador.get(
-                        "pre_sim_factor_matchup",
-                        ""
-                    ),
-
-                    "pre_sim_n": jugador.get(
-                        "pre_sim_n",
-                        0
-                    ),
-
                     "score_seleccion": jugador.get(
                         "score_seleccion",
-                        ""
-                    ),
-
-                    "prediccion_base": jugador.get(
-                        "prediccion_base",
-                        ""
-                    ),
-
-                    "correccion_aprendizaje": jugador.get(
-                        "correccion_aprendizaje",
-                        0
-                    ),
-
-                    "prediccion_final": jugador.get(
-                        "prediccion_final",
-                        jugador.get("score_seleccion", "")
-                    ),
-
-                    "aprendizaje_casos": jugador.get(
-                        "aprendizaje_casos",
-                        0
-                    ),
-
-                    "aprendizaje_patrones": jugador.get(
-                        "aprendizaje_patrones",
                         ""
                     ),
 
@@ -3766,6 +4517,10 @@ def main():
                 titulares_otros_equipos
             ),
 
+            jugadores_titulares_global=(
+                titulares_globales
+            ),
+
             flex_usados_global=(
                 flex_usados_global
             )
@@ -3828,37 +4583,17 @@ def main():
                         ""
                     ),
 
+                    "fecha_partido": jugador.get(
+                        "fecha_partido",
+                        pd.NaT
+                    ),
+
                     "score_contextual": jugador[
                         "score_contextual"
                     ],
 
                     "score_seleccion": jugador.get(
                         "score_seleccion",
-                        ""
-                    ),
-
-                    "prediccion_base": jugador.get(
-                        "prediccion_base",
-                        ""
-                    ),
-
-                    "correccion_aprendizaje": jugador.get(
-                        "correccion_aprendizaje",
-                        0
-                    ),
-
-                    "prediccion_final": jugador.get(
-                        "prediccion_final",
-                        jugador.get("score_seleccion", "")
-                    ),
-
-                    "aprendizaje_casos": jugador.get(
-                        "aprendizaje_casos",
-                        0
-                    ),
-
-                    "aprendizaje_patrones": jugador.get(
-                        "aprendizaje_patrones",
                         ""
                     ),
 
@@ -3941,6 +4676,14 @@ def main():
             )
 
     # --------------------------------------------------------
+    # GENERAR CONTEXTO EXPLICATIVO
+    # --------------------------------------------------------
+    # Es una columna de auditoría para entender la selección.
+    # NO participa del score ni modifica la selección.
+    for jugador in equipos_salida:
+        jugador["contexto_explicativo"] = generar_contexto_jugador(jugador)
+
+    # --------------------------------------------------------
     # GUARDAR CSV TÉCNICO
     # --------------------------------------------------------
 
@@ -3964,8 +4707,6 @@ def main():
 
         "tipo_registro": "Tipo",
 
-        "orden": "Orden",
-
         "position": "Posición",
 
         "player_name": "Jugador",
@@ -3978,37 +4719,9 @@ def main():
 
         "matchup_score": "Matchup score",
 
+        "contexto_explicativo": "Contexto",
+
         "prediccion_modelo_c": "Predicción Modelo C",
-
-        "score_contextual": "Score",
-
-        "motor_seleccion": "Motor selección",
-
-        "pre_sim_media_ajustada": "Pre-sim media",
-
-        "pre_sim_p50_ajustada": "Pre-sim P50",
-
-        "pre_sim_p75_ajustada": "Pre-sim P75",
-
-        "pre_sim_p90_ajustada": "Pre-sim P90",
-
-        "pre_sim_p95_ajustada": "Pre-sim P95",
-
-        "pre_sim_factor_matchup": "Pre-sim factor matchup",
-
-        "pre_sim_n": "Historial usado pre-sim",
-
-        "score_seleccion": "Score selección",
-
-        "prediccion_base": "Predicción base",
-
-        "correccion_aprendizaje": "Corrección aprendizaje",
-
-        "prediccion_final": "Predicción final",
-
-        "aprendizaje_casos": "Casos aprendizaje",
-
-        "aprendizaje_patrones": "Patrones aprendizaje",
 
         "partidos_historicos": "Historial",
 
@@ -4020,29 +4733,7 @@ def main():
 
         "p90": "P90",
 
-        "factor_contexto": "Factor contexto",
-
         "factor_confianza": "Factor confianza",
-
-        "score_diversidad": "Score diversidad",
-
-        "veces_usado_otros_equipos": (
-            "Usado en otros equipos"
-        ),
-
-        "score_flex": "Score FLEX",
-
-        "flex_repetido": "FLEX repetido",
-
-        "veces_flex_usado": "FLEX usado antes",
-
-        "titular_mismo_equipo": (
-            "Titular mismo equipo"
-        ),
-
-        "titular_otro_equipo": (
-            "Titular otro equipo"
-        ),
 
         "sim_promedio_equipo": "Sim promedio",
 
@@ -4083,31 +4774,15 @@ def main():
 
     for col in [
 
-        "Score",
-
-        "Score selección",
-
         "Promedio",
 
         "P90",
-
-        "Factor contexto",
 
         "Factor confianza",
 
         "Matchup score",
 
         "Predicción Modelo C",
-
-        "Predicción base",
-
-        "Corrección aprendizaje",
-
-        "Predicción final",
-
-        "Score diversidad",
-
-        "Score FLEX",
 
         "Sim promedio",
 
@@ -4150,20 +4825,141 @@ def main():
     # GUARDAR ARCHIVO PARA EXCEL
     # --------------------------------------------------------
 
-    df_excel.to_csv(
-        SALIDA_EQUIPOS_EXCEL,
-        index=False,
-        sep=";",
-        encoding="utf-8-sig"
-    )
+    # --------------------------------------------------------
+    # EXPORTAR XLSX CON FORMATO PARA LECTURA
+    # --------------------------------------------------------
 
-    # También se genera un XLSX real para abrir directamente en Excel.
-    # Mantiene exactamente las mismas columnas del CSV técnico.
-    df_excel.to_excel(
-        SALIDA_EQUIPOS_XLSX,
-        index=False,
-        sheet_name="Equipos"
-    )
+    with pd.ExcelWriter(
+        SALIDA_EQUIPOS_EXCEL,
+        engine="openpyxl"
+    ) as writer:
+        df_excel.to_excel(
+            writer,
+            index=False,
+            sheet_name="Equipos"
+        )
+
+        ws = writer.book["Equipos"]
+
+        # Separar visualmente cada uno de los 3 equipos/perfiles.
+        # Se inserta una fila en blanco cuando cambia el Perfil.
+        perfiles = [
+            ws.cell(fila, 1).value
+            for fila in range(2, ws.max_row + 1)
+        ]
+        filas_separacion = []
+        for fila in range(ws.max_row, 2, -1):
+            perfil_actual = ws.cell(fila, 1).value
+            perfil_anterior = ws.cell(fila - 1, 1).value
+            if perfil_actual != perfil_anterior:
+                filas_separacion.append(fila)
+
+        for fila in filas_separacion:
+            ws.insert_rows(fila, 1)
+
+        # Encabezado fijo y autofiltro.
+        ws.freeze_panes = "A2"
+        ws.auto_filter.ref = ws.dimensions
+
+        # Alto de cada fila de jugador.
+        # 65 puntos son aproximadamente 87 píxeles.
+        for fila in range(2, ws.max_row + 1):
+            ws.row_dimensions[fila].height = 65
+
+        # Anchos solicitados.
+        anchos = {
+            "Jugador": 22.25,
+            "Club": 24,
+            "Rival": 24,
+            "Contexto": 90,
+        }
+
+        for nombre_columna, ancho in anchos.items():
+            for celda in ws[1]:
+                if celda.value == nombre_columna:
+                    ws.column_dimensions[celda.column_letter].width = ancho
+                    break
+
+        # ====================================================
+        # FORMATO VISUAL POR EQUIPO / PERFIL
+        # ====================================================
+
+        borde_fino = Side(style="thin")
+        borde_grueso = Side(style="medium")
+
+        rellenos = {
+            "SEGURO": PatternFill(fill_type="solid", fgColor="E2F0D9"),
+            "INTERMEDIO": PatternFill(fill_type="solid", fgColor="FFF2CC"),
+            "ARRIESGADO": PatternFill(fill_type="solid", fgColor="F4CCCC"),
+        }
+
+        max_col = ws.max_column
+        fila_inicio_equipo = None
+        perfil_equipo = None
+
+        # Detectar cada bloque de perfil y aplicar fondo + bordes.
+        for fila in range(2, ws.max_row + 2):
+            perfil = ws.cell(fila, 1).value if fila <= ws.max_row else None
+
+            if perfil_equipo is None and perfil in rellenos:
+                fila_inicio_equipo = fila
+                perfil_equipo = perfil
+
+            cambio_equipo = (
+                perfil_equipo is not None
+                and perfil != perfil_equipo
+            )
+
+            if cambio_equipo:
+                fila_fin_equipo = fila - 1
+
+                for fila_equipo in range(
+                    fila_inicio_equipo,
+                    fila_fin_equipo + 1
+                ):
+                    for col in range(1, max_col + 1):
+                        celda = ws.cell(fila_equipo, col)
+
+                        celda.fill = rellenos[perfil_equipo]
+
+                        celda.border = Border(
+                            left=borde_grueso if col == 1 else borde_fino,
+                            right=borde_grueso if col == max_col else borde_fino,
+                            top=borde_grueso if fila_equipo == fila_inicio_equipo else borde_fino,
+                            bottom=borde_grueso if fila_equipo == fila_fin_equipo else borde_fino,
+                        )
+
+                fila_inicio_equipo = None
+                perfil_equipo = None
+
+                if perfil in rellenos:
+                    fila_inicio_equipo = fila
+                    perfil_equipo = perfil
+
+        # Todas las celdas quedan centradas y alineadas verticalmente.
+        for fila in range(2, ws.max_row + 1):
+            if ws.cell(fila, 1).value is None:
+                continue
+
+            ws.row_dimensions[fila].height = 65
+
+            for col in range(1, ws.max_column + 1):
+                ws.cell(fila, col).alignment = Alignment(
+                    horizontal="center",
+                    vertical="center",
+                    wrap_text=True,
+                )
+
+        # Encabezados destacados.
+        for celda in ws[1]:
+            celda.font = Font(bold=True)
+            celda.alignment = Alignment(
+                horizontal="center",
+                vertical="center",
+                wrap_text=True
+            )
+
+        ws.row_dimensions[1].height = 30
 
     # --------------------------------------------------------
     # GUARDAR SIMULACIONES
@@ -4343,8 +5139,7 @@ def main():
 
             print(
                 "Prob >=140:",
-                round(
-                    safe_float(
+                round(                    safe_float(
                         datos[0][
                             "prob_140"
                         ]
