@@ -4,6 +4,7 @@ import pandas as pd
 from openpyxl.styles import Alignment, Font, Border, Side, PatternFill
 import backtest_fecha10 as motor
 import detector_tapados
+from aprendizaje_fecha import aplicar_correccion
 
 FECHA_OBJETIVO = motor.FECHA_OBJETIVO
 CORTE = motor.CORTE_HISTORICO
@@ -15,6 +16,11 @@ SALIDA_EQUIPOS = f"datos/fecha{FECHA_OBJETIVO}_pre_simulacion_equipos.csv"
 SALIDA_FLEX = f"datos/fecha{FECHA_OBJETIVO}_pre_simulacion_flex.csv"
 SALIDA_EXCEL = f"datos/fecha{FECHA_OBJETIVO}_equipos_predichos_excel.xlsx"
 SALIDA_TAPADOS = f"datos/fecha{FECHA_OBJETIVO}_tapados.csv"
+
+# Guardamos una única referencia al score PRO original. El replay histórico
+# ejecuta varias fechas dentro del mismo proceso y no debemos encadenar
+# monkey-patches ni aplicar el aprendizaje dos veces.
+SCORE_PRO_ORIGINAL = motor.calcular_score_seleccion
 
 
 def simular_distribucion(valores, rng):
@@ -80,20 +86,44 @@ def agregar_pre_simulacion(candidatos, historico):
 
 
 def activar_score_pre_simulacion():
-    original = motor.calcular_score_seleccion
+    original = SCORE_PRO_ORIGINAL
 
     def score_experimental(df, perfil):
         r = original(df, perfil).copy()
         columna = "score_pre_sim_" + perfil
-        r["score_seleccion"] = pd.to_numeric(r[columna], errors="coerce").fillna(-np.inf)
+
+        # La pre-simulación sigue siendo el motor principal de selección.
+        r["score_seleccion"] = pd.to_numeric(
+            r[columna], errors="coerce"
+        ).fillna(-np.inf)
+
         r["score_seleccion_original"] = r["score_seleccion"]
+        r["motor_seleccion"] = "PRE_SIMULACION"
+
+        # ====================================================
+        # CEREBRO DE APRENDIZAJE
+        #
+        # Corrige el score de la pre-simulación usando solamente
+        # errores de fechas anteriores. No altera el motor base.
+        # ====================================================
+        r["score_seleccion_sin_aprendizaje"] = r["score_seleccion"]
+
+        r = aplicar_correccion(
+            r,
+            motor.FECHA_OBJETIVO
+        )
+
+        r["score_seleccion"] = r["prediccion_final"]
+
         return r
 
     motor.calcular_score_seleccion = score_experimental
 
 
-def guardar_equipos(equipos):
+def guardar_equipos(equipos, flex_por_perfil, candidatos):
     filas = []
+
+    # TITULARES
     for perfil, jugadores in equipos.items():
         for j in jugadores:
             fila = dict(j)
@@ -101,7 +131,35 @@ def guardar_equipos(equipos):
             fila["perfil"] = perfil
             fila["tipo_registro"] = "TITULAR"
             filas.append(fila)
-    pd.DataFrame(filas).to_csv(SALIDA_EQUIPOS, index=False, encoding="utf-8-sig")
+
+    # FLEX
+    for perfil, jugadores in flex_por_perfil.items():
+        for j in jugadores:
+            fila = dict(j)
+            fila["motor"] = "PRE_SIMULACION"
+            fila["perfil"] = perfil
+            fila["tipo_registro"] = "FLEX"
+            filas.append(fila)
+
+    # TAPADOS
+    for posicion in ["DEF", "VOL", "DEL"]:
+        grupo = candidatos[
+            (candidatos["position"] == posicion)
+            & (candidatos["es_tapado_candidato"] == True)
+        ].sort_values("score_tapado", ascending=False).head(3)
+
+        for _, j in grupo.iterrows():
+            fila = dict(j)
+            fila["motor"] = "PRE_SIMULACION"
+            fila["perfil"] = "TAPADOS"
+            fila["tipo_registro"] = "TAPADO"
+            filas.append(fila)
+
+    pd.DataFrame(filas).to_csv(
+        SALIDA_EQUIPOS,
+        index=False,
+        encoding="utf-8-sig"
+    )
 
 
 def construir_flex(candidatos, equipos):
@@ -161,6 +219,15 @@ def exportar_excel(equipos, flex_por_perfil, candidatos):
                     "Sim P75": j.get("pre_sim_p75_ajustada", ""),
                     "Sim P90": j.get("pre_sim_p90_ajustada", ""),
                     "Factor matchup": j.get("pre_sim_factor_matchup", ""),
+                    "Predicción base": j.get("prediccion_base", ""),
+                    "Corrección aprendizaje": j.get("correccion_aprendizaje", ""),
+                    "Predicción final": j.get("prediccion_final", ""),
+                    "Casos aprendizaje": j.get("aprendizaje_casos", ""),
+                    "Patrones aprendizaje": j.get("aprendizaje_patrones", ""),
+                    "Score tapado": j.get("score_tapado", ""),
+                    "Potencial tapado": j.get("tapado_potencial", ""),
+                    "Reconocimiento tapado": j.get("tapado_reconocimiento", ""),
+                    "Gap tapado": j.get("tapado_gap", ""),
                 })
 
     # Los TAPADOS van al final del Excel, después de los 3 perfiles y sus 6 FLEX.
@@ -351,8 +418,8 @@ def main():
 
     activar_score_pre_simulacion()
     equipos = motor.optimizar_tres_equipos_globalmente(candidatos.copy())
-    guardar_equipos(equipos)
     flex = construir_flex(candidatos, equipos)
+    guardar_equipos(equipos, flex, candidatos)
     exportar_excel(equipos, flex, candidatos)
 
     print()
