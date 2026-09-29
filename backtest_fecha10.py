@@ -797,7 +797,7 @@ def cargar_partidos_fecha10():
     if df.empty:
 
         print(
-            "ERROR: no se encontraron partidos de Fecha 10."
+            f"ERROR: no se encontraron partidos de Fecha {FECHA_OBJETIVO}."
         )
 
         return df
@@ -811,7 +811,7 @@ def cargar_partidos_fecha10():
     print()
     print("=" * 70)
     print(
-        "PARTIDOS FECHA 10 ENCONTRADOS:",
+        f"PARTIDOS FECHA {FECHA_OBJETIVO} ENCONTRADOS:",
         len(df)
     )
     print("=" * 70)
