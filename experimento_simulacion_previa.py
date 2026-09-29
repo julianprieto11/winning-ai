@@ -201,11 +201,11 @@ def guardar_equipos(equipos, flex_por_perfil, candidatos):
     )
 
     for j in tapados_exclusivos:
-            fila = dict(j)
-            fila["motor"] = "PRE_SIMULACION"
-            fila["perfil"] = "TAPADOS"
-            fila["tipo_registro"] = "TAPADO"
-            filas.append(fila)
+        fila = dict(j)
+        fila["motor"] = "PRE_SIMULACION"
+        fila["perfil"] = "TAPADOS"
+        fila["tipo_registro"] = "TAPADO"
+        filas.append(fila)
 
     pd.DataFrame(filas).to_csv(
         SALIDA_EQUIPOS,
