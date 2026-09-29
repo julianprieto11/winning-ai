@@ -3571,6 +3571,46 @@ def main():
                         "score_contextual"
                     ],
 
+                    "motor_seleccion": jugador.get(
+                        "motor_seleccion",
+                        "MOTOR_BASE"
+                    ),
+
+                    "pre_sim_media_ajustada": jugador.get(
+                        "pre_sim_media_ajustada",
+                        ""
+                    ),
+
+                    "pre_sim_p50_ajustada": jugador.get(
+                        "pre_sim_p50_ajustada",
+                        ""
+                    ),
+
+                    "pre_sim_p75_ajustada": jugador.get(
+                        "pre_sim_p75_ajustada",
+                        ""
+                    ),
+
+                    "pre_sim_p90_ajustada": jugador.get(
+                        "pre_sim_p90_ajustada",
+                        ""
+                    ),
+
+                    "pre_sim_p95_ajustada": jugador.get(
+                        "pre_sim_p95_ajustada",
+                        ""
+                    ),
+
+                    "pre_sim_factor_matchup": jugador.get(
+                        "pre_sim_factor_matchup",
+                        ""
+                    ),
+
+                    "pre_sim_n": jugador.get(
+                        "pre_sim_n",
+                        0
+                    ),
+
                     "score_seleccion": jugador.get(
                         "score_seleccion",
                         ""
@@ -3940,6 +3980,22 @@ def main():
         "prediccion_modelo_c": "Predicción Modelo C",
 
         "score_contextual": "Score",
+
+        "motor_seleccion": "Motor selección",
+
+        "pre_sim_media_ajustada": "Pre-sim media",
+
+        "pre_sim_p50_ajustada": "Pre-sim P50",
+
+        "pre_sim_p75_ajustada": "Pre-sim P75",
+
+        "pre_sim_p90_ajustada": "Pre-sim P90",
+
+        "pre_sim_p95_ajustada": "Pre-sim P95",
+
+        "pre_sim_factor_matchup": "Pre-sim factor matchup",
+
+        "pre_sim_n": "Historial usado pre-sim",
 
         "score_seleccion": "Score selección",
 
