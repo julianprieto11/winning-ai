@@ -197,17 +197,58 @@ def registrar_resultados_fecha(fecha_numero):
 
     No modifica el modelo base.
     """
-    pred_file = DATOS / f"fecha{int(fecha_numero)}_equipos_predichos.csv"
+    # La versión PRO genera la predicción mediante pre-simulación.
+    # Conservamos por separado TITULARES, FLEX y TAPADOS para que el
+    # aprendizaje conozca qué tipo de decisión produjo cada error.
+    archivos_prediccion = [
+        (DATOS / f"fecha{int(fecha_numero)}_pre_simulacion_equipos.csv", "TITULAR"),
+        (DATOS / f"fecha{int(fecha_numero)}_pre_simulacion_flex.csv", "FLEX"),
+    ]
 
-    if not pred_file.exists():
-        print(f"[APRENDIZAJE] No existe {pred_file}; se salta esta fecha.")
-        return
+    predicciones = []
+
+    for archivo, tipo_default in archivos_prediccion:
+        if not archivo.exists():
+            continue
+        bloque = pd.read_csv(archivo, low_memory=False)
+        if bloque.empty:
+            continue
+        if "tipo_registro" not in bloque.columns:
+            bloque["tipo_registro"] = tipo_default
+        else:
+            bloque["tipo_registro"] = bloque["tipo_registro"].fillna(tipo_default)
+        predicciones.append(bloque)
+
+    # TAPADOS no participan del optimizador principal, pero sí son una
+    # fuente de experiencia. Para ellos usamos P90 pre-simulado como
+    # predicción de puntos esperados; el score_tapado sigue siendo solo
+    # el detector de potencial/reconocimiento.
+    archivo_tapados = DATOS / f"fecha{int(fecha_numero)}_tapados.csv"
+    if archivo_tapados.exists():
+        tapados = pd.read_csv(archivo_tapados, low_memory=False)
+        if not tapados.empty:
+            tapados["tipo_registro"] = "TAPADO"
+            tapados["perfil"] = "TAPADOS"
+            tapados["prediccion_base"] = pd.to_numeric(
+                tapados.get("pre_sim_p90_ajustada"),
+                errors="coerce",
+            )
+            tapados["prediccion_final"] = tapados["prediccion_base"]
+            predicciones.append(tapados)
 
     if not DATASET_FILE.exists():
         raise RuntimeError(f"No existe {DATASET_FILE}.")
 
-    pred = pd.read_csv(pred_file, low_memory=False)
     dataset = pd.read_csv(DATASET_FILE, low_memory=False)
+
+    if not predicciones:
+        print(
+            f"[APRENDIZAJE] No existen predicciones PRO para Fecha {fecha_numero}; "
+            "se salta esta fecha."
+        )
+        return
+
+    pred = pd.concat(predicciones, ignore_index=True, sort=False)
 
     if pred.empty:
         return
