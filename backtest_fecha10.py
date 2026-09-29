@@ -5,6 +5,8 @@ import random
 import numpy as np
 import pandas as pd
 
+from aprendizaje_fecha import aplicar_correccion
+
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
@@ -2322,6 +2324,20 @@ def calcular_score_seleccion(
         * PESO_MODELO_C
     )
 
+    # --------------------------------------------------------
+    # CEREBRO DE APRENDIZAJE
+    # --------------------------------------------------------
+
+    df["score_seleccion_sin_aprendizaje"] = df["score_seleccion"]
+
+    df = aplicar_correccion(
+        df,
+        FECHA_OBJETIVO
+    )
+
+    # La selección utiliza el score corregido.
+    df["score_seleccion"] = df["prediccion_final"]
+
     return df
 
 
@@ -3520,6 +3536,31 @@ def main():
                         ""
                     ),
 
+                    "prediccion_base": jugador.get(
+                        "prediccion_base",
+                        ""
+                    ),
+
+                    "correccion_aprendizaje": jugador.get(
+                        "correccion_aprendizaje",
+                        0
+                    ),
+
+                    "prediccion_final": jugador.get(
+                        "prediccion_final",
+                        jugador.get("score_seleccion", "")
+                    ),
+
+                    "aprendizaje_casos": jugador.get(
+                        "aprendizaje_casos",
+                        0
+                    ),
+
+                    "aprendizaje_patrones": jugador.get(
+                        "aprendizaje_patrones",
+                        ""
+                    ),
+
                     "partidos_historicos": jugador[
                         "partidos_historicos"
                     ],
@@ -3715,6 +3756,31 @@ def main():
                         ""
                     ),
 
+                    "prediccion_base": jugador.get(
+                        "prediccion_base",
+                        ""
+                    ),
+
+                    "correccion_aprendizaje": jugador.get(
+                        "correccion_aprendizaje",
+                        0
+                    ),
+
+                    "prediccion_final": jugador.get(
+                        "prediccion_final",
+                        jugador.get("score_seleccion", "")
+                    ),
+
+                    "aprendizaje_casos": jugador.get(
+                        "aprendizaje_casos",
+                        0
+                    ),
+
+                    "aprendizaje_patrones": jugador.get(
+                        "aprendizaje_patrones",
+                        ""
+                    ),
+
                     "partidos_historicos": jugador[
                         "partidos_historicos"
                     ],
@@ -3837,6 +3903,16 @@ def main():
 
         "score_seleccion": "Score selección",
 
+        "prediccion_base": "Predicción base",
+
+        "correccion_aprendizaje": "Corrección aprendizaje",
+
+        "prediccion_final": "Predicción final",
+
+        "aprendizaje_casos": "Casos aprendizaje",
+
+        "aprendizaje_patrones": "Patrones aprendizaje",
+
         "partidos_historicos": "Historial",
 
         "participaciones_ultimos_3": "Participaciones últimos 3",
@@ -3925,6 +4001,12 @@ def main():
         "Matchup score",
 
         "Predicción Modelo C",
+
+        "Predicción base",
+
+        "Corrección aprendizaje",
+
+        "Predicción final",
 
         "Score diversidad",
 
