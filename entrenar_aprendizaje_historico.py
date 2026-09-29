@@ -50,6 +50,10 @@ def ejecutar_fecha_historica(numero):
     motor.COMPETENCIA_OBJETIVO = "Clausura"
     motor.CORTE_HISTORICO = corte
 
+    # El Modelo C también debe entrenarse solamente con información
+    # disponible antes de la fecha que estamos simulando.
+    motor.FECHA_CORTE_MODELO_C = corte
+
     sufijo = f"fecha{int(numero)}"
 
     motor.SALIDA_CANDIDATOS = f"datos/candidatos_{sufijo}_final.csv"
