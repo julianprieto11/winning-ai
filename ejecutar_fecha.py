@@ -753,6 +753,8 @@ def main():
     print(f" - {experimento.SALIDA_CANDIDATOS}")
     print(f" - {experimento.SALIDA_EQUIPOS}")
     print(f" - {experimento.SALIDA_FLEX}")
+    print(f" - {experimento.SALIDA_TAPADOS}")
+    print(f" - {experimento.SALIDA_EXCEL}")
 
 
 if __name__ == "__main__":
