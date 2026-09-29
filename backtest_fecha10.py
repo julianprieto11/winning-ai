@@ -38,6 +38,7 @@ PARTIDOS_DIR = "datos/partidos"
 SALIDA_CANDIDATOS = "datos/candidatos_fecha10_final.csv"
 SALIDA_EQUIPOS = "datos/fecha10_equipos_predichos.csv"
 SALIDA_EQUIPOS_EXCEL = "datos/fecha10_equipos_predichos_excel.csv"
+SALIDA_EQUIPOS_XLSX = "datos/fecha10_equipos_predichos_excel.xlsx"
 SALIDA_SIMULACIONES = "datos/fecha10_simulaciones.csv"
 
 N_SIMULACIONES = 10000
@@ -4154,6 +4155,14 @@ def main():
         index=False,
         sep=";",
         encoding="utf-8-sig"
+    )
+
+    # También se genera un XLSX real para abrir directamente en Excel.
+    # Mantiene exactamente las mismas columnas del CSV técnico.
+    df_excel.to_excel(
+        SALIDA_EQUIPOS_XLSX,
+        index=False,
+        sheet_name="Equipos"
     )
 
     # --------------------------------------------------------
