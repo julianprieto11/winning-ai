@@ -120,9 +120,10 @@ def activar_score_pre_simulacion():
     motor.calcular_score_seleccion = score_experimental
 
 
-def guardar_equipos(equipos, candidatos):
+def guardar_equipos(equipos, flex_por_perfil, candidatos):
     filas = []
 
+    # TITULARES
     for perfil, jugadores in equipos.items():
         for j in jugadores:
             fila = dict(j)
@@ -131,9 +132,16 @@ def guardar_equipos(equipos, candidatos):
             fila["tipo_registro"] = "TITULAR"
             filas.append(fila)
 
-    # FLEX no modifica la selección de titulares y se agrega desde main()
-    # cuando corresponde. Los TAPADOS sí quedan registrados en el mismo
-    # CSV técnico para que el cerebro pueda aprender también de ellos.
+    # FLEX
+    for perfil, jugadores in flex_por_perfil.items():
+        for j in jugadores:
+            fila = dict(j)
+            fila["motor"] = "PRE_SIMULACION"
+            fila["perfil"] = perfil
+            fila["tipo_registro"] = "FLEX"
+            filas.append(fila)
+
+    # TAPADOS
     for posicion in ["DEF", "VOL", "DEL"]:
         grupo = candidatos[
             (candidatos["position"] == posicion)
@@ -410,8 +418,8 @@ def main():
 
     activar_score_pre_simulacion()
     equipos = motor.optimizar_tres_equipos_globalmente(candidatos.copy())
-    guardar_equipos(equipos, candidatos)
     flex = construir_flex(candidatos, equipos)
+    guardar_equipos(equipos, flex, candidatos)
     exportar_excel(equipos, flex, candidatos)
 
     print()
