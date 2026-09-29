@@ -33,6 +33,18 @@ FEATURE_COLUMNS = [
     "p90",
     "std",
     "matchup_score",
+    "motor_seleccion",
+    "pre_sim_media_ajustada",
+    "pre_sim_p50_ajustada",
+    "pre_sim_p75_ajustada",
+    "pre_sim_p90_ajustada",
+    "pre_sim_p95_ajustada",
+    "pre_sim_factor_matchup",
+    "pre_sim_n",
+    "score_tapado",
+    "tapado_potencial",
+    "tapado_reconocimiento",
+    "tapado_gap",
 ]
 
 
