@@ -238,76 +238,6 @@ def obtener_round_sofascore(round_num):
     return filtrar_partidos_de_fecha(eventos, round_num)
 
 
-def detectar_proxima_fecha(max_round=30):
-    """
-    Detecta automáticamente la próxima fecha completamente futura.
-
-    Se consideran candidatas las rondas del Clausura 2026 que:
-    - tengan exactamente 15 partidos válidos;
-    - todavía no hayan comenzado en su totalidad.
-
-    Se devuelve la primera ronda cuya fecha/hora más temprana sea posterior
-    al momento actual. Si no existe ninguna, se detiene con un mensaje claro.
-    """
-    import datetime as _dt
-
-    ahora = _dt.datetime.now(_dt.timezone.utc)
-
-    print()
-    print("=" * 78)
-    print("DETECCIÓN AUTOMÁTICA DE LA PRÓXIMA FECHA")
-    print("=" * 78)
-
-    for round_num in range(1, max_round + 1):
-        try:
-            eventos = obtener_round_sofascore(round_num)
-        except Exception as error:
-            print(f"Fecha {round_num}: no disponible para detección ({error})")
-            continue
-
-        timestamps = [
-            evento.get("startTimestamp")
-            for evento in eventos
-            if evento.get("startTimestamp") is not None
-        ]
-
-        if len(timestamps) != PARTIDOS_ESPERADOS_POR_FECHA:
-            print(
-                f"Fecha {round_num}: se encontraron {len(timestamps)} "
-                "horarios válidos; se omite."
-            )
-            continue
-
-        fechas = [
-            _dt.datetime.fromtimestamp(
-                int(timestamp),
-                tz=_dt.timezone.utc
-            )
-            for timestamp in timestamps
-        ]
-
-        inicio = min(fechas)
-        fin = max(fechas)
-
-        if inicio > ahora:
-            print(
-                f"Próxima fecha detectada: {round_num} "
-                f"(inicio {inicio.isoformat()}, "
-                f"último partido {fin.isoformat()})."
-            )
-            return round_num
-
-        print(
-            f"Fecha {round_num}: ya comenzó o está en curso "
-            f"(inicio {inicio.isoformat()})."
-        )
-
-    raise RuntimeError(
-        "No se encontró una próxima fecha completamente futura "
-        f"entre las rondas 1 y {max_round}."
-    )
-
-
 def descargar_sofascore_round(round_num, recolectar_detalle=True):
     eventos = obtener_round_sofascore(round_num)
     SOFA_DIR.mkdir(parents=True, exist_ok=True)
@@ -566,12 +496,23 @@ def guardar_mapeo(mapeo):
     )
 
 
-def ejecutar_script(nombre):
+def ejecutar_script(nombre, *args):
     print()
     print("=" * 78)
     print(f"EJECUTANDO {nombre}")
     print("=" * 78)
-    subprocess.run([sys.executable, str(ROOT / nombre)], cwd=ROOT, check=True)
+
+    comando = [
+        sys.executable,
+        str(ROOT / nombre),
+        *[str(arg) for arg in args],
+    ]
+
+    subprocess.run(
+        comando,
+        cwd=ROOT,
+        check=True
+    )
 
 
 def calcular_corte(eventos_objetivo):
@@ -591,21 +532,12 @@ def calcular_corte(eventos_objetivo):
 
 
 def main():
-    if len(sys.argv) > 2:
-        raise SystemExit(
-            "Uso: python ejecutar_fecha.py [numero_fecha]"
-        )
-
-    if len(sys.argv) == 2:
-        try:
-            fecha_objetivo = int(sys.argv[1])
-        except ValueError:
-            raise SystemExit("La fecha debe ser un número entero.")
-        modo_fecha = "manual"
-    else:
-        fecha_objetivo = detectar_proxima_fecha()
-        modo_fecha = "automática"
-
+    if len(sys.argv) != 2:
+        raise SystemExit("Uso: python ejecutar_fecha.py <numero_fecha>")
+    try:
+        fecha_objetivo = int(sys.argv[1])
+    except ValueError:
+        raise SystemExit("La fecha debe ser un número entero.")
     if fecha_objetivo < 2:
         raise SystemExit("La primera fecha automatizable es la Fecha 2.")
 
@@ -616,9 +548,6 @@ def main():
     print(f"WINNING AI - ACTUALIZACIÓN Y PREDICCIÓN FECHA {fecha_objetivo}")
     print("=" * 78)
     print()
-    print(
-        f"Modo de fecha: {modo_fecha}"
-    )
     print(
         f"Se actualizará la Fecha {fecha_anterior} "
         f"y se preparará la Fecha {fecha_objetivo}."
@@ -675,6 +604,22 @@ def main():
     ejecutar_script("calcular_rendimiento_reciente.py")
     ejecutar_script("crear_matchup.py")
 
+    # --------------------------------------------------------
+    # CERRAR LA EXPERIENCIA DE LA FECHA ANTERIOR
+    #
+    # En este punto dataset_winning_pitchapi.csv ya fue actualizado
+    # con los puntos reales de la fecha anterior.
+    #
+    # El cerebro de aprendizaje compara esas predicciones con esos
+    # puntos y actualiza su memoria ANTES de predecir la fecha nueva.
+    # --------------------------------------------------------
+
+    ejecutar_script(
+        "aprendizaje_fecha.py",
+        "actualizar",
+        fecha_anterior
+    )
+
     corte = calcular_corte(eventos_objetivo)
 
     import pandas as pd
@@ -684,31 +629,19 @@ def main():
     motor.CORTE_HISTORICO = pd.Timestamp(corte)
     motor.MAPEO_PITCHAPI = mapeo
 
-    # ========================================================
-    # SELECCIÓN CON PRE-SIMULACIÓN CONTEXTUALIZADA
-    #
-    # Primero se generan las distribuciones históricas de cada
-    # jugador y se ajusta su centro esperado con contexto + matchup.
-    # El matchup tiene influencia continua (0.50 = neutro; 0.623
-    # recibe exactamente +7.38%, etc.). Recién después se ejecuta
-    # el optimizador global de los tres perfiles.
-    # ========================================================
+    sufijo = f"fecha{fecha_objetivo}"
+    motor.SALIDA_CANDIDATOS = f"datos/candidatos_{sufijo}_final.csv"
+    motor.SALIDA_EQUIPOS = f"datos/{sufijo}_equipos_predichos.csv"
+    motor.SALIDA_EQUIPOS_EXCEL = f"datos/{sufijo}_equipos_predichos_excel.csv"
+    motor.SALIDA_EQUIPOS_XLSX = f"datos/{sufijo}_equipos_predichos_excel.xlsx"
+    motor.SALIDA_SIMULACIONES = f"datos/{sufijo}_simulaciones.csv"
+    motor.SALIDA_TAPADOS = f"datos/{sufijo}_tapados.csv"
 
-    import experimento_simulacion_previa as experimento
+    motor.main()
 
-    experimento.FECHA_OBJETIVO = fecha_objetivo
-    experimento.CORTE = pd.Timestamp(corte)
-    experimento.SALIDA_CANDIDATOS = (
-        f"datos/fecha{fecha_objetivo}_pre_simulacion_candidatos.csv"
-    )
-    experimento.SALIDA_EQUIPOS = (
-        f"datos/fecha{fecha_objetivo}_pre_simulacion_equipos.csv"
-    )
-    experimento.SALIDA_FLEX = (
-        f"datos/fecha{fecha_objetivo}_pre_simulacion_flex.csv"
-    )
-
-    experimento.main()
+    # Integrar TAPADOS como capa independiente. No modifica titulares/FLEX.
+    import integrar_tapados_fecha
+    integrar_tapados_fecha.integrar_fecha(fecha_objetivo, corte)
 
     print()
     print("=" * 78)
@@ -719,9 +652,11 @@ def main():
     print(f"Corte histórico: {corte}")
     print()
     print("Archivos:")
-    print(f" - {experimento.SALIDA_CANDIDATOS}")
-    print(f" - {experimento.SALIDA_EQUIPOS}")
-    print(f" - {experimento.SALIDA_FLEX}")
+    print(f" - {motor.SALIDA_CANDIDATOS}")
+    print(f" - {motor.SALIDA_EQUIPOS}")
+    print(f" - {motor.SALIDA_EQUIPOS_EXCEL}")
+    print(f" - {motor.SALIDA_EQUIPOS_XLSX}")
+    print(f" - {motor.SALIDA_SIMULACIONES}")
 
 
 if __name__ == "__main__":
