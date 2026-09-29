@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 
 from aprendizaje_fecha import aplicar_correccion
+from simulacion_previa import agregar_pre_simulacion
 
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
@@ -2299,6 +2300,34 @@ def calcular_score_seleccion(
     )
 
     # --------------------------------------------------------
+    # SIMULACIÓN PREVIA POR JUGADOR
+    #
+    # Si está disponible, esta simulación pasa a ser la base real
+    # de selección. Se calcula ANTES de elegir titulares/FLEX y
+    # utiliza solamente historial anterior a la fecha objetivo.
+    # --------------------------------------------------------
+
+    columna_pre_sim = "score_pre_sim_" + perfil_equipo
+
+    if columna_pre_sim in df.columns:
+        score_pre_sim = pd.to_numeric(
+            df[columna_pre_sim],
+            errors="coerce"
+        )
+
+        # La simulación previa reemplaza el score de selección
+        # tradicional. Modelo C y contexto siguen disponibles como
+        # señales/features y el aprendizaje se aplica después.
+        df["score_seleccion"] = score_pre_sim.fillna(
+            df["score_seleccion"]
+        )
+
+        df["motor_seleccion"] = "PRE_SIMULACION"
+
+    else:
+        df["motor_seleccion"] = "MOTOR_BASE"
+
+    # --------------------------------------------------------
     # CEREBRO DE APRENDIZAJE
     # --------------------------------------------------------
 
@@ -3207,6 +3236,27 @@ def main():
     else:
 
         candidatos["prediccion_modelo_c"] = np.nan
+
+    # --------------------------------------------------------
+    # SIMULACIÓN PREVIA
+    #
+    # Se ejecuta sobre TODOS los candidatos antes de separar
+    # titulares/FLEX y antes del optimizador.
+    # --------------------------------------------------------
+
+    candidatos = agregar_pre_simulacion(
+        candidatos,
+        historico_hasta_corte,
+        CORTE_HISTORICO,
+        n_sim=N_SIMULACIONES,
+        seed=42,
+    )
+
+    print()
+    print(
+        "Simulación previa por jugador:",
+        f"{candidatos['pre_simulacion_activa'].sum():,}/{len(candidatos):,}"
+    )
 
     # --------------------------------------------------------
     # ESTABILIDAD
