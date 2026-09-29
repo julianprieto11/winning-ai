@@ -17,6 +17,7 @@ import pandas as pd
 
 import aprendizaje_fecha
 import backtest_fecha10 as motor
+import experimento_simulacion_previa as experimento
 
 
 ROOT = Path(__file__).resolve().parent
@@ -56,12 +57,17 @@ def ejecutar_fecha_historica(numero):
 
     sufijo = f"fecha{int(numero)}"
 
-    motor.SALIDA_CANDIDATOS = f"datos/candidatos_{sufijo}_final.csv"
-    motor.SALIDA_EQUIPOS = f"datos/{sufijo}_equipos_predichos.csv"
-    motor.SALIDA_EQUIPOS_EXCEL = f"datos/{sufijo}_equipos_predichos_excel.csv"
-    motor.SALIDA_EQUIPOS_XLSX = f"datos/{sufijo}_equipos_predichos_excel.xlsx"
-    motor.SALIDA_SIMULACIONES = f"datos/{sufijo}_simulaciones.csv"
-    motor.SALIDA_TAPADOS = f"datos/{sufijo}_tapados.csv"
+    # El motor PRO real se mantiene intacto:
+    # pre-simulación por jugador -> optimizador global.
+    # Solo le conectamos la memoria de aprendizaje a través de
+    # experimento_simulacion_previa.py.
+    experimento.FECHA_OBJETIVO = int(numero)
+    experimento.CORTE = corte
+    experimento.SALIDA_CANDIDATOS = f"datos/candidatos_{sufijo}_final.csv"
+    experimento.SALIDA_EQUIPOS = f"datos/{sufijo}_equipos_predichos.csv"
+    experimento.SALIDA_FLEX = f"datos/{sufijo}_pre_simulacion_flex.csv"
+    experimento.SALIDA_EXCEL = f"datos/{sufijo}_equipos_predichos_excel.xlsx"
+    experimento.SALIDA_TAPADOS = f"datos/{sufijo}_tapados.csv"
 
     print()
     print("=" * 78)
@@ -70,14 +76,10 @@ def ejecutar_fecha_historica(numero):
     print(f"Corte histórico: {corte.date()}")
     print("Memoria disponible: solo fechas anteriores")
 
-    motor.main()
+    experimento.main()
 
-    # Los TAPADOS se integran después del motor principal para no alterar
-    # la selección de TITULARES ni FLEX. Luego quedan disponibles para
-    # el mismo cierre de aprendizaje de la fecha.
-    import integrar_tapados_fecha
-    integrar_tapados_fecha.integrar_fecha(numero, corte)
-
+    # El CSV principal ya contiene TITULARES + TAPADOS.
+    # Se cierra la fecha y recién entonces se actualiza la memoria.
     aprendizaje_fecha.registrar_resultados_fecha(numero)
 
 
