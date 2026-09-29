@@ -120,6 +120,58 @@ def activar_score_pre_simulacion():
     motor.calcular_score_seleccion = score_experimental
 
 
+def seleccionar_tapados_exclusivos(candidatos, equipos, flex_por_perfil, cantidad_por_posicion=3):
+    """
+    Selecciona TAPADOS después de titulares y FLEX.
+
+    Un TAPADO nunca puede repetir:
+      - un titular de SEGURO/INTERMEDIO/ARRIESGADO;
+      - un FLEX de cualquiera de los tres perfiles;
+      - otro TAPADO.
+    """
+    usados = {
+        str(j["player_id"])
+        for jugadores in equipos.values()
+        for j in jugadores
+    }
+
+    usados.update(
+        str(j["player_id"])
+        for jugadores in flex_por_perfil.values()
+        for j in jugadores
+    )
+
+    salida = []
+
+    for posicion in ["DEF", "VOL", "DEL"]:
+        grupo = candidatos[
+            (candidatos["position"].astype(str).str.upper() == posicion)
+            & (candidatos["es_tapado_candidato"] == True)
+            & (~candidatos["player_id"].astype(str).isin(usados))
+        ].sort_values(
+            ["score_tapado", "tapado_potencial"],
+            ascending=False
+        )
+
+        for _, jugador in grupo.iterrows():
+            player_id = str(jugador["player_id"])
+
+            if player_id in usados:
+                continue
+
+            salida.append(jugador.to_dict())
+            usados.add(player_id)
+
+            if sum(
+                1
+                for x in salida
+                if str(x.get("position", "")).upper() == posicion
+            ) >= cantidad_por_posicion:
+                break
+
+    return salida
+
+
 def guardar_equipos(equipos, flex_por_perfil, candidatos):
     filas = []
 
@@ -142,13 +194,13 @@ def guardar_equipos(equipos, flex_por_perfil, candidatos):
             filas.append(fila)
 
     # TAPADOS
-    for posicion in ["DEF", "VOL", "DEL"]:
-        grupo = candidatos[
-            (candidatos["position"] == posicion)
-            & (candidatos["es_tapado_candidato"] == True)
-        ].sort_values("score_tapado", ascending=False).head(3)
+    tapados_exclusivos = seleccionar_tapados_exclusivos(
+        candidatos,
+        equipos,
+        flex_por_perfil,
+    )
 
-        for _, j in grupo.iterrows():
+    for j in tapados_exclusivos:
             fila = dict(j)
             fila["motor"] = "PRE_SIMULACION"
             fila["perfil"] = "TAPADOS"
@@ -230,14 +282,14 @@ def exportar_excel(equipos, flex_por_perfil, candidatos):
                     "Gap tapado": j.get("tapado_gap", ""),
                 })
 
-    # Los TAPADOS van al final del Excel, después de los 3 perfiles y sus 6 FLEX.
-    for posicion in ["DEF", "VOL", "DEL"]:
-        grupo = candidatos[
-            (candidatos["position"] == posicion)
-            & (candidatos["es_tapado_candidato"] == True)
-        ].sort_values("score_tapado", ascending=False).head(3)
+    # Los TAPADOS van al final del Excel y nunca repiten titulares/FLEX.
+    tapados_exclusivos = seleccionar_tapados_exclusivos(
+        candidatos,
+        equipos,
+        flex_por_perfil,
+    )
 
-        for _, j in grupo.iterrows():
+    for j in tapados_exclusivos:
             filas.append({
                 "Perfil": "TAPADOS",
                 "Tipo": "TAPADO",
@@ -419,19 +471,24 @@ def main():
     activar_score_pre_simulacion()
     equipos = motor.optimizar_tres_equipos_globalmente(candidatos.copy())
     flex = construir_flex(candidatos, equipos)
+    tapados_exclusivos = seleccionar_tapados_exclusivos(
+        candidatos,
+        equipos,
+        flex,
+    )
     guardar_equipos(equipos, flex, candidatos)
     exportar_excel(equipos, flex, candidatos)
 
     print()
-    print("TAPADOS DETECTADOS:")
+    print("TAPADOS DETECTADOS (sin repetir titulares/FLEX):")
     for posicion in ["DEF", "VOL", "DEL"]:
-        grupo = candidatos[
-            (candidatos["position"] == posicion)
-            & (candidatos["es_tapado_candidato"] == True)
-        ].sort_values("score_tapado", ascending=False).head(3)
+        grupo = [
+            j for j in tapados_exclusivos
+            if str(j.get("position", "")).upper() == posicion
+        ]
         print()
         print(">>>", posicion)
-        for _, j in grupo.iterrows():
+        for j in grupo:
             print(
                 j["player_name"], "|", j["team_name"],
                 "| score tapado:", round(float(j["score_tapado"]), 3),
