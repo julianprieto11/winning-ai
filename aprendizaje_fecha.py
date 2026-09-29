@@ -102,6 +102,21 @@ def _banda_contexto(valor):
     return "NEUTRO"
 
 
+def _banda_prediccion(valor):
+    valor = _float(valor)
+    if not np.isfinite(valor):
+        return "SIN_DATO"
+    if valor < 4:
+        return "BAJA"
+    if valor < 6:
+        return "MEDIA_BAJA"
+    if valor < 8:
+        return "MEDIA_ALTA"
+    if valor < 10:
+        return "ALTA"
+    return "MUY_ALTA"
+
+
 def construir_patrones(fila):
     """Patrones deliberadamente simples para evitar sobreajuste temprano."""
     posicion = str(fila.get("position", "")).upper()
@@ -109,6 +124,7 @@ def construir_patrones(fila):
     form = _banda_form(fila.get("promedio"))
     matchup = _banda_matchup(fila.get("matchup_score"))
     contexto = _banda_contexto(fila.get("factor_contexto"))
+    prediccion = _banda_prediccion(fila.get("prediccion_base"))
 
     return [
         ("POSICION", posicion),
@@ -116,6 +132,7 @@ def construir_patrones(fila):
         ("POSICION_FORMA", f"{posicion}|{form}"),
         ("POSICION_MATCHUP", f"{posicion}|{matchup}"),
         ("POSICION_CONTEXTO", f"{posicion}|{contexto}"),
+        ("POSICION_PREVISION", f"{posicion}|{prediccion}"),
     ]
 
 
