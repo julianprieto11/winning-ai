@@ -566,12 +566,23 @@ def guardar_mapeo(mapeo):
     )
 
 
-def ejecutar_script(nombre):
+def ejecutar_script(nombre, *args):
     print()
     print("=" * 78)
     print(f"EJECUTANDO {nombre}")
     print("=" * 78)
-    subprocess.run([sys.executable, str(ROOT / nombre)], cwd=ROOT, check=True)
+
+    comando = [
+        sys.executable,
+        str(ROOT / nombre),
+        *[str(arg) for arg in args],
+    ]
+
+    subprocess.run(
+        comando,
+        cwd=ROOT,
+        check=True
+    )
 
 
 def calcular_corte(eventos_objetivo):
@@ -675,6 +686,19 @@ def main():
     ejecutar_script("calcular_rendimiento_reciente.py")
     ejecutar_script("crear_matchup.py")
 
+    # --------------------------------------------------------
+    # CERRAR LA EXPERIENCIA DE LA FECHA ANTERIOR
+    #
+    # El dataset ya contiene los puntos reales de la fecha anterior.
+    # El aprendizaje se actualiza ANTES de generar la nueva fecha.
+    # --------------------------------------------------------
+
+    ejecutar_script(
+        "aprendizaje_fecha.py",
+        "actualizar",
+        fecha_anterior
+    )
+
     corte = calcular_corte(eventos_objetivo)
 
     import pandas as pd
@@ -685,27 +709,34 @@ def main():
     motor.MAPEO_PITCHAPI = mapeo
 
     # ========================================================
-    # SELECCIÓN CON PRE-SIMULACIÓN CONTEXTUALIZADA
+    # SELECCIÓN PRO:
+    # pre-simulación por jugador -> aprendizaje -> optimizador global.
     #
-    # Primero se generan las distribuciones históricas de cada
-    # jugador y se ajusta su centro esperado con contexto + matchup.
-    # El matchup tiene influencia continua (0.50 = neutro; 0.623
-    # recibe exactamente +7.38%, etc.). Recién después se ejecuta
-    # el optimizador global de los tres perfiles.
+    # No se reemplaza el motor PRO. El aprendizaje solamente corrige
+    # el score que recibe el mismo optimizador que ya utilizábamos.
     # ========================================================
 
     import experimento_simulacion_previa as experimento
 
     experimento.FECHA_OBJETIVO = fecha_objetivo
     experimento.CORTE = pd.Timestamp(corte)
+
+    sufijo = f"fecha{fecha_objetivo}"
+
     experimento.SALIDA_CANDIDATOS = (
-        f"datos/fecha{fecha_objetivo}_pre_simulacion_candidatos.csv"
+        f"datos/candidatos_{sufijo}_final.csv"
     )
     experimento.SALIDA_EQUIPOS = (
-        f"datos/fecha{fecha_objetivo}_pre_simulacion_equipos.csv"
+        f"datos/{sufijo}_equipos_predichos.csv"
     )
     experimento.SALIDA_FLEX = (
-        f"datos/fecha{fecha_objetivo}_pre_simulacion_flex.csv"
+        f"datos/{sufijo}_pre_simulacion_flex.csv"
+    )
+    experimento.SALIDA_EXCEL = (
+        f"datos/{sufijo}_equipos_predichos_excel.xlsx"
+    )
+    experimento.SALIDA_TAPADOS = (
+        f"datos/{sufijo}_tapados.csv"
     )
 
     experimento.main()
