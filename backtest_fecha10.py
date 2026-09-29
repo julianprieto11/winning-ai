@@ -869,89 +869,63 @@ MAPEO_PITCHAPI = {
 # CARGAR LINEUPS PITCHAPI
 # ============================================================
 
-def cargar_lineups_fecha10():
+def _clave_equipos_lineup(data):
+    """Clave normalizada del cruce para vincular PitchAPI con SofaScore."""
+    home = (data.get("home_team") or {}).get("name", "")
+    away = (data.get("away_team") or {}).get("name", "")
+    return tuple(sorted([normalizar_texto(home), normalizar_texto(away)]))
 
+
+def cargar_lineups_fecha10(partidos_objetivo=None):
+    """
+    Carga los lineups PitchAPI de la ronda objetivo.
+
+    El mapeo se resuelve por los dos equipos, no por IDs hardcodeados,
+    para que el motor pueda reutilizarse en el replay Fecha 1..11.
+    """
     lineups = {}
 
-    archivos = glob.glob(
-        os.path.join(
-            LINEUPS_DIR,
-            "*_lineups.json"
-        )
-    )
+    archivos = glob.glob(os.path.join(LINEUPS_DIR, "*_lineups.json"))
 
-    ids_objetivo = set(
-        MAPEO_PITCHAPI.values()
-    )
+    objetivos = {}
+    if partidos_objetivo is not None and not partidos_objetivo.empty:
+        for _, partido in partidos_objetivo.iterrows():
+            clave = tuple(sorted([
+                normalizar_texto(partido.get("home_team_name", "")),
+                normalizar_texto(partido.get("away_team_name", "")),
+            ]))
+            objetivos[clave] = partido
 
     for archivo in archivos:
-
-        nombre = os.path.basename(
-            archivo
-        )
-
-        match_id = nombre.replace(
-            "_lineups.json",
-            ""
-        )
-
-        if match_id not in ids_objetivo:
-            continue
+        match_id = os.path.basename(archivo).replace("_lineups.json", "")
 
         try:
-
-            with open(
-                archivo,
-                "r",
-                encoding="utf-8"
-            ) as f:
-
-                data = json.load(f)
-
+            with open(archivo, "r", encoding="utf-8") as f:
+                data = json.load(f).get("data", {})
         except Exception:
-
             continue
 
-        data = data.get(
-            "data",
-            {}
-        )
-
         if not data:
+            continue
+
+        if objetivos and _clave_equipos_lineup(data) not in objetivos:
             continue
 
         lineups[match_id] = data
 
     print()
     print("=" * 70)
-    print(
-        "LINEUPS FECHA 10:",
-        len(lineups)
-    )
+    print("LINEUPS RONDA", FECHA_OBJETIVO, ":", len(lineups))
     print("=" * 70)
 
     for match_id in sorted(lineups):
-
         data = lineups[match_id]
-
         print(
             match_id,
             "|",
-            data.get(
-                "home_team",
-                {}
-            ).get(
-                "name",
-                ""
-            ),
+            (data.get("home_team") or {}).get("name", ""),
             "-",
-            data.get(
-                "away_team",
-                {}
-            ).get(
-                "name",
-                ""
-            ),
+            (data.get("away_team") or {}).get("name", ""),
         )
 
     return lineups
@@ -3079,39 +3053,55 @@ def main():
         return
 
     # --------------------------------------------------------
-    # INFORMACIÓN FECHA 10 PARA MATCHUP
+    # LINEUPS
+    #
+    # Se resuelven dinámicamente contra los partidos de la ronda.
+    # Esto permite reutilizar el motor para Fecha 1..11.
+    # --------------------------------------------------------
+
+    LINEUPS_GLOBAL = cargar_lineups_fecha10(partidos_fecha10)
+
+    if len(LINEUPS_GLOBAL) != len(partidos_fecha10):
+        print(
+            "ADVERTENCIA: lineups encontrados:",
+            len(LINEUPS_GLOBAL),
+            "| partidos:",
+            len(partidos_fecha10)
+        )
+
+    # --------------------------------------------------------
+    # INFORMACIÓN DE CADA PARTIDO PARA MATCHUP
+    #
+    # Vinculamos cada lineup PitchAPI con su partido SofaScore
+    # por los dos equipos, sin depender de IDs hardcodeados.
     # --------------------------------------------------------
 
     info_fecha10 = {}
 
+    partidos_por_clave = {}
+
     for _, partido in partidos_fecha10.iterrows():
+        clave = tuple(sorted([
+            normalizar_texto(partido["home_team_name"]),
+            normalizar_texto(partido["away_team_name"]),
+        ]))
+        partidos_por_clave[clave] = partido
 
-        sofa_id = str(partido["sofascore_id"])
-        pitch_id = MAPEO_PITCHAPI.get(sofa_id)
+    for pitch_id, lineup in LINEUPS_GLOBAL.items():
+        clave = _clave_equipos_lineup(lineup)
+        partido = partidos_por_clave.get(clave)
 
-        if not pitch_id:
+        if partido is None:
             continue
 
         info_fecha10[str(pitch_id)] = {
-            "fecha_partido": pd.Timestamp(partido["fecha"]).normalize(),
-            "event_id": sofa_id,
+            "fecha_partido": pd.Timestamp(
+                partido["fecha"]
+            ).normalize(),
+            "event_id": str(
+                partido["sofascore_id"]
+            ),
         }
-
-    # --------------------------------------------------------
-    # LINEUPS
-    # --------------------------------------------------------
-
-    LINEUPS_GLOBAL = (
-        cargar_lineups_fecha10()
-    )
-
-    if len(
-        LINEUPS_GLOBAL
-    ) != 15:
-
-        print(
-            "ADVERTENCIA: se esperaban 15 lineups."
-        )
 
     # --------------------------------------------------------
     # JUGADORES
