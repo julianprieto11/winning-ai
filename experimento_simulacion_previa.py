@@ -4,6 +4,7 @@ import pandas as pd
 from openpyxl.styles import Alignment, Font, Border, Side, PatternFill
 import backtest_fecha10 as motor
 import detector_tapados
+from aprendizaje_fecha import aplicar_correccion
 
 FECHA_OBJETIVO = motor.FECHA_OBJETIVO
 CORTE = motor.CORTE_HISTORICO
@@ -85,8 +86,22 @@ def activar_score_pre_simulacion():
     def score_experimental(df, perfil):
         r = original(df, perfil).copy()
         columna = "score_pre_sim_" + perfil
-        r["score_seleccion"] = pd.to_numeric(r[columna], errors="coerce").fillna(-np.inf)
-        r["score_seleccion_original"] = r["score_seleccion"]
+
+        # La pre-simulación sigue siendo la base de selección.
+        # El cerebro de aprendizaje solamente corrige ese score con
+        # experiencia de fechas estrictamente anteriores.
+        r["score_seleccion"] = (
+            pd.to_numeric(r[columna], errors="coerce")
+            .fillna(-np.inf)
+        )
+        r["score_seleccion_sin_aprendizaje"] = r["score_seleccion"]
+
+        r = aplicar_correccion(
+            r,
+            FECHA_OBJETIVO
+        )
+
+        r["score_seleccion"] = r["prediccion_final"]
         return r
 
     motor.calcular_score_seleccion = score_experimental
@@ -151,6 +166,9 @@ def exportar_excel(equipos, flex_por_perfil, candidatos):
                     "Matchup score": j.get("matchup_score", ""),
                     "Contexto": motor.generar_contexto_jugador(j),
                     "Predicción Modelo C": j.get("prediccion_modelo_c", ""),
+                    "Predicción base": j.get("prediccion_base", ""),
+                    "Corrección aprendizaje": j.get("correccion_aprendizaje", 0),
+                    "Predicción final": j.get("prediccion_final", j.get("score_seleccion", "")),
                     "Historial": j.get("partidos_historicos", ""),
                     "Participaciones últimos 3": j.get("participaciones_ultimos_3", ""),
                     "Titulares últimos 3": j.get("titulares_ultimos_3", ""),
