@@ -1373,13 +1373,39 @@ def evaluar_titularidad_ultimos_3(
             )
         )
 
-        if dato:
+        # IMPORTANTE:
+        # "estar en el banco" no cuenta como participación.
+        # Una participación válida exige minutos jugados > 0.
+        #
+        # PitchAPI aporta los minutos por jugador y partido en el
+        # histórico. Así distinguimos:
+        #   - titular que jugó -> participa
+        #   - suplente que ingresó -> participa
+        #   - suplente que no ingresó -> NO participa
+        minutos = pd.Series(dtype=float)
+
+        if "minutes_played" in historico.columns:
+            minutos = pd.to_numeric(
+                historico.loc[
+                    (historico["match_id"].astype(str) == match_id)
+                    & (historico["player_id"].astype(str) == str(player_id))
+                    & (historico["team_name"].astype(str) == str(team_name)),
+                    "minutes_played",
+                ],
+                errors="coerce",
+            ).dropna()
+
+        minutos_jugados = (
+            float(minutos.max())
+            if not minutos.empty
+            else 0.0
+        )
+
+        if minutos_jugados > 0:
 
             participaciones += 1
 
-            if dato.get(
-                "starter"
-            ) is True:
+            if dato and dato.get("starter") is True:
 
                 titulares += 1
 
