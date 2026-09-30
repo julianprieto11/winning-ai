@@ -1326,6 +1326,20 @@ def evaluar_titularidad_ultimos_3(
     team_name,
     corte
 ):
+    """
+    Reglas de elegibilidad:
+
+    TITULARES + FLEX:
+      - Debe haber sido titular en sus DOS últimos partidos
+        disponibles con su club.
+      - Ser suplente y no ingresar NO cuenta como participación.
+
+    TAPADOS:
+      - Debe ser un jugador activo:
+        * titular en al menos 2 de sus últimos 4 partidos, O
+        * participación real en al menos 3 de sus últimos 4 partidos.
+      - Participación real = minutos jugados > 0.
+    """
 
     club_partidos = obtener_partidos_club(
         historico,
@@ -1334,54 +1348,39 @@ def evaluar_titularidad_ultimos_3(
     )
 
     if club_partidos.empty:
-
         return {
-
+            "titulares_ultimos_2": 0,
+            "participaciones_ultimos_2": 0,
+            "titular_ultimos_2": False,
             "titulares_ultimos_3": 0,
-
             "partidos_club_ultimos_3": 0,
-
             "participaciones_ultimos_3": 0,
-
             "activo_ultimos_3": False,
-
             "titular_2_de_3": False,
+            "titulares_ultimos_4": 0,
+            "participaciones_ultimos_4": 0,
+            "activo_tapado_2_de_4_o_3_de_4": False,
+            "elegible_titular_flex": False,
+            "elegible_tapado": False,
         }
 
-    ultimos_3 = (
+    partidos = (
         club_partidos
-        .sort_values(
-            "date",
-            ascending=False
-        )
-        .head(3)
+        .sort_values("date", ascending=False)
+        .head(4)
     )
 
     titulares = 0
     participaciones = 0
+    detalles = []
 
-    for _, partido in ultimos_3.iterrows():
-
-        match_id = str(
-            partido["match_id"]
-        )
+    for _, partido in partidos.iterrows():
+        match_id = str(partido["match_id"])
 
         dato = mapa_lineups.get(
-            (
-                match_id,
-                str(player_id)
-            )
+            (match_id, str(player_id))
         )
 
-        # IMPORTANTE:
-        # "estar en el banco" no cuenta como participación.
-        # Una participación válida exige minutos jugados > 0.
-        #
-        # PitchAPI aporta los minutos por jugador y partido en el
-        # histórico. Así distinguimos:
-        #   - titular que jugó -> participa
-        #   - suplente que ingresó -> participa
-        #   - suplente que no ingresó -> NO participa
         minutos = pd.Series(dtype=float)
 
         if "minutes_played" in historico.columns:
@@ -1401,45 +1400,81 @@ def evaluar_titularidad_ultimos_3(
             else 0.0
         )
 
-        if minutos_jugados > 0:
+        participo = minutos_jugados > 0
+        fue_titular = bool(
+            dato
+            and dato.get("starter") is True
+            and participo
+        )
 
+        if participo:
             participaciones += 1
 
-            if dato and dato.get("starter") is True:
+        if fue_titular:
+            titulares += 1
 
-                titulares += 1
+        detalles.append({
+            "participa": participo,
+            "titular": fue_titular,
+        })
+
+    ultimos_2 = detalles[:2]
+    ultimos_3 = detalles[:3]
+    ultimos_4 = detalles[:4]
+
+    titular_ultimos_2 = (
+        len(ultimos_2) == 2
+        and all(x["titular"] for x in ultimos_2)
+    )
+
+    titulares_2 = sum(
+        1 for x in ultimos_2 if x["titular"]
+    )
+    participaciones_2 = sum(
+        1 for x in ultimos_2 if x["participa"]
+    )
+
+    titulares_3 = sum(
+        1 for x in ultimos_3 if x["titular"]
+    )
+    participaciones_3 = sum(
+        1 for x in ultimos_3 if x["participa"]
+    )
+
+    titulares_4 = sum(
+        1 for x in ultimos_4 if x["titular"]
+    )
+    participaciones_4 = sum(
+        1 for x in ultimos_4 if x["participa"]
+    )
+
+    activo_tapado = (
+        len(ultimos_4) == 4
+        and (
+            titulares_4 >= 2
+            or participaciones_4 >= 3
+        )
+    )
 
     return {
+        "titulares_ultimos_2": titulares_2,
+        "participaciones_ultimos_2": participaciones_2,
+        "titular_ultimos_2": titular_ultimos_2,
 
-        "titulares_ultimos_3": titulares,
+        # Campos históricos conservados para auditoría.
+        "titulares_ultimos_3": titulares_3,
+        "partidos_club_ultimos_3": len(ultimos_3),
+        "participaciones_ultimos_3": participaciones_3,
+        "activo_ultimos_3": participaciones_3 > 0,
+        "titular_2_de_3": len(ultimos_3) == 3 and titulares_3 >= 2,
 
-        "partidos_club_ultimos_3": len(
-            ultimos_3
-        ),
+        "titulares_ultimos_4": titulares_4,
+        "participaciones_ultimos_4": participaciones_4,
+        "activo_tapado_2_de_4_o_3_de_4": activo_tapado,
 
-        "participaciones_ultimos_3": participaciones,
-
-        "activo_ultimos_3": (
-            participaciones > 0
-        ),
-
-        "titular_2_de_3": (
-            len(ultimos_3) == 3
-            and titulares >= 2
-        ),
+        "elegible_titular_flex": titular_ultimos_2,
+        "elegible_tapado": activo_tapado,
     }
-
-
-# ============================================================
-# PERFIL INDIVIDUAL
-#
-# USA TODO EL HISTORIAL DISPONIBLE DEL JUGADOR
-# EN SU CLUB ACTUAL.
-#
-# Los últimos 5 tienen un peso creciente dentro del
-# weighted_recent, pero NO reemplazan al historial completo.
-#
-# ============================================================
 
 def calcular_perfil(
     grupo
@@ -2134,6 +2169,38 @@ def construir_candidatos(
 
                 "titular_2_de_3": titularidad[
                     "titular_2_de_3"
+                ],
+
+                "titulares_ultimos_2": titularidad[
+                    "titulares_ultimos_2"
+                ],
+
+                "participaciones_ultimos_2": titularidad[
+                    "participaciones_ultimos_2"
+                ],
+
+                "titular_ultimos_2": titularidad[
+                    "titular_ultimos_2"
+                ],
+
+                "titulares_ultimos_4": titularidad[
+                    "titulares_ultimos_4"
+                ],
+
+                "participaciones_ultimos_4": titularidad[
+                    "participaciones_ultimos_4"
+                ],
+
+                "activo_tapado_2_de_4_o_3_de_4": titularidad[
+                    "activo_tapado_2_de_4_o_3_de_4"
+                ],
+
+                "elegible_titular_flex": titularidad[
+                    "elegible_titular_flex"
+                ],
+
+                "elegible_tapado": titularidad[
+                    "elegible_tapado"
                 ],
 
                 "weighted_recent": perfil[
