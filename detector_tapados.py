@@ -143,23 +143,31 @@ def detectar_tapados(candidatos, historico=None):
             df[col] = np.nan
         df[col] = pd.to_numeric(df[col], errors="coerce")
 
+    mascara_tapado = (
+        df.get("elegible_tapado", pd.Series(False, index=df.index))
+        .fillna(False)
+        .astype(bool)
+    )
+
+    # Los inactivos no pueden ser TAPADOS y tampoco deben alterar
+    # el ranking percentil de los jugadores activos.
     df["tapado_p90_pct"] = _percentil_serie(
-        df["pre_sim_p90_ajustada"]
+        df["pre_sim_p90_ajustada"].where(mascara_tapado)
     )
     df["tapado_p75_pct"] = _percentil_serie(
-        df["pre_sim_p75_ajustada"]
+        df["pre_sim_p75_ajustada"].where(mascara_tapado)
     )
     df["tapado_contexto_pct"] = _percentil_serie(
-        df["score_contextual"]
+        df["score_contextual"].where(mascara_tapado)
     )
     df["tapado_modelo_c_pct"] = _percentil_serie(
-        df["prediccion_modelo_c"]
+        df["prediccion_modelo_c"].where(mascara_tapado)
     )
     df["tapado_minutos_pct"] = _percentil_serie(
-        df["minutos_esperados"]
+        df["minutos_esperados"].where(mascara_tapado)
     )
     df["tapado_forma_pct"] = _percentil_serie(
-        df["weighted_recent"]
+        df["weighted_recent"].where(mascara_tapado)
     )
 
     df["tapado_potencial"] = (
@@ -199,7 +207,9 @@ def detectar_tapados(candidatos, historico=None):
         )
 
         grupo = df.loc[
-            mask & df["tapado_potencial_suficiente"]
+            mask
+            & mascara_tapado
+            & df["tapado_potencial_suficiente"]
         ].copy()
 
         if grupo.empty:
@@ -214,7 +224,10 @@ def detectar_tapados(candidatos, historico=None):
             1, len(ordenado) + 1
         )
 
-    df["es_tapado_candidato"] = df["ranking_tapado"].notna()
+    df["es_tapado_candidato"] = (
+        df["ranking_tapado"].notna()
+        & mascara_tapado
+    )
 
     return df
 
