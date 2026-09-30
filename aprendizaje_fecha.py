@@ -17,7 +17,7 @@ EXPERIENCIA_FILE = DATOS / "aprendizaje_predicciones.csv"
 # El aprendizaje NO reemplaza al modelo base.
 # Solo puede corregir el score final usando errores de fechas anteriores.
 MIN_CASOS = 5
-MAX_CORRECCION = 2.0
+MAX_CORRECCION = 4.0
 SHRINK_CASOS = 8.0
 
 
