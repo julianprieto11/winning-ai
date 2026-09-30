@@ -1964,11 +1964,12 @@ def construir_candidatos(
             )
         )
 
-        if not titularidad[
-            "activo_ultimos_3"
-        ]:
-
-            continue
+        # La elegibilidad ya no se decide por una simple
+        # participación en los últimos 3. El candidato conserva
+        # ambas banderas para que:
+        #   - titulares/FLEX usen elegible_titular_flex
+        #   - TAPADOS usen elegible_tapado
+        # El universo se mantiene completo hasta aplicar cada filtro.
 
         # ----------------------------------------------------
         # PERFIL COMPLETO
@@ -2302,6 +2303,16 @@ def calcular_score_seleccion(
 ):
 
     df = df.copy()
+
+    if df.empty:
+        return df
+
+    # TITULARES + FLEX:
+    # solamente jugadores titulares en sus DOS últimos partidos.
+    if "elegible_titular_flex" in df.columns:
+        df = df[
+            df["elegible_titular_flex"] == True
+        ].copy()
 
     if df.empty:
         return df
