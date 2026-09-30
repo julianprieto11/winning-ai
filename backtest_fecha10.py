@@ -3447,6 +3447,7 @@ def construir_flex(
 
         disponibles = disponibles[
             ~disponibles["titular_mismo_equipo"]
+            & ~disponibles["titular_otro_equipo"]
         ].copy()
 
         if disponibles.empty:
