@@ -31,6 +31,9 @@ from openpyxl.utils import get_column_letter
 # Fórmula:
 #   PUNTAJE = 50 + Σ [peso × dirección × (percentil - 50)]
 #
+# Las estadísticas de equipo se expresan por partido (no por la suma
+# de minutos de los 11 jugadores).
+#
 # dirección:
 #   +1 = la variable suma poderío
 #   -1 = la variable resta poderío
@@ -97,12 +100,12 @@ BLOCKS = [
             "+ 10% Regates exitosos/90, usando percentiles centrados en 50."
         ),
         "variables": [
-            ("goles_p90", "Goles por 90", 0.30, +1),
-            ("shots_on_target_p90", "Tiros al arco por 90", 0.20, +1),
-            ("chances_created_p90", "Ocasiones creadas por 90", 0.20, +1),
-            ("assists_p90", "Asistencias por 90", 0.10, +1),
-            ("progressive_carries_p90", "Conducciones progresivas por 90", 0.10, +1),
-            ("take_ons_won_p90", "Regates exitosos por 90", 0.10, +1),
+            ("goles_p90", "Goles por partido", 0.30, +1),
+            ("shots_on_target_p90", "Tiros al arco por partido", 0.20, +1),
+            ("chances_created_p90", "Ocasiones creadas por partido", 0.20, +1),
+            ("assists_p90", "Asistencias por partido", 0.10, +1),
+            ("progressive_carries_p90", "Conducciones progresivas por partido", 0.10, +1),
+            ("take_ons_won_p90", "Regates exitosos por partido", 0.10, +1),
         ],
     },
     {
@@ -117,13 +120,13 @@ BLOCKS = [
             "- 15% Goles recibidos/90, usando percentiles centrados en 50."
         ),
         "variables": [
-            ("interceptions_p90", "Intercepciones por 90", 0.20, +1),
-            ("blocks_p90", "Bloqueos por 90", 0.15, +1),
-            ("tackles_p90", "Entradas / tackles por 90", 0.15, +1),
-            ("clearances_p90", "Despejes por 90", 0.15, +1),
-            ("recoveries_p90", "Recuperaciones por 90", 0.10, +1),
-            ("duels_won_p90", "Duelos ganados por 90", 0.10, +1),
-            ("goles_recibidos_p90", "Goles recibidos por 90", 0.15, -1),
+            ("interceptions_p90", "Intercepciones por partido", 0.20, +1),
+            ("blocks_p90", "Bloqueos por partido", 0.15, +1),
+            ("tackles_p90", "Entradas / tackles por partido", 0.15, +1),
+            ("clearances_p90", "Despejes por partido", 0.15, +1),
+            ("recoveries_p90", "Recuperaciones por partido", 0.10, +1),
+            ("duels_won_p90", "Duelos ganados por partido", 0.10, +1),
+            ("goles_recibidos_p90", "Goles recibidos por partido", 0.15, -1),
         ],
     },
     {
@@ -138,7 +141,7 @@ BLOCKS = [
         ),
         "variables": [
             ("posesion", "Posesión (%)", 0.50, +1),
-            ("accurate_passes_p90", "Pases precisos por 90", 0.25, +1),
+            ("accurate_passes_p90", "Pases precisos por partido", 0.25, +1),
             ("efectividad_pases", "Efectividad de pases (%)", 0.25, +1),
         ],
     },
@@ -154,10 +157,10 @@ BLOCKS = [
             "progresivas/90, usando percentiles centrados en 50."
         ),
         "variables": [
-            ("passes_into_final_third_p90", "Pases al último tercio por 90", 0.40, +1),
+            ("passes_into_final_third_p90", "Pases al último tercio por partido", 0.40, +1),
             ("efectividad_ultimo_tercio", "Efectividad de pase al último tercio (%)", 0.25, +1),
-            ("progressive_passes_p90", "Pases progresivos por 90", 0.20, +1),
-            ("progressive_carries_p90", "Conducciones progresivas por 90", 0.15, +1),
+            ("progressive_passes_p90", "Pases progresivos por partido", 0.20, +1),
+            ("progressive_carries_p90", "Conducciones progresivas por partido", 0.15, +1),
         ],
     },
 ]
@@ -342,9 +345,12 @@ def add_derived_metrics(tm):
         "goals",
     ]
 
+    # A nivel equipo-partido, la unidad correcta es "por partido".
+    # No usamos la suma de minutos de los jugadores porque 11 jugadores
+    # pueden generar ~990 minutos en un solo partido de 90 minutos.
     for raw in raw_to_p90:
         if raw in tm.columns:
-            tm[raw + "_p90"] = safe_div(tm[raw] * 90, minutes)
+            tm[raw + "_p90"] = pd.to_numeric(tm[raw], errors="coerce")
 
     if "accurate_passes" in tm.columns and "passes" in tm.columns:
         tm["efectividad_pases"] = safe_div(
@@ -362,15 +368,13 @@ def add_derived_metrics(tm):
         )
 
     if "goles_equipo" in tm.columns:
-        tm["goles_p90"] = safe_div(
-            tm["goles_equipo"] * 90,
-            minutes,
+        tm["goles_p90"] = pd.to_numeric(
+            tm["goles_equipo"], errors="coerce"
         )
 
     if "goles_recibidos" in tm.columns:
-        tm["goles_recibidos_p90"] = safe_div(
-            tm["goles_recibidos"] * 90,
-            minutes,
+        tm["goles_recibidos_p90"] = pd.to_numeric(
+            tm["goles_recibidos"], errors="coerce"
         )
 
     return tm
@@ -421,9 +425,32 @@ def aggregate_period(team_matches):
         )
         out = out.merge(pos, on="equipo", how="left")
 
-    minutes = pd.to_numeric(out["minutos"], errors="coerce").clip(lower=0)
+    # IMPORTANTE:
+    # Acá estamos construyendo estadísticas de EQUIPO.
+    # Los campos crudos vienen a nivel jugador-partido y, por lo tanto,
+    # los minutos sumados de los 11 jugadores NO representan los minutos
+    # que juega el equipo. Un partido de 90 minutos puede acumular ~990
+    # minutos si sumamos los 11 jugadores.
+    #
+    # Por eso NO dividimos por "minutos totales de jugadores".
+    # Para una métrica de equipo por partido debemos dividir la suma
+    # de las acciones de todos los jugadores por la cantidad de partidos.
+    #
+    # Ejemplo:
+    #   50 tiros al arco en 10 partidos -> 5.0 tiros al arco/partido.
+    #
+    # El cálculo anterior hacía 50*90/990 ~= 4.55 por partido-equipo
+    # en un único partido, y a nivel período terminaba reduciendo
+    # artificialmente las cifras aproximadamente 11 veces.
+    partidos = (
+        team_matches.groupby("equipo")["match_id"]
+        .nunique()
+        .reindex(out["equipo"])
+        .to_numpy(dtype=float)
+    )
+    partidos = pd.Series(partidos, index=out.index)
 
-    p90_fields = [
+    per_match_fields = [
         "accurate_passes",
         "progressive_passes",
         "passes_into_final_third",
@@ -441,11 +468,11 @@ def aggregate_period(team_matches):
         "goals",
     ]
 
-    for raw in p90_fields:
+    for raw in per_match_fields:
         if raw in out.columns:
             out[raw + "_p90"] = safe_div(
-                out[raw] * 90,
-                minutes,
+                out[raw],
+                partidos,
             )
 
     if "accurate_passes" in out.columns and "passes" in out.columns:
@@ -650,43 +677,43 @@ def friendly_variable_phrase(item, value):
         return None
 
     v = float(value)
-    if label == "Goles por 90":
+    if label == "Goles por partido":
         return f"un buen promedio de gol ({v:.1f} por partido)"
-    if label == "Tiros al arco por 90":
+    if label == "Tiros al arco por partido":
         return f"llega bastante al arco ({v:.1f} remates por partido)"
-    if label == "Ocasiones creadas por 90":
+    if label == "Ocasiones creadas por partido":
         return f"genera muchas ocasiones ({v:.1f} por partido)"
-    if label == "Asistencias por 90":
+    if label == "Asistencias por partido":
         return f"aporta asistencias ({v:.1f} por partido)"
-    if label == "Conducciones progresivas por 90":
+    if label == "Conducciones progresivas por partido":
         return f"progresa bien con la pelota ({v:.1f} por partido)"
-    if label == "Regates exitosos por 90":
+    if label == "Regates exitosos por partido":
         return f"gana bastantes regates ({v:.1f} por partido)"
-    if label == "Intercepciones por 90":
+    if label == "Intercepciones por partido":
         return f"corta muchos ataques rivales ({v:.1f} intercepciones por partido)"
-    if label == "Bloqueos por 90":
+    if label == "Bloqueos por partido":
         return f"bloquea bastante al rival ({v:.1f} por partido)"
-    if label == "Entradas / tackles por 90":
+    if label == "Entradas / tackles por partido":
         return f"mete muchas entradas ({v:.1f} por partido)"
-    if label == "Despejes por 90":
+    if label == "Despejes por partido":
         return f"despeja mucho peligro ({v:.1f} por partido)"
-    if label == "Recuperaciones por 90":
+    if label == "Recuperaciones por partido":
         return f"recupera muchas pelotas ({v:.1f} por partido)"
-    if label == "Duelos ganados por 90":
+    if label == "Duelos ganados por partido":
         return f"gana muchos duelos ({v:.1f} por partido)"
-    if label == "Goles recibidos por 90":
+    if label == "Goles recibidos por partido":
         return f"recibe pocos goles ({v:.1f} por partido)"
     if label == "Posesión (%)":
         return f"maneja bastante la pelota ({v:.1f}% de posesión)"
-    if label == "Pases precisos por 90":
+    if label == "Pases precisos por partido":
         return f"mueve bien la pelota ({v:.1f} pases precisos por partido)"
     if label == "Efectividad de pases (%)":
         return f"tiene buena precisión de pase ({v:.1f}%)"
-    if label == "Pases al último tercio por 90":
+    if label == "Pases al último tercio por partido":
         return f"llega seguido a zona de ataque ({v:.1f} pases por partido)"
     if label == "Efectividad de pase al último tercio (%)":
         return f"llega con buena precisión al último tercio ({v:.1f}%)"
-    if label == "Pases progresivos por 90":
+    if label == "Pases progresivos por partido":
         return f"hace avanzar bien la pelota ({v:.1f} por partido)"
 
     return f"tiene buenos números en {label.lower()} ({v:.2f})"
