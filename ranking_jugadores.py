@@ -12,7 +12,7 @@ OUTPUT_XLSX = Path("datos/rankings_jugadores.xlsx")
 PITCHAPI_PLAYERS_DIR = Path("datos/pitchapi")
 
 MIN_MINUTES = 450
-MIN_PARTICIPACIONES_ULTIMOS_5 = 3
+MIN_TITULARIDADES_ULTIMOS_5 = 3
 MIN_MINUTOS_ULTIMOS_5 = 9
 ULTIMOS_PARTIDOS = 5
 
@@ -98,6 +98,37 @@ def _ids_de_players_json(ruta):
             ids.add(str(pid))
     return ids
 
+
+
+def cargar_titularidades_ultimos_5(df, col_player, col_team, col_date, col_match):
+    partidos = df[[col_team, col_date, col_match]].dropna().drop_duplicates().sort_values([col_team, col_date])
+    ultimos = {str(club): grupo.tail(ULTIMOS_PARTIDOS)[col_match].astype(str).tolist() for club, grupo in partidos.groupby(col_team)}
+    jugadores = df[[col_player, col_team]].dropna().drop_duplicates()
+    resultado = {}
+    for _, fila in jugadores.iterrows():
+        pid, club = str(fila[col_player]), str(fila[col_team])
+        total = 0
+        for match_id in ultimos.get(club, []):
+            ruta = PITCHAPI_PLAYERS_DIR / f"{match_id}_players.json"
+            try:
+                with ruta.open("r", encoding="utf-8") as f:
+                    payload = json.load(f)
+            except (OSError, json.JSONDecodeError):
+                continue
+            for item in payload.get("data", []):
+                player = item.get("player", {})
+                if str(player.get("id")) != pid:
+                    continue
+                titular = item.get("starter")
+                if titular is None: titular = item.get("is_starter")
+                if titular is None: titular = item.get("starting")
+                if titular is None: titular = item.get("isStarting")
+                if titular is None: titular = not bool(item.get("substitute", False))
+                if isinstance(titular, str): titular = titular.lower() == "true"
+                total += int(bool(titular))
+                break
+        resultado[(pid, club)] = total
+    return pd.Series(resultado, dtype="int64")
 
 def cargar_participaciones_ultimos_5(df, col_player, col_team, col_date, col_match):
     # Una participación significa figurar en la lista PitchAPI del partido.
@@ -283,7 +314,7 @@ def generar_ranking(
 
     agrupado = agrupado[
         (agrupado["minutos"] >= MIN_MINUTES)
-        & (agrupado["participaciones_ultimos_5"] >= MIN_PARTICIPACIONES_ULTIMOS_5)
+        & (agrupado["participaciones_ultimos_5"] >= MIN_TITULARIDADES_ULTIMOS_5)
         & (agrupado["minutos_ultimos_5"] >= MIN_MINUTOS_ULTIMOS_5)
     ].copy()
 
@@ -317,16 +348,8 @@ def generar_ranking(
 
 
 def generar_ranking_ultimos_5(
-    df_ultimos,
-    metrica,
-    col_player,
-    col_name,
-    col_pos,
-    col_minutes,
-    col_club,
-    col_date,
-    participaciones,
-    posicion=None,
+    df_ultimos, metrica, col_player, col_name, col_pos, col_minutes,
+    col_club, col_date, titularidades, posicion=None
 ):
     cfg = METRICAS[metrica]
     trabajo = df_ultimos.copy()
@@ -344,21 +367,13 @@ def generar_ranking_ultimos_5(
         )
     )
 
-    # El ranking de actualidad usa exclusivamente los últimos 5 partidos
-    # del club actual. No acumula estadísticas de clubes anteriores.
-    agrupado["participaciones_ultimos_5"] = [
-        int(
-            participaciones.get(
-                (str(pid), str(club)),
-                0
-            )
-        )
+    agrupado["titularidades_ultimos_5"] = [
+        int(titularidades.get((str(pid), str(club)), 0))
         for pid, club in zip(agrupado[col_player], agrupado[col_club])
     ]
-
     agrupado = agrupado[
         (agrupado["minutos_ultimos_5"] >= MIN_MINUTOS_ULTIMOS_5)
-        & (agrupado["participaciones_ultimos_5"] >= MIN_PARTICIPACIONES_ULTIMOS_5)
+        & (agrupado["titularidades_ultimos_5"] >= MIN_TITULARIDADES_ULTIMOS_5)
     ].copy()
 
     agrupado["por_90_ultimos_5"] = (
@@ -380,7 +395,7 @@ def generar_ranking_ultimos_5(
         [
             "metrica", "grupo", "ranking", col_player, col_name, col_club,
             col_pos, "minutos_ultimos_5", "total_ultimos_5",
-            "por_90_ultimos_5", "participaciones_ultimos_5"
+            "por_90_ultimos_5", "titularidades_ultimos_5"
         ]
     ].copy()
 
@@ -507,7 +522,7 @@ def generar_excel(salida_historica, salida_ultimos_5):
                             grupo,
                             cfg["nombre"],
                             r["player_id"],
-                            int(r["participaciones_ultimos_5"]),
+                            int(r["titularidades_ultimos_5"]),
                         ]
                     else:
                         valores = [
@@ -521,7 +536,7 @@ def generar_excel(salida_historica, salida_ultimos_5):
                             grupo,
                             cfg["nombre"],
                             r["player_id"],
-                            int(r["participaciones_ultimos_5"]),
+                            int(r["titularidades_ultimos_5"]),
                         ]
 
                     for col, valor in enumerate(valores, 1):
@@ -558,11 +573,11 @@ def generar_excel(salida_historica, salida_ultimos_5):
         ws,
         "WINNING AI — RANKINGS DE MÉTRICAS",
         f"Top 5 GENERAL y Top 5 por posición | Histórico | Mínimo: {MIN_MINUTES} minutos | "
-        f"mínimo {MIN_PARTICIPACIONES_ULTIMOS_5} participaciones en los últimos {ULTIMOS_PARTIDOS} partidos | "
+        f"mínimo {MIN_TITULARIDADES_ULTIMOS_5} participaciones en los últimos {ULTIMOS_PARTIDOS} partidos | "
         f"mínimo {MIN_MINUTOS_ULTIMOS_5} minutos jugados en esos últimos {ULTIMOS_PARTIDOS} partidos | Ranking por 90",
         [
             "Puesto", "Jugador", "Club", "Posición", "Minutos", "Total",
-            "Por 90", "Grupo", "Métrica", "ID jugador", "Part. últimos 5"
+            "Por 90", "Grupo", "Métrica", "ID jugador", "Tit. últimos 5"
         ],
         salida_historica,
         False,
@@ -573,11 +588,11 @@ def generar_excel(salida_historica, salida_ultimos_5):
         ws2,
         "WINNING AI — TOP 5 ÚLTIMOS 5",
         f"Top 5 GENERAL y Top 5 por posición | Solo últimos {ULTIMOS_PARTIDOS} partidos del club actual | "
-        f"Mínimo {MIN_PARTICIPACIONES_ULTIMOS_5} participaciones y {MIN_MINUTOS_ULTIMOS_5} minutos jugados | Ranking por 90",
+        f"Mínimo {MIN_TITULARIDADES_ULTIMOS_5} titularidades y {MIN_MINUTOS_ULTIMOS_5} minutos jugados | Ranking por 90",
         [
             "Puesto", "Jugador", "Club", "Posición", "Minutos últimos 5",
             "Total últimos 5", "Por 90 últimos 5", "Grupo", "Métrica",
-            "ID jugador", "Part. últimos 5"
+            "ID jugador", "Tit. últimos 5"
         ],
         salida_ultimos_5,
         True,
@@ -598,7 +613,7 @@ def generar_excel(salida_historica, salida_ultimos_5):
         ("Ranking histórico", "La primera hoja acumula las estadísticas del período disponible y exige al menos 450 minutos acumulados."),
         ("Ranking últimos 5", "La segunda hoja calcula los mismos rankings usando exclusivamente los últimos 5 partidos del club actual del jugador."),
         ("Por 90", "Es la columna principal para ordenar. Normaliza la producción según 90 minutos jugados."),
-        ("Actividad reciente", f"Para entrar en cualquiera de los rankings, el jugador debe figurar en la lista PitchAPI de al menos {MIN_PARTICIPACIONES_ULTIMOS_5} de los últimos {ULTIMOS_PARTIDOS} partidos de su club."),
+        ("Actividad reciente", f"Para entrar en cualquiera de los rankings, el jugador debe figurar en la lista PitchAPI de al menos {MIN_TITULARIDADES_ULTIMOS_5} de los últimos {ULTIMOS_PARTIDOS} partidos de su club."),
         ("Minutos recientes", f"Además, debe haber jugado al menos {MIN_MINUTOS_ULTIMOS_5} minutos acumulados en esos últimos {ULTIMOS_PARTIDOS}. Esto evita considerar activo a alguien que solo estuvo en el banco."),
         ("Banco cuenta", "Figurar en la convocatoria/lista PitchAPI cuenta como participación, aunque el jugador no haya ingresado al campo. Los minutos jugados se evalúan por separado."),
         ("Transferencias", "En el ranking histórico, si un jugador cambia de club dentro de la misma competencia, sus estadísticas se acumulan en un único registro y se muestra su último club. En Últimos 5 se usan solamente los partidos de su club actual."),
@@ -638,6 +653,7 @@ def main():
     participaciones = cargar_participaciones_ultimos_5(
         df, col_player, col_team, col_date, col_match
     ).to_dict()
+    titularidades = cargar_titularidades_ultimos_5(df, col_player, col_team, col_date, col_match).to_dict()
 
     df_ultimos_5 = construir_df_ultimos_5(
         df, col_player, col_team, col_date, col_match, col_minutes
@@ -670,7 +686,7 @@ def main():
         resultados_ultimos_5.append(
             generar_ranking_ultimos_5(
                 df_ultimos_5, metrica, col_player, col_name, col_pos,
-                col_minutes, col_club, col_date, participaciones
+                col_minutes, col_club, col_date, titularidades
             )
         )
 
@@ -684,7 +700,7 @@ def main():
             resultados_ultimos_5.append(
                 generar_ranking_ultimos_5(
                     df_ultimos_5, metrica, col_player, col_name, col_pos,
-                    col_minutes, col_club, col_date, participaciones, posicion
+                    col_minutes, col_club, col_date, titularidades, posicion
                 )
             )
 
@@ -706,7 +722,7 @@ def main():
     print(f"Filas de ranking últimos 5: {len(salida_ultimos_5)}")
     print(f"Jugadores únicos en dataset: {df[col_player].nunique()}")
     print(f"Mínimo histórico de minutos: {MIN_MINUTES}")
-    print(f"Mínimo de participaciones últimos {ULTIMOS_PARTIDOS}: {MIN_PARTICIPACIONES_ULTIMOS_5}")
+    print(f"Mínimo de participaciones últimos {ULTIMOS_PARTIDOS}: {MIN_TITULARIDADES_ULTIMOS_5}")
     print(f"Mínimo de minutos últimos {ULTIMOS_PARTIDOS}: {MIN_MINUTOS_ULTIMOS_5}")
     print(f"Archivos PitchAPI players: {len(list(PITCHAPI_PLAYERS_DIR.glob('*_players.json')))}")
     print()
