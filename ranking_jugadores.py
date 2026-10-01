@@ -302,21 +302,25 @@ def main():
 
     df = pd.read_csv(INPUT)
 
-    df, col_player, col_name, col_pos, col_minutes = preparar(df)
+    df, col_player, col_name, col_pos, col_minutes, col_club, col_team, col_date, col_match = preparar(df)
+
+    participaciones = cargar_participaciones_ultimos_5(
+        df, col_player, col_team, col_date, col_match
+    ).to_dict()
 
     resultados = []
 
     for metrica, cfg in METRICAS.items():
         resultados.append(
             generar_ranking(
-                df, metrica, col_player, col_name, col_pos, col_minutes
+                df, metrica, col_player, col_name, col_pos, col_minutes, col_club, participaciones
             )
         )
 
         for posicion in cfg["posiciones"]:
             resultados.append(
                 generar_ranking(
-                    df, metrica, col_player, col_name, col_pos, col_minutes, posicion
+                    df, metrica, col_player, col_name, col_pos, col_minutes, col_club, participaciones, posicion
                 )
             )
 
