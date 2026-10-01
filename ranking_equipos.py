@@ -273,32 +273,34 @@ def aggregate_period(tm, matches):
     if tm.empty:
         return pd.DataFrame()
 
-    numeric = tm.select_dtypes(include=[np.number]).columns.tolist()
-    keep = ["equipo"]
-    sums = {}
-    for c in numeric:
-        if c in {"local"} or c == "posesion":
-            continue
-        sums[c] = "sum"
+    # Solo agregamos métricas de volumen reales. Las métricas por 90,
+    # porcentajes e índices se recalculan después sobre el período completo.
+    raw_cols = []
+    for _, raw, _ in BASE_METRICS.values():
+        if raw in tm.columns and raw not in raw_cols:
+            raw_cols.append(raw)
 
-    out = tm.groupby("equipo", as_index=False).agg(sums)
+    for c in ["minutos", "goles_equipo", "goles_recibidos"]:
+        if c in tm.columns and c not in raw_cols:
+            raw_cols.append(c)
+
+    out = tm.groupby("equipo", as_index=False)[raw_cols].sum()
 
     if "posesion" in tm.columns:
         pos = tm.groupby("equipo")["posesion"].mean().reset_index()
         out = out.merge(pos, on="equipo", how="left")
 
-    # Para ratios e índices recalculamos sobre los agregados cuando es posible.
-    if "minutos" in out.columns:
-        mins = out["minutos"]
-        for raw in BASE_METRICS.values():
-            _, col, _ = raw
-            if col in out.columns:
-                out[col + "_p90"] = safe_div(out[col] * 90, mins)
+    mins = out["minutos"].clip(lower=0)
+
+    # Recalcular por 90 sobre el total del período.
+    for _, raw, _ in BASE_METRICS.values():
+        if raw in out.columns:
+            out[raw + "_p90"] = safe_div(out[raw] * 90, mins)
 
     if "goles_equipo" in out.columns:
-        out["goles_p90"] = safe_div(out["goles_equipo"] * 90, out["minutos"])
+        out["goles_p90"] = safe_div(out["goles_equipo"] * 90, mins)
     if "goles_recibidos" in out.columns:
-        out["goles_recibidos_p90"] = safe_div(out["goles_recibidos"] * 90, out["minutos"])
+        out["goles_recibidos_p90"] = safe_div(out["goles_recibidos"] * 90, mins)
 
     if "accurate_passes" in out.columns and "passes" in out.columns:
         out["efectividad_pases"] = safe_div(out["accurate_passes"] * 100, out["passes"])
@@ -316,9 +318,8 @@ def aggregate_period(tm, matches):
     if "goles_equipo" in out.columns and "goles_recibidos" in out.columns:
         out["balance_goles"] = out["goles_equipo"] - out["goles_recibidos"]
 
-    # Índices después de agregación.
     index_groups = {
-        "indice_creacion": ["pases_progresivos_p90", "passes_into_final_third_p90", "progressive_carries_p90", "efectividad_ultimo_tercio"],
+        "indice_creacion": ["progressive_passes_p90", "passes_into_final_third_p90", "progressive_carries_p90", "efectividad_ultimo_tercio"],
         "indice_posesion": ["posesion", "passes_into_final_third_p90"],
         "indice_oportunidades": ["chances_created_p90", "shots_on_target_p90"],
         "indice_ataque": ["goles_p90", "assists_p90", "shots_on_target_p90", "chances_created_p90"],
@@ -327,6 +328,7 @@ def aggregate_period(tm, matches):
         "indice_duelos": ["efectividad_duelos", "duels_won_p90"],
         "indice_eficiencia": ["efectividad_pases", "efectividad_duelos", "conversion_tiros_arco"],
     }
+
     for idx_name, fields in index_groups.items():
         available = [f for f in fields if f in out.columns]
         if not available:
