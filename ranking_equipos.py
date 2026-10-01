@@ -643,52 +643,84 @@ def block_formula_actual(components):
     return " ".join(parts)
 
 
-def team_justification(team_row, components):
-    phrases = []
-
-    for item in components:
-        value = team_row.get(item["field"], np.nan)
-        if pd.isna(value):
-            continue
-
-        percentile = team_row.get(
-            item["field"] + "_percentil",
-            np.nan,
+def team_justification(team_row, components, rank, score, block_key):
+    """
+    Explicación contextual del puesto:
+    identifica las variables que más aportan al puntaje y también
+    señala si existe alguna variable que lo limite.
+    """
+    if not components:
+        return (
+            f"{team_row.get('Equipo', 'El equipo')} ocupa el puesto {rank} "
+            f"con {score:.2f} puntos, pero no hay variables disponibles "
+            "para explicar el resultado."
         )
 
-        if pd.isna(percentile):
+    drivers = []
+    penalties = []
+
+    for item in components:
+        field = item["field"]
+        percentile = team_row.get(field + "_percentil", np.nan)
+        contribution = team_row.get(field + "_aporte", np.nan)
+        value = team_row.get(field, np.nan)
+
+        if pd.isna(percentile) or pd.isna(contribution):
             continue
 
         if item["direction"] > 0:
-            if percentile >= 80:
-                phrases.append(
-                    f'{item["label"]}: muy alto ({value:.2f})'
-                )
-            elif percentile >= 60:
-                phrases.append(
-                    f'{item["label"]}: alto ({value:.2f})'
-                )
+            # Cuanto mayor sea el aporte positivo, más explica la posición.
+            if contribution > 0:
+                drivers.append((float(contribution), item, value, percentile))
         else:
-            if percentile <= 20:
-                phrases.append(
-                    f'{item["label"]}: muy favorable por ser bajo ({value:.2f})'
+            # Para variables que RESTAN, un aporte negativo explica una caída.
+            if contribution < 0:
+                penalties.append((float(contribution), item, value, percentile))
+
+    drivers.sort(key=lambda x: x[0], reverse=True)
+    penalties.sort(key=lambda x: x[0])
+
+    name = team_row.get("Equipo", "El equipo")
+
+    if drivers:
+        top_drivers = drivers[:3]
+        driver_text = []
+        for _, item, value, percentile in top_drivers:
+            if pd.notna(value):
+                driver_text.append(
+                    f"{item['label']} ({float(value):.2f}, percentil {float(percentile):.0f})"
                 )
-            elif percentile <= 40:
-                phrases.append(
-                    f'{item["label"]}: favorable por ser bajo ({value:.2f})'
-                )
-            elif percentile >= 80:
-                phrases.append(
-                    f'{item["label"]}: penaliza por ser alto ({value:.2f})'
+            else:
+                driver_text.append(
+                    f"{item['label']} (percentil {float(percentile):.0f})"
                 )
 
-    if not phrases:
-        return (
-            "Integra las variables disponibles del bloque; su posición TOP "
-            "surge del resultado combinado y no de una sola estadística."
+        explanation = (
+            f"{name} ocupa el puesto {rank} con {score:.2f} puntos porque "
+            + ", ".join(driver_text)
+            + " son los principales factores que elevan su puntaje."
+        )
+    else:
+        explanation = (
+            f"{name} ocupa el puesto {rank} con {score:.2f} puntos por el "
+            "resultado combinado de las variables disponibles del bloque."
         )
 
-    return "; ".join(phrases) + "."
+    if penalties:
+        item = penalties[0][1]
+        value = penalties[0][2]
+        percentile = penalties[0][3]
+        if pd.notna(value):
+            explanation += (
+                f" Como contrapeso, {item['label']} es relativamente desfavorable "
+                f"({float(value):.2f}, percentil {float(percentile):.0f}) y resta al resultado."
+            )
+        else:
+            explanation += (
+                f" Como contrapeso, {item['label']} resta al resultado."
+            )
+
+    return explanation
 
 
 # ============================================================
@@ -995,25 +1027,30 @@ def write_top_sheet(ws, period, blocks_data, title):
                 score,
             )
 
-            # La justificación se basa en los componentes reales
-            # que empujaron al equipo hacia arriba.
-            combined = base.loc[[team]].copy()
-            combined = combined.reset_index()
-            combined = combined.rename(
-                columns={"index": "Equipo"}
-            )
+            # Construimos una fila contextual con:
+            # - valor real de cada variable
+            # - percentil
+            # - aporte de cada variable al puntaje
+            context = base.loc[team].to_dict()
+            context["Equipo"] = team
 
             for item in components:
-                combined[
-                    item["field"] + "_percentil"
-                ] = top_row.get(
-                    item["field"] + "_percentil",
+                field = item["field"]
+                context[field + "_percentil"] = top_row.get(
+                    field + "_percentil",
+                    np.nan,
+                )
+                context[field + "_aporte"] = top_row.get(
+                    field + "_aporte",
                     np.nan,
                 )
 
             justification = team_justification(
-                top_row,
+                context,
                 components,
+                rank,
+                score,
+                block["key"],
             )
 
             ws.cell(
