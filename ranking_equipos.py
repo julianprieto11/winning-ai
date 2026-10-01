@@ -492,14 +492,14 @@ def aggregate_period(team_matches):
 
     if "goles_equipo" in out.columns:
         out["goles_p90"] = safe_div(
-            out["goles_equipo"] * 90,
-            minutes,
+            out["goles_equipo"],
+            partidos,
         )
 
     if "goles_recibidos" in out.columns:
         out["goles_recibidos_p90"] = safe_div(
-            out["goles_recibidos"] * 90,
-            minutes,
+            out["goles_recibidos"],
+            partidos,
         )
 
     return out
