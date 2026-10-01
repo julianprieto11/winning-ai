@@ -129,12 +129,20 @@ def load_match_info():
             home = m.get("home_team", {}) or {}
             away = m.get("away_team", {}) or {}
             mid = str(m.get("id") or p.stem)
+            def extract_score(side):
+                value = m.get(f"score_{side}")
+                if value is None:
+                    value = m.get(f"{side}_score")
+                if isinstance(value, dict):
+                    value = value.get("current", value.get("display", value.get("value")))
+                return pd.to_numeric(value, errors="coerce")
+
             rows.append({
                 "match_id": mid,
                 "home_team": home.get("name", ""),
                 "away_team": away.get("name", ""),
-                "home_goals": pd.to_numeric(m.get("home_score", {}).get("current", m.get("home_score", 0)), errors="coerce"),
-                "away_goals": pd.to_numeric(m.get("away_score", {}).get("current", m.get("away_score", 0)), errors="coerce"),
+                "home_goals": extract_score("home"),
+                "away_goals": extract_score("away"),
             })
         except Exception:
             continue
@@ -206,8 +214,6 @@ def add_derived_metrics(tm, cols):
 
     # Métricas por 90: evitamos que un equipo con más minutos acumulados
     # aparezca arriba solo por volumen.
-    for key, _, _ in BASE_METRICS.values():
-        pass
 
     for metric_key, (_, raw_col, _) in BASE_METRICS.items():
         if raw_col in tm.columns:
@@ -276,6 +282,9 @@ def aggregate_period(tm, matches):
     # Solo agregamos métricas de volumen reales. Las métricas por 90,
     # porcentajes e índices se recalculan después sobre el período completo.
     raw_cols = []
+    for raw in ["passes", "duels", "shots"]:
+        if raw in tm.columns:
+            raw_cols.append(raw)
     for _, raw, _ in BASE_METRICS.values():
         if raw in tm.columns and raw not in raw_cols:
             raw_cols.append(raw)
@@ -315,6 +324,10 @@ def aggregate_period(tm, matches):
     if "assists" in out.columns and "chances_created" in out.columns:
         out["asistencias_por_ocasion"] = safe_div(out["assists"] * 100, out["chances_created"])
 
+    if "goals" in out.columns and "assists" in out.columns:
+        out["g_a"] = out["goals"] + out["assists"]
+        out["g_a_p90"] = safe_div(out["g_a"] * 90, mins)
+
     if "goles_equipo" in out.columns and "goles_recibidos" in out.columns:
         out["balance_goles"] = out["goles_equipo"] - out["goles_recibidos"]
 
@@ -322,7 +335,7 @@ def aggregate_period(tm, matches):
         "indice_creacion": ["progressive_passes_p90", "passes_into_final_third_p90", "progressive_carries_p90", "efectividad_ultimo_tercio"],
         "indice_posesion": ["posesion", "passes_into_final_third_p90"],
         "indice_oportunidades": ["chances_created_p90", "shots_on_target_p90"],
-        "indice_ataque": ["goles_p90", "assists_p90", "shots_on_target_p90", "chances_created_p90"],
+        "indice_ataque": ["goles_p90", "assists_p90", "g_a_p90", "shots_on_target_p90", "chances_created_p90"],
         "indice_defensa": ["interceptions_p90", "blocks_p90", "tackles_p90", "clearances_p90", "goles_recibidos_p90"],
         "indice_recuperacion": ["recoveries_p90", "interceptions_p90", "tackles_p90"],
         "indice_duelos": ["efectividad_duelos", "duels_won_p90"],
@@ -363,6 +376,8 @@ def display_metric_name(col):
         "goles_p90": "Goles por 90",
         "goles_recibidos_p90": "Goles recibidos por 90",
         "balance_goles": "Balance de goles",
+        "g_a": "G+A",
+        "g_a_p90": "G+A por 90",
         "posesion": "Posesión (%)",
         "indice_creacion": "Índice de creación",
         "indice_posesion": "Índice de posesión",
@@ -390,7 +405,7 @@ def phase_for(col):
         return "EFICIENCIA"
     if col in {"posesion", "indice_posesion"}:
         return "POSESION"
-    if col in {"goles_equipo", "goles_p90", "goles_recibidos", "goles_recibidos_p90", "balance_goles", "indice_ataque"}:
+    if col in {"goles_equipo", "goles_p90", "goles_recibidos", "goles_recibidos_p90", "balance_goles", "g_a", "g_a_p90", "indice_ataque"}:
         return "ATAQUE"
     if col.startswith("indice_"):
         return col.replace("indice_", "").upper()
@@ -405,7 +420,7 @@ def build_output_table(period):
         "equipo", "minutos", "goles_equipo", "goles_recibidos", "balance_goles",
         "posesion", "efectividad_pases", "efectividad_ultimo_tercio",
         "efectividad_duelos", "efectividad_tiros_al_arco", "conversion_tiros_arco",
-        "goles_p90", "goles_recibidos_p90",
+        "goles_p90", "goles_recibidos_p90", "g_a", "g_a_p90",
     ]
     for key, (_, raw, _) in BASE_METRICS.items():
         preferred += [raw, raw + "_p90", key]
@@ -440,7 +455,7 @@ def build_tops(period):
         if not pd.api.types.is_numeric_dtype(period[c]):
             continue
         if c.endswith("_p90") or c.startswith("indice_") or c.startswith("efectividad_") or c in {
-            "posesion", "conversion_tiros_arco", "asistencias_por_ocasion", "balance_goles"
+            "posesion", "conversion_tiros_arco", "asistencias_por_ocasion", "balance_goles", "g_a"
         }:
             candidates.append(c)
 
@@ -519,6 +534,97 @@ def dictionary_rows(available_cols):
         ["REGLA", "Últimos 5", "Usa exclusivamente los cinco partidos más recientes disponibles de cada equipo.", "TOP = mejor rendimiento reciente.", "Mide forma actual.", "Derivada"],
     ]
     return pd.DataFrame(rows, columns=["Bloque", "Variable", "Qué mide", "Qué significa estar TOP", "Utilidad para WINNING AI", "Tipo"])
+
+def write_interactive_ranking(ws, period, title):
+    """Panel Excel con selector de variable y ranking dinámico."""
+    if period is None or period.empty:
+        ws.append(["SIN DATOS DISPONIBLES"])
+        return
+
+    candidates = []
+    for c in period.columns:
+        if c in {"equipo", "minutos", "local"}:
+            continue
+        if not pd.api.types.is_numeric_dtype(period[c]):
+            continue
+        if c.endswith("_p90") or c.startswith("indice_") or c.startswith("efectividad_") or c in {
+            "posesion", "conversion_tiros_arco", "asistencias_por_ocasion", "balance_goles", "g_a"
+        } and c not in candidates:
+            candidates.append(c)
+
+    candidates = sorted(candidates, key=lambda c: (phase_for(c), display_metric_name(c)))
+    if not candidates:
+        ws.append(["SIN VARIABLES NUMÉRICAS DISPONIBLES"])
+        return
+
+    ws["A1"] = title
+    ws["A1"].font = Font(bold=True, size=16, color="FFFFFF")
+    ws["A1"].fill = PatternFill("solid", fgColor="001E5F")
+    ws.merge_cells("A1:E1")
+    ws["A3"] = "Variable"; ws["A3"].font = Font(bold=True)
+    ws["B3"] = display_metric_name(candidates[0])
+    ws["D3"] = "Fase"; ws["D3"].font = Font(bold=True)
+    ws["E3"] = phase_for(candidates[0])
+    ws["D4"] = "Criterio TOP"; ws["D4"].font = Font(bold=True)
+    ws["E4"] = "MENOR" if candidates[0] in {"goles_recibidos", "goles_recibidos_p90"} else "MAYOR"
+
+    from openpyxl.worksheet.datavalidation import DataValidation
+    helper_col = 30  # AD
+    end_helper = helper_col + len(candidates)
+    ws.cell(1, helper_col, "Equipo")
+    for j, c in enumerate(candidates, helper_col + 1):
+        ws.cell(1, j, display_metric_name(c))
+    for i, (_, row) in enumerate(period.sort_values("equipo").iterrows(), 2):
+        ws.cell(i, helper_col, row["equipo"])
+        for j, c in enumerate(candidates, helper_col + 1):
+            value = row[c] if c in period.columns else np.nan
+            ws.cell(i, j, None if pd.isna(value) else float(value))
+    helper_end_row = len(period) + 1
+    for col in range(helper_col, end_helper + 1):
+        ws.column_dimensions[get_column_letter(col)].hidden = True
+
+    start_letter = get_column_letter(helper_col + 1)
+    end_letter = get_column_letter(end_helper)
+    dv = DataValidation(type="list", formula1=f"=${start_letter}$1:${end_letter}$1", allow_blank=False)
+    dv.error = "Elegí una variable de la lista."
+    dv.errorTitle = "Variable no válida"
+    dv.prompt = "Seleccioná qué variable querés ordenar."
+    dv.promptTitle = "Ranking por variable"
+    ws.add_data_validation(dv); dv.add(ws["B3"])
+    ws["E3"] = f'=IFERROR(INDEX(${start_letter}$1:${end_letter}$1,1,MATCH($B$3,${start_letter}$1:${end_letter}$1,0)),"")'
+    ws["E4"] = '=IF(OR($B$3="Goles recibidos por 90",$B$3="Goles recibidos"),"MENOR","MAYOR")'
+    for cell, value in [("A6", "Puesto"), ("B6", "Equipo"), ("C6", "Valor")]:
+        ws[cell] = value; ws[cell].font = Font(bold=True, color="FFFFFF"); ws[cell].fill = PatternFill("solid", fgColor="001E5F")
+    formula = (
+        f'=LET(equipos,$AD$2:$AD${helper_end_row},'
+        f'valores,CHOOSECOLS(${start_letter}$2:${end_letter}${helper_end_row},XMATCH($B$3,${start_letter}$1:${end_letter}$1)),'
+        f'dir,IF($E$4="MENOR",1,-1),orden,SORTBY(HSTACK(equipos,valores),valores,dir),'
+        f'HSTACK(SEQUENCE(ROWS(orden)),orden))'
+    )
+    ws["A7"] = formula
+    ws["A39"] = "Nota: 0 = valor estadístico real cuando la fuente lo registra."
+    ws["A40"] = "Los datos no disponibles no se convierten en 0; quedan fuera de la métrica/ranking cuando corresponde."
+    ws.merge_cells("A39:E39"); ws.merge_cells("A40:E40")
+    ws["A39"].font = Font(italic=True); ws["A40"].font = Font(italic=True)
+    ws.freeze_panes = "A7"; ws.sheet_view.showGridLines = False
+    for col, width in {"A":10, "B":30, "C":18, "D":16, "E":18}.items(): ws.column_dimensions[col].width = width
+
+
+def style_block_sheet(ws):
+    ws.freeze_panes = "A2"; ws.sheet_view.showGridLines = False
+    thin = Side(style="thin"); thick = Side(style="medium")
+    for cell in ws[1]:
+        cell.font = Font(bold=True, color="FFFFFF"); cell.fill = PatternFill("solid", fgColor="001E5F")
+        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        cell.border = Border(top=thick, bottom=thick)
+    for row in ws.iter_rows(min_row=2):
+        for cell in row:
+            cell.border = Border(bottom=thin); cell.alignment = Alignment(vertical="top", wrap_text=True)
+    for col in range(1, ws.max_column + 1):
+        letter = get_column_letter(col)
+        width = min(max(12, max((len(str(ws.cell(r, col).value or "")) for r in range(1, min(ws.max_row, 100) + 1)), default=10) + 2), 36)
+        ws.column_dimensions[letter].width = width
+    ws.auto_filter.ref = ws.dimensions
 
 def style_sheet(ws, freeze="A2"):
     ws.freeze_panes = freeze
@@ -618,8 +724,13 @@ def main():
 
     for name, data in sheets:
         ws = wb.create_sheet(name)
-        write_df(ws, data)
-        style_sheet(ws)
+        if name == "HISTORICO":
+            write_interactive_ranking(ws, hist, "RANKING HISTÓRICO DE EQUIPOS")
+        elif name == "ULTIMOS_5":
+            write_interactive_ranking(ws, recent, "RANKING DE EQUIPOS - ÚLTIMOS 5")
+        else:
+            write_df(ws, data)
+            style_block_sheet(ws)
 
     # Formato numérico.
     for ws in wb.worksheets:
