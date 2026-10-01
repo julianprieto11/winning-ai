@@ -134,7 +134,7 @@ def cargar_participaciones_ultimos_5(df, col_player, col_team, col_date, col_mat
             if pid in _ids_de_players_json(ruta):
                 cantidad += 1
 
-        resultado[pid] = max(resultado.get(pid, 0), cantidad)
+        resultado[(pid, club)] = cantidad
 
     return pd.Series(resultado, dtype="int64")
 
@@ -147,6 +147,7 @@ def generar_ranking(
     col_pos,
     col_minutes,
     col_club,
+    col_date,
     participaciones,
     posicion=None,
 ):
@@ -400,14 +401,14 @@ def main():
         resultados.append(
             generar_ranking(
                 df, metrica, col_player, col_name, col_pos, col_minutes,
-                col_club, participaciones
+                col_club, col_date, participaciones
             )
         )
         for posicion in cfg["posiciones"]:
             resultados.append(
                 generar_ranking(
                     df, metrica, col_player, col_name, col_pos, col_minutes,
-                    col_club, participaciones, posicion
+                    col_club, col_date, participaciones, posicion
                 )
             )
 
