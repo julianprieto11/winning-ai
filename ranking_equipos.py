@@ -853,6 +853,13 @@ def write_general_sheet(ws, period, blocks_data, title):
             continue
 
         # Tabla simple: equipo + variables usadas + puntaje.
+        # Ordenamos del mejor al peor según el puntaje del bloque.
+        calc = calc.sort_values(
+            "Puntaje",
+            ascending=False,
+            na_position="last",
+        ).reset_index(drop=True)
+
         headers = ["Equipo"]
 
         for item in components:
