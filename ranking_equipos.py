@@ -536,7 +536,7 @@ def dictionary_rows(available_cols):
     return pd.DataFrame(rows, columns=["Bloque", "Variable", "Qué mide", "Qué significa estar TOP", "Utilidad para WINNING AI", "Tipo"])
 
 def write_interactive_ranking(ws, period, title):
-    """Panel Excel con selector de variable y ranking dinámico."""
+    """Panel Excel con selector de variable y ranking dinámico compatible con Excel sin matrices dinámicas."""
     if period is None or period.empty:
         ws.append(["SIN DATOS DISPONIBLES"])
         return
@@ -547,9 +547,12 @@ def write_interactive_ranking(ws, period, title):
             continue
         if not pd.api.types.is_numeric_dtype(period[c]):
             continue
-        if c.endswith("_p90") or c.startswith("indice_") or c.startswith("efectividad_") or c in {
-            "posesion", "conversion_tiros_arco", "asistencias_por_ocasion", "balance_goles", "g_a"
-        } and c not in candidates:
+        if (
+            c.endswith("_p90")
+            or c.startswith("indice_")
+            or c.startswith("efectividad_")
+            or c in {"posesion", "conversion_tiros_arco", "asistencias_por_ocasion", "balance_goles", "g_a"}
+        ):
             candidates.append(c)
 
     candidates = sorted(candidates, key=lambda c: (phase_for(c), display_metric_name(c)))
@@ -564,44 +567,54 @@ def write_interactive_ranking(ws, period, title):
     ws["A3"] = "Variable"; ws["A3"].font = Font(bold=True)
     ws["B3"] = display_metric_name(candidates[0])
     ws["D3"] = "Fase"; ws["D3"].font = Font(bold=True)
-    ws["E3"] = phase_for(candidates[0])
     ws["D4"] = "Criterio TOP"; ws["D4"].font = Font(bold=True)
-    ws["E4"] = "MENOR" if candidates[0] in {"goles_recibidos", "goles_recibidos_p90"} else "MAYOR"
 
+    # Datos auxiliares ocultos: cada variable ocupa 3 columnas.
+    # La tabla visible usa solo INDEX/MATCH, evitando funciones nuevas.
     from openpyxl.worksheet.datavalidation import DataValidation
     helper_col = 30  # AD
-    end_helper = helper_col + len(candidates)
-    ws.cell(1, helper_col, "Equipo")
-    for j, c in enumerate(candidates, helper_col + 1):
-        ws.cell(1, j, display_metric_name(c))
-    for i, (_, row) in enumerate(period.sort_values("equipo").iterrows(), 2):
-        ws.cell(i, helper_col, row["equipo"])
-        for j, c in enumerate(candidates, helper_col + 1):
-            value = row[c] if c in period.columns else np.nan
-            ws.cell(i, j, None if pd.isna(value) else float(value))
-    helper_end_row = len(period) + 1
-    for col in range(helper_col, end_helper + 1):
+    helper_start = helper_col
+    helper_end = helper_start + (len(candidates) * 3) - 1
+
+    for idx, c in enumerate(candidates):
+        base_col = helper_start + idx * 3
+        ws.cell(1, base_col, display_metric_name(c))
+        ws.cell(1, base_col + 1, "Equipo")
+        ws.cell(1, base_col + 2, "Valor")
+        ascending = c in {"goles_recibidos", "goles_recibidos_p90"}
+        ranked = period[["equipo", c]].copy()
+        ranked[c] = pd.to_numeric(ranked[c], errors="coerce")
+        ranked = ranked.dropna(subset=[c]).sort_values([c, "equipo"], ascending=[ascending, True]).reset_index(drop=True)
+        for rank, row in enumerate(ranked.itertuples(index=False), 1):
+            excel_row = rank + 1
+            ws.cell(excel_row, base_col, rank)
+            ws.cell(excel_row, base_col + 1, row[0])
+            ws.cell(excel_row, base_col + 2, float(row[1]))
+
+    for col in range(helper_start, helper_end + 1):
         ws.column_dimensions[get_column_letter(col)].hidden = True
 
-    start_letter = get_column_letter(helper_col + 1)
-    end_letter = get_column_letter(end_helper)
-    dv = DataValidation(type="list", formula1=f"=${start_letter}$1:${end_letter}$1", allow_blank=False)
+    first_header = get_column_letter(helper_start)
+    last_header = get_column_letter(helper_end)
+    dv = DataValidation(type="list", formula1="=$" + first_header + "$1:$" + last_header + "$1", allow_blank=False)
     dv.error = "Elegí una variable de la lista."
     dv.errorTitle = "Variable no válida"
     dv.prompt = "Seleccioná qué variable querés ordenar."
     dv.promptTitle = "Ranking por variable"
     ws.add_data_validation(dv); dv.add(ws["B3"])
-    ws["E3"] = f'=IFERROR(INDEX(${start_letter}$1:${end_letter}$1,1,MATCH($B$3,${start_letter}$1:${end_letter}$1,0)),"")'
+
+    ws["E3"] = '=IFERROR(INDEX($' + first_header + '$1:$' + last_header + '$1,1,MATCH($B$3,$' + first_header + '$1:$' + last_header + '$1,0)), "")'
     ws["E4"] = '=IF(OR($B$3="Goles recibidos por 90",$B$3="Goles recibidos"),"MENOR","MAYOR")'
+
     for cell, value in [("A6", "Puesto"), ("B6", "Equipo"), ("C6", "Valor")]:
         ws[cell] = value; ws[cell].font = Font(bold=True, color="FFFFFF"); ws[cell].fill = PatternFill("solid", fgColor="001E5F")
-    formula = (
-        f'=LET(equipos,$AD$2:$AD${helper_end_row},'
-        f'valores,CHOOSECOLS(${start_letter}$2:${end_letter}${helper_end_row},XMATCH($B$3,${start_letter}$1:${end_letter}$1)),'
-        f'dir,IF($E$4="MENOR",1,-1),orden,SORTBY(HSTACK(equipos,valores),valores,dir),'
-        f'HSTACK(SEQUENCE(ROWS(orden)),orden))'
-    )
-    ws["A7"] = formula
+
+    for visible_row in range(7, 37):
+        rank_n = visible_row - 6
+        ws.cell(visible_row, 1, '=IFERROR(INDEX($AD$2:$' + last_header + '$31,' + str(rank_n) + ',3*(MATCH($B$3,$AD$1:$' + last_header + '$1,0)-1)+1),"")')
+        ws.cell(visible_row, 2, '=IFERROR(INDEX($AD$2:$' + last_header + '$31,' + str(rank_n) + ',3*(MATCH($B$3,$AD$1:$' + last_header + '$1,0)-1)+2),"")')
+        ws.cell(visible_row, 3, '=IFERROR(INDEX($AD$2:$' + last_header + '$31,' + str(rank_n) + ',3*(MATCH($B$3,$AD$1:$' + last_header + '$1,0)-1)+3),"")')
+
     ws["A39"] = "Nota: 0 = valor estadístico real cuando la fuente lo registra."
     ws["A40"] = "Los datos no disponibles no se convierten en 0; quedan fuera de la métrica/ranking cuando corresponde."
     ws.merge_cells("A39:E39"); ws.merge_cells("A40:E40")
