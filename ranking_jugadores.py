@@ -68,7 +68,7 @@ def preparar(df):
             raise ValueError(f"Falta la métrica '{met['col']}' en el dataset.")
         df[met["col"]] = pd.to_numeric(df[met["col"]], errors="coerce").fillna(0)
 
-    return df, col_player, col_name, col_pos, col_minutes
+    return df, col_player, col_name, col_pos, col_minutes, col_club, col_team, col_date, col_match
 
 
 def generar_ranking(df, metrica, col_player, col_name, col_pos, col_minutes, posicion=None):
