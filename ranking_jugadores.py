@@ -121,6 +121,8 @@ def cargar_participaciones_ultimos_5(df, col_player, col_team, col_date, col_mat
 
     resultado = {}
 
+    # Guardamos la cantidad de participaciones por jugador y club. Después,
+    # el ranking utilizará solamente el club actual del jugador.
     for _, fila in jugadores.iterrows():
         pid = str(fila[col_player])
         club = str(fila[col_team])
@@ -156,17 +158,34 @@ def generar_ranking(
             trabajo[col_pos].astype(str).str.upper() == posicion
         ].copy()
 
+    # El jugador es la unidad de identidad del ranking, no el jugador+club.
+    # Si cambia de club dentro de la misma competencia, acumulamos sus estadísticas
+    # de toda la temporada para conservar un promedio representativo.
     agrupado = (
-        trabajo.groupby([col_player, col_name, col_pos, col_club], as_index=False)
+        trabajo.groupby([col_player, col_name, col_pos], as_index=False)
         .agg(
             minutos=(col_minutes, "sum"),
             total=(cfg["col"], "sum"),
         )
     )
 
-    agrupado["participaciones_ultimos_5"] = (
-        agrupado[col_player].astype(str).map(participaciones).fillna(0).astype(int)
+    # El club mostrado es el último club conocido del jugador.
+    clubes_actuales = (
+        trabajo.sort_values([col_player, col_date])
+        .dropna(subset=[col_player, col_club])
+        .drop_duplicates(subset=[col_player], keep="last")
+        [[col_player, col_club]]
+        .rename(columns={col_club: "club_actual"})
     )
+    agrupado = agrupado.merge(clubes_actuales, on=col_player, how="left")
+
+    claves_participacion = list(zip(
+        agrupado[col_player].astype(str),
+        agrupado["club_actual"].astype(str),
+    ))
+    agrupado["participaciones_ultimos_5"] = [
+        int(participaciones.get(clave, 0)) for clave in claves_participacion
+    ]
 
     agrupado = agrupado[
         (agrupado["minutos"] >= MIN_MINUTES)
@@ -186,7 +205,7 @@ def generar_ranking(
 
     return agrupado[
         [
-            "metrica", "grupo", "ranking", col_player, col_name, col_club,
+            "metrica", "grupo", "ranking", col_player, col_name, "club_actual",
             col_pos, "minutos", "total", "por_90", "participaciones_ultimos_5"
         ]
     ]
@@ -281,7 +300,7 @@ def generar_excel(salida):
                 valores = [
                     int(r["ranking"]),
                     r["player_name"],
-                    r["team_name"],
+                    r["club_actual"],
                     r["position"],
                     int(r["minutos"]),
                     float(r["total"]),
@@ -338,7 +357,7 @@ def generar_excel(salida):
         ("Minutos", f"Solo entran jugadores con al menos {MIN_MINUTES} minutos acumulados."),
         ("Actividad reciente", f"Además, el jugador debe figurar en la lista PitchAPI de al menos {MIN_PARTICIPACIONES_ULTIMOS_5} de los últimos {ULTIMOS_PARTIDOS} partidos de su club."),
         ("Banco cuenta", "Figurar en la convocatoria/lista de jugadores cuenta como participación aunque el jugador no haya ingresado al campo."),
-        ("Club", "Se muestra el club asociado a los registros del jugador para poder detectar rápidamente jugadores que ya no están en el equipo."),
+        ("Club", "Se muestra el último club conocido del jugador. Si cambió de club dentro de la misma competencia, sus estadísticas de toda la temporada se acumulan en un único registro."),
         ("Fuente", "Las estadísticas salen de datos/dataset_winning_pitchapi.csv y la actividad reciente se verifica con datos/pitchapi/*_players.json."),
         ("Último tercio", "Este ranking usa passes_into_final_third. No utiliza ultimo_tercio/touches_final_third."),
     ]
