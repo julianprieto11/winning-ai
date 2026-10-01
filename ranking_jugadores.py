@@ -513,7 +513,7 @@ def generar_excel(salida_historica, salida_ultimos_5):
                         valores = [
                             int(r["ranking"]),
                             r["player_name"],
-                            r["club_actual"],
+                            r["club"],
                             r["position"],
                             int(r["minutos"]),
                             float(r["total"]),
