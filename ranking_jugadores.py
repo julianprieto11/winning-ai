@@ -298,13 +298,22 @@ def generar_ranking(
     agrupado["metrica"] = metrica
     agrupado["grupo"] = "GENERAL" if posicion is None else posicion
 
-    return agrupado[
+    salida = agrupado[
         [
             "metrica", "grupo", "ranking", col_player, col_name, "club_actual",
             col_pos, "minutos", "total", "por_90",
             "participaciones_ultimos_5", "minutos_ultimos_5"
         ]
-    ]
+    ].copy()
+
+    return salida.rename(
+        columns={
+            col_player: "player_id",
+            col_name: "player_name",
+            "club_actual": "club",
+            col_pos: "position",
+        }
+    )
 
 
 def generar_ranking_ultimos_5(
@@ -367,13 +376,22 @@ def generar_ranking_ultimos_5(
     agrupado["metrica"] = metrica
     agrupado["grupo"] = "GENERAL" if posicion is None else posicion
 
-    return agrupado[
+    salida = agrupado[
         [
             "metrica", "grupo", "ranking", col_player, col_name, col_club,
             col_pos, "minutos_ultimos_5", "total_ultimos_5",
             "por_90_ultimos_5", "participaciones_ultimos_5"
         ]
-    ]
+    ].copy()
+
+    return salida.rename(
+        columns={
+            col_player: "player_id",
+            col_name: "player_name",
+            col_club: "club",
+            col_pos: "position",
+        }
+    )
 
 
 def construir_df_ultimos_5(
