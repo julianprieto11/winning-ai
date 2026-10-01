@@ -643,17 +643,63 @@ def block_formula_actual(components):
     return " ".join(parts)
 
 
+def friendly_variable_phrase(item, value):
+    """Traduce una variable técnica a lenguaje futbolero sencillo."""
+    label = item["label"]
+    if pd.isna(value):
+        return None
+
+    v = float(value)
+    if label == "Goles por 90":
+        return f"un buen promedio de gol ({v:.1f} por partido)"
+    if label == "Tiros al arco por 90":
+        return f"llega bastante al arco ({v:.1f} remates por partido)"
+    if label == "Ocasiones creadas por 90":
+        return f"genera muchas ocasiones ({v:.1f} por partido)"
+    if label == "Asistencias por 90":
+        return f"aporta asistencias ({v:.1f} por partido)"
+    if label == "Conducciones progresivas por 90":
+        return f"progresa bien con la pelota ({v:.1f} por partido)"
+    if label == "Regates exitosos por 90":
+        return f"gana bastantes regates ({v:.1f} por partido)"
+    if label == "Intercepciones por 90":
+        return f"corta muchos ataques rivales ({v:.1f} intercepciones por partido)"
+    if label == "Bloqueos por 90":
+        return f"bloquea bastante al rival ({v:.1f} por partido)"
+    if label == "Entradas / tackles por 90":
+        return f"mete muchas entradas ({v:.1f} por partido)"
+    if label == "Despejes por 90":
+        return f"despeja mucho peligro ({v:.1f} por partido)"
+    if label == "Recuperaciones por 90":
+        return f"recupera muchas pelotas ({v:.1f} por partido)"
+    if label == "Duelos ganados por 90":
+        return f"gana muchos duelos ({v:.1f} por partido)"
+    if label == "Goles recibidos por 90":
+        return f"recibe pocos goles ({v:.1f} por partido)"
+    if label == "Posesión (%)":
+        return f"maneja bastante la pelota ({v:.1f}% de posesión)"
+    if label == "Pases precisos por 90":
+        return f"mueve bien la pelota ({v:.1f} pases precisos por partido)"
+    if label == "Efectividad de pases (%)":
+        return f"tiene buena precisión de pase ({v:.1f}%)"
+    if label == "Pases al último tercio por 90":
+        return f"llega seguido a zona de ataque ({v:.1f} pases por partido)"
+    if label == "Efectividad de pase al último tercio (%)":
+        return f"llega con buena precisión al último tercio ({v:.1f}%)"
+    if label == "Pases progresivos por 90":
+        return f"hace avanzar bien la pelota ({v:.1f} por partido)"
+
+    return f"tiene buenos números en {label.lower()} ({v:.2f})"
+
+
 def team_justification(team_row, components, rank, score, block_key):
-    """
-    Explicación contextual del puesto:
-    identifica las variables que más aportan al puntaje y también
-    señala si existe alguna variable que lo limite.
-    """
+    """Explicación contextual, breve y en lenguaje futbolero."""
+    name = team_row.get("Equipo", "El equipo")
+
     if not components:
         return (
-            f"{team_row.get('Equipo', 'El equipo')} ocupa el puesto {rank} "
-            f"con {score:.2f} puntos, pero no hay variables disponibles "
-            "para explicar el resultado."
+            f"{name} aparece {rank}.º con {score:.2f} puntos, "
+            "pero no hay datos suficientes para explicar el resultado."
         )
 
     drivers = []
@@ -668,57 +714,40 @@ def team_justification(team_row, components, rank, score, block_key):
         if pd.isna(percentile) or pd.isna(contribution):
             continue
 
-        if item["direction"] > 0:
-            # Cuanto mayor sea el aporte positivo, más explica la posición.
-            if contribution > 0:
-                drivers.append((float(contribution), item, value, percentile))
-        else:
-            # Para variables que RESTAN, un aporte negativo explica una caída.
-            if contribution < 0:
-                penalties.append((float(contribution), item, value, percentile))
+        phrase = friendly_variable_phrase(item, value)
+        if not phrase:
+            continue
+
+        if item["direction"] > 0 and contribution > 0:
+            drivers.append((float(contribution), phrase, percentile))
+        elif item["direction"] < 0 and contribution < 0:
+            penalties.append((float(contribution), phrase, percentile))
 
     drivers.sort(key=lambda x: x[0], reverse=True)
     penalties.sort(key=lambda x: x[0])
 
-    name = team_row.get("Equipo", "El equipo")
-
     if drivers:
-        top_drivers = drivers[:3]
-        driver_text = []
-        for _, item, value, percentile in top_drivers:
-            if pd.notna(value):
-                driver_text.append(
-                    f"{item['label']} ({float(value):.2f}, percentil {float(percentile):.0f})"
-                )
-            else:
-                driver_text.append(
-                    f"{item['label']} (percentil {float(percentile):.0f})"
-                )
+        top = drivers[:3]
+        phrases = [item[1] for item in top]
+
+        if len(phrases) == 1:
+            reason = phrases[0]
+        elif len(phrases) == 2:
+            reason = f"{phrases[0]} y {phrases[1]}"
+        else:
+            reason = f"{phrases[0]}, {phrases[1]} y {phrases[2]}"
 
         explanation = (
-            f"{name} ocupa el puesto {rank} con {score:.2f} puntos porque "
-            + ", ".join(driver_text)
-            + " son los principales factores que elevan su puntaje."
+            f"{name} aparece {rank}.º con {score:.2f} puntos porque {reason}."
         )
     else:
         explanation = (
-            f"{name} ocupa el puesto {rank} con {score:.2f} puntos por el "
-            "resultado combinado de las variables disponibles del bloque."
+            f"{name} aparece {rank}.º con {score:.2f} puntos por el conjunto "
+            "de sus números en este bloque."
         )
 
     if penalties:
-        item = penalties[0][1]
-        value = penalties[0][2]
-        percentile = penalties[0][3]
-        if pd.notna(value):
-            explanation += (
-                f" Como contrapeso, {item['label']} es relativamente desfavorable "
-                f"({float(value):.2f}, percentil {float(percentile):.0f}) y resta al resultado."
-            )
-        else:
-            explanation += (
-                f" Como contrapeso, {item['label']} resta al resultado."
-            )
+        explanation += f" Como punto en contra, {penalties[0][1]}."
 
     return explanation
 
