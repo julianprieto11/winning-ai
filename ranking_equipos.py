@@ -1036,6 +1036,7 @@ def write_top_sheet(ws, period, blocks_data, title):
             1,
         ):
             excel_row = row + rank
+            ws.row_dimensions[excel_row].height = 80
 
             team = top_row["Equipo"]
             score = top_row["Puntaje"]
