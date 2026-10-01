@@ -12,6 +12,7 @@ OUTPUT_XLSX = Path("datos/rankings_jugadores.xlsx")
 PITCHAPI_PLAYERS_DIR = Path("datos/pitchapi")
 
 MIN_MINUTES = 450
+MIN_PARTICIPACIONES_ULTIMOS_5 = 3
 MIN_TITULARIDADES_ULTIMOS_5 = 3
 MIN_MINUTOS_ULTIMOS_5 = 9
 ULTIMOS_PARTIDOS = 5
@@ -123,7 +124,10 @@ def cargar_titularidades_ultimos_5(df, col_player, col_team, col_date, col_match
                 if titular is None: titular = item.get("is_starter")
                 if titular is None: titular = item.get("starting")
                 if titular is None: titular = item.get("isStarting")
-                if titular is None: titular = not bool(item.get("substitute", False))
+                if titular is None:
+                    substitute = item.get("substitute", item.get("isSubstitute"))
+                    if substitute is not None:
+                        titular = not bool(substitute)
                 if isinstance(titular, str): titular = titular.lower() == "true"
                 total += int(bool(titular))
                 break
@@ -314,7 +318,7 @@ def generar_ranking(
 
     agrupado = agrupado[
         (agrupado["minutos"] >= MIN_MINUTES)
-        & (agrupado["participaciones_ultimos_5"] >= MIN_TITULARIDADES_ULTIMOS_5)
+        & (agrupado["participaciones_ultimos_5"] >= MIN_PARTICIPACIONES_ULTIMOS_5)
         & (agrupado["minutos_ultimos_5"] >= MIN_MINUTOS_ULTIMOS_5)
     ].copy()
 
@@ -573,7 +577,7 @@ def generar_excel(salida_historica, salida_ultimos_5):
         ws,
         "WINNING AI — RANKINGS DE MÉTRICAS",
         f"Top 5 GENERAL y Top 5 por posición | Histórico | Mínimo: {MIN_MINUTES} minutos | "
-        f"mínimo {MIN_TITULARIDADES_ULTIMOS_5} participaciones en los últimos {ULTIMOS_PARTIDOS} partidos | "
+        f"mínimo {MIN_PARTICIPACIONES_ULTIMOS_5} participaciones en los últimos {ULTIMOS_PARTIDOS} partidos | "
         f"mínimo {MIN_MINUTOS_ULTIMOS_5} minutos jugados en esos últimos {ULTIMOS_PARTIDOS} partidos | Ranking por 90",
         [
             "Puesto", "Jugador", "Club", "Posición", "Minutos", "Total",
@@ -613,9 +617,9 @@ def generar_excel(salida_historica, salida_ultimos_5):
         ("Ranking histórico", "La primera hoja acumula las estadísticas del período disponible y exige al menos 450 minutos acumulados."),
         ("Ranking últimos 5", "La segunda hoja calcula los mismos rankings usando exclusivamente los últimos 5 partidos del club actual del jugador."),
         ("Por 90", "Es la columna principal para ordenar. Normaliza la producción según 90 minutos jugados."),
-        ("Actividad reciente", f"Para entrar en cualquiera de los rankings, el jugador debe figurar en la lista PitchAPI de al menos {MIN_TITULARIDADES_ULTIMOS_5} de los últimos {ULTIMOS_PARTIDOS} partidos de su club."),
+        ("Actividad histórica", f"El ranking histórico exige figurar en la lista PitchAPI de al menos {MIN_PARTICIPACIONES_ULTIMOS_5} de los últimos {ULTIMOS_PARTIDOS} partidos y haber jugado al menos {MIN_MINUTOS_ULTIMOS_5} minutos en ellos."),
         ("Minutos recientes", f"Además, debe haber jugado al menos {MIN_MINUTOS_ULTIMOS_5} minutos acumulados en esos últimos {ULTIMOS_PARTIDOS}. Esto evita considerar activo a alguien que solo estuvo en el banco."),
-        ("Banco cuenta", "Figurar en la convocatoria/lista PitchAPI cuenta como participación, aunque el jugador no haya ingresado al campo. Los minutos jugados se evalúan por separado."),
+        ("Titularidad últimos 5", f"El ranking de Últimos 5 exige al menos {MIN_TITULARIDADES_ULTIMOS_5} titularidades en los últimos {ULTIMOS_PARTIDOS} partidos del club actual. Estar en el banco no cuenta como titularidad."),
         ("Transferencias", "En el ranking histórico, si un jugador cambia de club dentro de la misma competencia, sus estadísticas se acumulan en un único registro y se muestra su último club. En Últimos 5 se usan solamente los partidos de su club actual."),
         ("Fuente", "Las estadísticas salen de datos/dataset_winning_pitchapi.csv y la actividad reciente se verifica con datos/pitchapi/*_players.json."),
         ("Último tercio", "Este ranking usa passes_into_final_third. No utiliza ultimo_tercio/touches_final_third."),
