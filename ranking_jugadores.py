@@ -532,7 +532,7 @@ def generar_excel(salida_historica, salida_ultimos_5):
                             grupo,
                             cfg["nombre"],
                             r["player_id"],
-                            int(r["participaciones_ultimos_5"]),
+                            int(r["titularidades_ultimos_5"]),
                         ]
                     else:
                         valores = [
@@ -546,7 +546,7 @@ def generar_excel(salida_historica, salida_ultimos_5):
                             grupo,
                             cfg["nombre"],
                             r["player_id"],
-                            int(r["titularidades_ultimos_5"]),
+                            int(r["participaciones_ultimos_5"]),
                         ]
 
                     for col, valor in enumerate(valores, 1):
