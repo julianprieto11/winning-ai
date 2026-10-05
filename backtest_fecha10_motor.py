@@ -341,7 +341,16 @@ def cargar_fecha_objetivo():
             {}
         ) or {}
 
-        fecha_partido = pd.to_datetime(\n            event.get("startTimestamp"),\n            unit="s",\n            errors="coerce",\n        )\n\n        if pd.isna(fecha_partido) or fecha_partido < CLAUSURA_INICIO:\n            continue\n\n        texto_competencia = (
+        fecha_partido = pd.to_datetime(
+            event.get("startTimestamp"),
+            unit="s",
+            errors="coerce",
+        )
+
+        if pd.isna(fecha_partido) or fecha_partido < CLAUSURA_INICIO:
+            continue
+
+        texto_competencia = (
             str(
                 torneo.get(
                     "name",
@@ -1661,7 +1670,8 @@ def crear_pipeline_modelo(
 def entrenar_modelo_c():
 
     print(
-        "\n============================================================"
+        "
+============================================================"
     )
 
     print(
@@ -2414,7 +2424,8 @@ def agregar_prediccion_modelo_c(
     except Exception as error:
 
         print(
-            "\nADVERTENCIA Modelo C:"
+            "
+ADVERTENCIA Modelo C:"
         )
 
         print(
@@ -2966,7 +2977,8 @@ def main():
     # --------------------------------------------------------
 
     print(
-        "\n[1/8] Cargando histórico..."
+        "
+[1/8] Cargando histórico..."
     )
 
     historico = pd.read_csv(
@@ -2995,7 +3007,8 @@ def main():
     # --------------------------------------------------------
 
     print(
-        "\n[2/8] Entrenando Modelo C..."
+        "
+[2/8] Entrenando Modelo C..."
     )
 
     modelo_c, columnas_modelo_c = (
@@ -3007,7 +3020,8 @@ def main():
     # --------------------------------------------------------
 
     print(
-        "\n[3/8] Cargando Fecha 10..."
+        "
+[3/8] Cargando Fecha 10..."
     )
 
     partidos = cargar_fecha_objetivo()
@@ -3058,7 +3072,8 @@ def main():
     # --------------------------------------------------------
 
     print(
-        "\n[4/8] Cargando posiciones..."
+        "
+[4/8] Cargando posiciones..."
     )
 
     posiciones = cargar_posiciones()
@@ -3073,7 +3088,8 @@ def main():
     # --------------------------------------------------------
 
     print(
-        "\n[5/8] Construyendo candidatos..."
+        "
+[5/8] Construyendo candidatos..."
     )
 
     candidatos = construir_candidatos(
@@ -3085,7 +3101,8 @@ def main():
     if candidatos.empty:
 
         print(
-            "\nERROR: no se pudieron "
+            "
+ERROR: no se pudieron "
             "construir candidatos."
         )
 
@@ -3101,7 +3118,8 @@ def main():
     # --------------------------------------------------------
 
     print(
-        "\nAplicando Modelo C..."
+        "
+Aplicando Modelo C..."
     )
 
     candidatos = agregar_prediccion_modelo_c(
@@ -3134,7 +3152,8 @@ def main():
     )
 
     print(
-        f"\nCandidatos guardados: "
+        f"
+Candidatos guardados: "
         f"{SALIDA_CANDIDATOS}"
     )
 
@@ -3161,7 +3180,8 @@ def main():
     for perfil_equipo in perfiles:
 
         print(
-            "\n"
+            "
+"
             + "=" * 70
         )
 
@@ -3246,7 +3266,8 @@ def main():
         # ----------------------------------------------------
 
         print(
-            f"\nTITULARES: "
+            f"
+TITULARES: "
             f"{len(titulares)}"
         )
 
@@ -3306,7 +3327,8 @@ def main():
         # ----------------------------------------------------
 
         print(
-            f"\nFLEX: "
+            f"
+FLEX: "
             f"{len(flex)}"
         )
 
@@ -3358,7 +3380,8 @@ def main():
     # ========================================================
 
     print(
-        "\n[7/8] Guardando equipos..."
+        "
+[7/8] Guardando equipos..."
     )
 
     if filas_equipos:
@@ -3397,7 +3420,8 @@ def main():
     # ========================================================
 
     print(
-        "\n[8/8] Guardando simulaciones..."
+        "
+[8/8] Guardando simulaciones..."
     )
 
     pd.DataFrame(
@@ -3417,7 +3441,8 @@ def main():
     # ========================================================
 
     print(
-        "\n"
+        "
+"
         + "=" * 70
     )
 
@@ -3459,7 +3484,8 @@ def main():
             ]
 
             print(
-                f"\n{perfil}"
+                f"
+{perfil}"
             )
 
             print(
@@ -3487,7 +3513,8 @@ def main():
                 )
 
     print(
-        "\nRepetición global de titulares:"
+        "
+Repetición global de titulares:"
     )
 
     if filas_equipos:
@@ -3528,7 +3555,8 @@ def main():
             )
 
     print(
-        "\n"
+        "
+"
         + "=" * 70
     )
 
