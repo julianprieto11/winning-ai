@@ -162,7 +162,7 @@ def _fechas_de_fecha(fecha_numero):
 
             # Solo Clausura 2026. El mismo número de ronda existe
             # también en Apertura.
-            if fecha_obj < pd.Timestamp("2026-07-22").date():
+            if fecha_obj < pd.Timestamp("2026-07-23").date():
                 continue
 
             fechas.add(fecha_obj.isoformat())
