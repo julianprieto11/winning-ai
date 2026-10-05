@@ -162,6 +162,8 @@ def parse_match(path):
     round_info = event.get("roundInfo", {}) or {}
     round_no = round_info.get("round")
 
+    competencia = "Clausura" if pd.notna(date) and date >= CLAUSURA_INICIO else "Apertura"
+
     status = event.get("status", {}) or {}
     status_type = str(status.get("type", "")).lower()
     status_desc = str(status.get("description", "")).lower()
@@ -199,6 +201,7 @@ def parse_match(path):
         "match_id": str(event.get("id") or path.stem),
         "fecha": date,
         "round": round_no,
+        "competencia": competencia,
         "home": home,
         "away": away,
         "finished": finished,
@@ -466,7 +469,10 @@ def matchup_explanation(m):
 
 
 def make_predictions(matches, hist, fecha, matchup_df):
-    games = matches[matches["round"].astype(str) == str(fecha)].copy()
+    games = matches[
+        (matches["competencia"] == "Clausura")
+        & (matches["round"].astype(str) == str(fecha))
+    ].copy()
     if games.empty:
         return pd.DataFrame()
 
