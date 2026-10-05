@@ -43,6 +43,11 @@ BASE = Path(__file__).resolve().parent
 DATOS = BASE / "datos"
 PARTIDOS_DIR = DATOS / "partidos"
 
+# En la Liga Profesional 2026 el Clausura comenzó el 23/07/2026.
+# roundInfo.round se reinicia en 1, por lo que NO alcanza para distinguir
+# Apertura y Clausura. La fecha del partido es el criterio de competencia.
+CLAUSURA_INICIO = pd.Timestamp("2026-07-23")
+
 NAVY = "001E5F"
 LIGHT = "EAF1FB"
 MID = "B4C7E7"
@@ -691,7 +696,7 @@ def main():
     fecha = args.fecha
 
     print("=" * 90)
-    print(f"ANÁLISIS DE PARTIDOS - FECHA {fecha}")
+    print(f"ANÁLISIS DE PARTIDOS - CLAUSURA - FECHA {fecha}")
     print("=" * 90)
 
     matches = load_matches()
@@ -708,7 +713,7 @@ def main():
 
     if pred.empty:
         raise SystemExit(
-            f"No encontré partidos para la Fecha {fecha}. "
+            f"No encontré partidos para Clausura Fecha {fecha}. "
             "Revisá roundInfo en datos/partidos."
         )
 
