@@ -535,14 +535,6 @@ def cargar_partidos_fecha10():
         if pd.isna(fecha_partido) or fecha_partido < pd.Timestamp("2026-07-23"):
             continue
 
-        fecha_partido = pd.to_datetime(
-            event.get("startTimestamp"),
-            unit="s",
-            errors="coerce",
-        )
-        if pd.isna(fecha_partido) or fecha_partido < pd.Timestamp("2026-07-23"):
-            continue
-
         home = (
             event
             .get("homeTeam", {})
@@ -719,6 +711,14 @@ def obtener_jugadores_fecha10(
             continue
 
         if round_value != FECHA_OBJETIVO:
+            continue
+
+        fecha_partido = pd.to_datetime(
+            event.get("startTimestamp"),
+            unit="s",
+            errors="coerce",
+        )
+        if pd.isna(fecha_partido) or fecha_partido < pd.Timestamp("2026-07-23"):
             continue
 
         lineups = data.get(
