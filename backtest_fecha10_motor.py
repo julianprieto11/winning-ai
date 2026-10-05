@@ -19,6 +19,7 @@ from sklearn.ensemble import HistGradientBoostingRegressor
 
 FECHA_OBJETIVO = 10
 COMPETENCIA_OBJETIVO = "Clausura"
+CLAUSURA_INICIO = pd.Timestamp("2026-07-23")
 
 # Todo lo anterior a esta fecha puede utilizarse como histórico.
 # Fecha 10 comienza el 18/09/2026.
@@ -340,7 +341,7 @@ def cargar_fecha_objetivo():
             {}
         ) or {}
 
-        texto_competencia = (
+        fecha_partido = pd.to_datetime(\n            event.get("startTimestamp"),\n            unit="s",\n            errors="coerce",\n        )\n\n        if pd.isna(fecha_partido) or fecha_partido < CLAUSURA_INICIO:\n            continue\n\n        texto_competencia = (
             str(
                 torneo.get(
                     "name",
