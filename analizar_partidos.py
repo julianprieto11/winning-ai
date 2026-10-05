@@ -162,8 +162,6 @@ def parse_match(path):
     round_info = event.get("roundInfo", {}) or {}
     round_no = round_info.get("round")
 
-    competencia = "Clausura" if pd.notna(date) and date >= CLAUSURA_INICIO else "Apertura"
-
     status = event.get("status", {}) or {}
     status_type = str(status.get("type", "")).lower()
     status_desc = str(status.get("description", "")).lower()
@@ -173,6 +171,8 @@ def parse_match(path):
     date = pd.NaT
     if start_ts:
         date = pd.to_datetime(start_ts, unit="s", errors="coerce")
+
+    competencia = "Clausura" if pd.notna(date) and date >= CLAUSURA_INICIO else "Apertura"
 
     hs = event.get("homeScore", {}) or {}
     aws = event.get("awayScore", {}) or {}
