@@ -714,7 +714,19 @@ def cargar_partidos_fecha10():
             {}
         ) or {}
 
-        fecha_partido = pd.to_datetime(\n            event.get("startTimestamp"),\n            unit="s",\n            errors="coerce",\n        )\n\n        # El nombre de temporada de SofaScore puede ser genérico ("Primera LPF 2026").\n        # La ronda se reinicia en Apertura/Clausura; por eso la fecha es el criterio\n        # principal para identificar el Clausura.\n        if pd.isna(fecha_partido) or fecha_partido < CLAUSURA_INICIO:\n            continue\n\n        texto_competencia = (
+        fecha_partido = pd.to_datetime(
+            event.get("startTimestamp"),
+            unit="s",
+            errors="coerce",
+        )
+
+        # El nombre de temporada de SofaScore puede ser genérico ("Primera LPF 2026").
+        # La ronda se reinicia en Apertura/Clausura; por eso la fecha es el criterio
+        # principal para identificar el Clausura.
+        if pd.isna(fecha_partido) or fecha_partido < CLAUSURA_INICIO:
+            continue
+
+        texto_competencia = (
             str(
                 torneo.get(
                     "name",
