@@ -35,10 +35,10 @@ SLEEP_PITCH = 0.15
 # Para la Liga Profesional 2026 hay 30 equipos => 15 partidos por fecha.
 PARTIDOS_ESPERADOS_POR_FECHA = 15
 
-# El Clausura 2026 comenzó el 22/07/2026.
+# El Clausura 2026 comenzó el 23/07/2026.
 # No debemos desduplicar primero, porque eso puede conservar el partido
 # del Apertura y descartar el correspondiente al Clausura.
-CLAUSURA_INICIO = "2026-07-22"
+CLAUSURA_INICIO = "2026-07-23"
 
 
 def normalizar(texto):
