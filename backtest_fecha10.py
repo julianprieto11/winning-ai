@@ -21,6 +21,7 @@ from scipy.optimize import milp, LinearConstraint, Bounds
 
 FECHA_OBJETIVO = 10
 COMPETENCIA_OBJETIVO = "Clausura"
+CLAUSURA_INICIO = pd.Timestamp("2026-07-23")
 
 # Último partido histórico disponible antes de Fecha 10:
 # 15/09/2026
@@ -713,7 +714,7 @@ def cargar_partidos_fecha10():
             {}
         ) or {}
 
-        texto_competencia = (
+        fecha_partido = pd.to_datetime(\n            event.get("startTimestamp"),\n            unit="s",\n            errors="coerce",\n        )\n\n        # El nombre de temporada de SofaScore puede ser genérico ("Primera LPF 2026").\n        # La ronda se reinicia en Apertura/Clausura; por eso la fecha es el criterio\n        # principal para identificar el Clausura.\n        if pd.isna(fecha_partido) or fecha_partido < CLAUSURA_INICIO:\n            continue\n\n        texto_competencia = (
             str(
                 torneo.get(
                     "name",
