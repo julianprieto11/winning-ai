@@ -207,6 +207,31 @@ def registrar_resultados_fecha(fecha_numero):
 
     predicciones = []
 
+    # También conservamos TODOS los candidatos generados antes de la
+    # selección. Esto permite que el aprendizaje detecte falsos negativos:
+    # jugadores que el motor descartó pero que luego puntuaron muy alto.
+    archivo_candidatos = (
+        DATOS / f"fecha{int(fecha_numero)}_pre_simulacion_candidatos.csv"
+    )
+    if archivo_candidatos.exists():
+        candidatos = pd.read_csv(
+            archivo_candidatos,
+            low_memory=False
+        )
+        if not candidatos.empty:
+            candidatos["tipo_registro"] = "CANDIDATO"
+            candidatos["perfil"] = "TODOS"
+            if "prediccion_base" not in candidatos.columns:
+                candidatos["prediccion_base"] = pd.to_numeric(
+                    candidatos.get("score_seleccion"),
+                    errors="coerce",
+                )
+            candidatos["prediccion_final"] = pd.to_numeric(
+                candidatos.get("prediccion_final", candidatos["prediccion_base"]),
+                errors="coerce",
+            )
+            predicciones.append(candidatos)
+
     for archivo, tipo_default in archivos_prediccion:
         if not archivo.exists():
             continue
