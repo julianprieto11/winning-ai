@@ -268,10 +268,16 @@ def registrar_resultados_fecha(fecha_numero):
         if not tapados.empty:
             tapados["tipo_registro"] = "TAPADO"
             tapados["perfil"] = "TAPADOS"
+            # Para TAPADOS la prediccion que realmente usa el detector
+            # es el P90 ajustado por aprendizaje, no el P90 base.
             tapados["prediccion_base"] = pd.to_numeric(
-                tapados.get("pre_sim_p90_ajustada"),
+                tapados.get("tapado_p90_aprendizaje", tapados.get("pre_sim_p90_ajustada")),
                 errors="coerce",
             )
+            tapados["correccion_aprendizaje"] = pd.to_numeric(
+                tapados.get("tapado_correccion_aprendizaje", 0.0),
+                errors="coerce",
+            ).fillna(0.0)
             tapados["prediccion_final"] = tapados["prediccion_base"]
             predicciones.append(tapados)
 
