@@ -5,6 +5,65 @@ POSICIONES_TAPADO = ("DEF", "VOL", "DEL")
 MIN_POTENCIAL_PERCENTIL = 0.60
 TOP_TAPADOS_POR_POSICION = 10
 
+# ============================================================
+# RECONOCIMIENTO HISTORICO DEL JUGADOR
+# ============================================================
+EXPERIENCIA_FILE = "datos/aprendizaje_predicciones.csv"
+
+def _penalizacion_tapado_por_frecuencia(cantidad):
+    cantidad = int(max(0, cantidad))
+    if cantidad <= 0: return 0.00
+    if cantidad == 1: return 0.05
+    if cantidad == 2: return 0.10
+    if cantidad == 3: return 0.15
+    if cantidad == 4: return 0.20
+    if cantidad == 5: return 0.30
+    if cantidad == 6: return 0.40
+    if cantidad == 7: return 0.50
+    return 0.60
+
+def _penalizacion_titular_por_frecuencia(cantidad):
+    return min(0.90, max(0, int(cantidad)) * 0.25)
+
+def _penalizacion_flex_por_frecuencia(cantidad):
+    return min(0.80, max(0, int(cantidad)) * 0.20)
+
+def calcular_reconocimiento_historico(candidatos, fecha_objetivo=None, experiencia_file=EXPERIENCIA_FILE):
+    df = candidatos.copy()
+    columnas = ["veces_titular_historico","veces_flex_historico","veces_tapado_historico","penalizacion_titular_historico","penalizacion_flex_historico","penalizacion_tapado_historico","penalizacion_reconocimiento","factor_reconocimiento_tapado"]
+    for c in columnas: df[c] = 0.0
+    if df.empty: return df
+    try: experiencia = pd.read_csv(experiencia_file, low_memory=False)
+    except Exception: experiencia = pd.DataFrame()
+    if experiencia.empty: return df
+    requeridas = {"player_id", "tipo_registro", "fecha"}
+    if not requeridas.issubset(experiencia.columns): return df
+    experiencia = experiencia.copy()
+    experiencia["player_id"] = experiencia["player_id"].astype(str)
+    experiencia["tipo_registro"] = experiencia["tipo_registro"].astype(str).str.upper().str.strip()
+    experiencia["fecha"] = pd.to_numeric(experiencia["fecha"], errors="coerce")
+    if fecha_objetivo is not None:
+        experiencia = experiencia[experiencia["fecha"] < int(fecha_objetivo)].copy()
+    experiencia = experiencia[experiencia["tipo_registro"].isin({"TITULAR","FLEX","TAPADO"}) & experiencia["fecha"].notna()].copy()
+    if experiencia.empty: return df
+    conteos = (experiencia.drop_duplicates(["player_id","fecha","tipo_registro"]).groupby(["player_id","tipo_registro"]).size().unstack(fill_value=0))
+    for idx, jugador in df.iterrows():
+        pid = str(jugador.get("player_id", ""))
+        if pid not in conteos.index: continue
+        fila = conteos.loc[pid]
+        nt = int(fila.get("TITULAR", 0)); nf = int(fila.get("FLEX", 0)); na = int(fila.get("TAPADO", 0))
+        pt = _penalizacion_titular_por_frecuencia(nt); pf = _penalizacion_flex_por_frecuencia(nf); pa = _penalizacion_tapado_por_frecuencia(na)
+        p = max(pt, pf, pa)
+        df.at[idx,"veces_titular_historico"] = nt
+        df.at[idx,"veces_flex_historico"] = nf
+        df.at[idx,"veces_tapado_historico"] = na
+        df.at[idx,"penalizacion_titular_historico"] = pt
+        df.at[idx,"penalizacion_flex_historico"] = pf
+        df.at[idx,"penalizacion_tapado_historico"] = pa
+        df.at[idx,"penalizacion_reconocimiento"] = p
+        df.at[idx,"factor_reconocimiento_tapado"] = 1.0 - p
+    return df
+
 
 def _percentil_serie(serie):
     s = pd.to_numeric(serie, errors="coerce")
@@ -98,7 +157,7 @@ def calcular_minutos_esperados(historico, candidatos):
     return resultado
 
 
-def detectar_tapados(candidatos, historico=None):
+def detectar_tapados(candidatos, historico=None, fecha_objetivo=None):
     """
     Detector independiente de TAPADOS.
 
@@ -127,6 +186,7 @@ def detectar_tapados(candidatos, historico=None):
         return df
 
     df = calcular_minutos_esperados(historico, df)
+    df = calcular_reconocimiento_historico(df, fecha_objetivo=fecha_objetivo)
 
     columnas = [
         "pre_sim_p75_ajustada",
@@ -190,9 +250,16 @@ def detectar_tapados(candidatos, historico=None):
         - df["tapado_reconocimiento"]
     )
 
-    df["score_tapado"] = (
+    df["score_tapado_base"] = (
         df["tapado_gap"] * 0.70
         + df["tapado_potencial"] * 0.30
+    )
+
+    # La frecuencia histórica reduce el score, pero no elimina al jugador.
+    # Un matchup/contexto excepcional puede volver a levantarlo.
+    df["score_tapado"] = (
+        df["score_tapado_base"]
+        * df["factor_reconocimiento_tapado"].clip(0.40, 1.00)
     )
 
     df["tapado_potencial_suficiente"] = (
