@@ -12,6 +12,7 @@ OUTPUT_CSV = Path("datos/rankings_jugadores.csv")
 OUTPUT_XLSX = Path("datos/rankings_jugadores.xlsx")
 PITCHAPI_PLAYERS_DIR = Path("datos/pitchapi")
 PITCHAPI_LINEUPS_DIR = Path("datos/pitchapi/lineups")
+DATOS_DIR = Path("datos")
 
 MIN_MINUTES = 450
 MIN_TITULARIDADES_ULTIMOS_5 = 3
