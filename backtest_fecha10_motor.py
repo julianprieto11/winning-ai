@@ -2711,11 +2711,25 @@ def construir_flex(
         ].astype(str)
     )
 
-    titulares_clubes = set(
-        titulares[
-            "team_id"
-        ].astype(str)
-    )
+    # ========================================================
+    # LÍMITE DE 3 JUGADORES POR CLUB
+    #
+    # La regla aplica al conjunto TITULARES + FLEX del perfil.
+    # Por eso contamos los clubes de los titulares y vamos
+    # descontando los cupos disponibles mientras agregamos FLEX.
+    # ========================================================
+
+    clubes_usados = {}
+
+    if (
+        titulares is not None
+        and not titulares.empty
+        and "team_id" in titulares.columns
+    ):
+        for team_id in titulares["team_id"].astype(str):
+            clubes_usados[team_id] = (
+                clubes_usados.get(team_id, 0) + 1
+            )
 
     for posicion in [
         "DEF",
@@ -2766,6 +2780,12 @@ def construir_flex(
 
             if player_id in flex_global:
 
+                return -999999
+
+            # La regla de máximo 3 por club es absoluta para
+            # TITULARES + FLEX dentro del mismo perfil.
+            # Si el club ya tiene 3 titulares, no puede aportar FLEX.
+            if clubes_usados.get(team_id, 0) >= 3:
                 return -999999
 
             if player_id in titulares_ids:
@@ -2830,6 +2850,12 @@ def construir_flex(
 
             flex_global.add(
                 player_id
+            )
+
+            # Registrar también el club: el contador incluye
+            # titulares + FLEX y nunca puede superar 3.
+            clubes_usados[team_id] = (
+                clubes_usados.get(team_id, 0) + 1
             )
 
             cantidad += 1
