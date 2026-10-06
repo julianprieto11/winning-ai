@@ -90,15 +90,29 @@ def _banda_contexto(valor):
     return "NEUTRO"
 
 
-def construir_patrones(fila):
-    """Patrones deliberadamente simples para evitar sobreajuste temprano."""
+def construir_patrones(fila, solo_tipo=False):
+    """Patrones simples; los tipos finales pueden usar memoria especifica."""
     posicion = str(fila.get("position", "")).upper()
     local = "LOCAL" if _normalizar_bool(fila.get("es_local")) else "VISITANTE"
     form = _banda_form(fila.get("promedio"))
     matchup = _banda_matchup(fila.get("matchup_score"))
     contexto = _banda_contexto(fila.get("factor_contexto"))
+    tipo = str(fila.get("tipo_aprendizaje", fila.get("tipo_registro", ""))).upper().strip()
 
-    return [
+    especificos = []
+    if tipo in {"TITULAR", "FLEX", "TAPADO"}:
+        especificos = [
+            ("TIPO_POSICION", f"{tipo}|{posicion}"),
+            ("TIPO_POSICION_LOCALIA", f"{tipo}|{posicion}|{local}"),
+            ("TIPO_POSICION_FORMA", f"{tipo}|{posicion}|{form}"),
+            ("TIPO_POSICION_MATCHUP", f"{tipo}|{posicion}|{matchup}"),
+            ("TIPO_POSICION_CONTEXTO", f"{tipo}|{posicion}|{contexto}"),
+        ]
+
+    if solo_tipo:
+        return especificos
+
+    return especificos + [
         ("POSICION", posicion),
         ("POSICION_LOCALIA", f"{posicion}|{local}"),
         ("POSICION_FORMA", f"{posicion}|{form}"),
@@ -439,20 +453,18 @@ def construir_memoria(experiencia=None):
     filas = []
 
     for _, fila in experiencia.iterrows():
+        # CANDIDATO no es una prediccion final y no debe contaminar
+        # la memoria que corrige las decisiones del motor.
+        tipo_registro = str(fila.get("tipo_registro", "")).upper().strip()
+        if tipo_registro == "CANDIDATO":
+            continue
         error = _float(fila.get("error_base"))
         if not np.isfinite(error):
             continue
+        fila_patrones = fila.copy()
+        fila_patrones["tipo_aprendizaje"] = tipo_registro
+        for tipo, clave in construir_patrones(fila_patrones):
 
-        for tipo, clave in construir_patrones(fila):
-            filas.append(
-                {
-                    "patron_tipo": tipo,
-                    "patron": clave,
-                    "fecha_maxima": int(_float(fila.get("fecha"), 0)),
-                    "error_base": error,
-                    "error_abs": abs(error),
-                }
-            )
 
     if not filas:
         _guardar_memoria(pd.DataFrame())
@@ -553,27 +565,47 @@ def aplicar_correccion(candidatos, fecha_objetivo):
         correcciones = []
         casos_total = 0
         patrones = []
+        tipo_aprendizaje = str(fila.get("tipo_aprendizaje", fila.get("tipo_registro", ""))).upper().strip()
+        especificos = construir_patrones(fila, solo_tipo=True) if tipo_aprendizaje in {"TITULAR", "FLEX", "TAPADO"} else []
 
-        for tipo, clave in construir_patrones(fila):
+        # Prioridad: memoria del mismo tipo de decision.
+        encontrados = []
+        for tipo, clave in especificos:
             m = memoria[
                 (memoria["patron_tipo"] == tipo)
                 & (memoria["patron"] == clave)
                 & (pd.to_numeric(memoria["casos"], errors="coerce") >= MIN_CASOS)
             ]
+            if not m.empty:
+                registro = m.iloc[0]
+                corr = _float(registro.get("correccion"), 0.0)
+                casos = int(_float(registro.get("casos"), 0))
+                if np.isfinite(corr) and corr != 0:
+                    encontrados.append((corr, max(casos, 1), f"{tipo}:{clave}", casos))
 
-            if m.empty:
-                continue
+        if encontrados:
+            for corr, peso, patron, casos in encontrados:
+                correcciones.append((corr, peso))
+                casos_total += casos
+                patrones.append(patron)
+        else:
+            for tipo, clave in construir_patrones(fila):
+                m = memoria[
+                    (memoria["patron_tipo"] == tipo)
+                    & (memoria["patron"] == clave)
+                    & (pd.to_numeric(memoria["casos"], errors="coerce") >= MIN_CASOS)
+                ]
+                if m.empty:
+                    continue
+                registro = m.iloc[0]
+                corr = _float(registro.get("correccion"), 0.0)
+                casos = int(_float(registro.get("casos"), 0))
+                if not np.isfinite(corr) or corr == 0:
+                    continue
+                correcciones.append((corr, max(casos, 1)))
+                casos_total += casos
+                patrones.append(f"{tipo}:{clave}")
 
-            registro = m.iloc[0]
-            corr = _float(registro.get("correccion"), 0.0)
-            casos = int(_float(registro.get("casos"), 0))
-
-            if not np.isfinite(corr) or corr == 0:
-                continue
-
-            correcciones.append((corr, max(casos, 1)))
-            casos_total += casos
-            patrones.append(f"{tipo}:{clave}")
 
         if correcciones:
             # Los patrones más específicos tienen más peso, pero no se
