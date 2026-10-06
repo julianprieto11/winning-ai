@@ -1,3 +1,4 @@
+import argparse
 import json
 from pathlib import Path
 
@@ -1156,7 +1157,34 @@ def format_workbook(wb):
 # MAIN
 # ============================================================
 
-def main():
+def obtener_corte_fecha(fecha):
+    """Devuelve la fecha de inicio de la ronda Clausura indicada, si está disponible."""
+    if fecha is None:
+        return None
+    fechas = []
+    partidos_dir = DATOS / "partidos"
+    for ruta in partidos_dir.glob("*.json") if partidos_dir.exists() else []:
+        try:
+            with ruta.open("r", encoding="utf-8") as f:
+                payload = json.load(f)
+            evento = payload.get("event", {})
+            if isinstance(evento, dict) and "event" in evento:
+                evento = evento["event"]
+            round_info = evento.get("roundInfo", {}) or {}
+            season = evento.get("season", {}) or {}
+            ts = evento.get("startTimestamp")
+            if int(round_info.get("round", -1)) != int(fecha):
+                continue
+            if season.get("id") not in (None, 87913):
+                continue
+            if ts:
+                import datetime as _dt
+                fechas.append(_dt.datetime.fromtimestamp(int(ts), tz=_dt.timezone.utc).date())
+        except Exception:
+            continue
+    return min(fechas) if fechas else None
+
+def main(fecha=None):
     print("=" * 90)
     print("RANKING DE EQUIPOS - BLOQUES DE PODERÍO")
     print("=" * 90)
@@ -1170,6 +1198,27 @@ def main():
         DATASET,
         low_memory=False,
     )
+
+    corte = obtener_corte_fecha(fecha)
+    if corte is not None:
+        fecha_col = find_col(df, ALIASES["date"])
+        if fecha_col:
+            df[fecha_col] = pd.to_datetime(df[fecha_col], errors="coerce")
+            df = df[df[fecha_col] < pd.Timestamp(corte)].copy()
+        print(f"Fecha objetivo: {fecha} | corte histórico: {corte}")
+    elif fecha is not None:
+        print(f"Fecha objetivo: {fecha} | no se encontró el calendario local de esa ronda; se usa todo el dataset disponible.")
+
+    if fecha is not None:
+        output_dir = DATOS / "rankings" / f"fecha_{int(fecha)}"
+        output_xlsx = output_dir / "ranking_equipos_bloques.xlsx"
+        output_hist_csv = output_dir / "ranking_equipos_bloques_historico.csv"
+        output_recent_csv = output_dir / "ranking_equipos_bloques_ultimos_5.csv"
+    else:
+        output_dir = DATOS
+        output_xlsx = OUTPUT_XLSX
+        output_hist_csv = DATOS / "ranking_equipos_bloques_historico.csv"
+        output_recent_csv = DATOS / "ranking_equipos_bloques_ultimos_5.csv"
 
     print(
         f"Dataset: {df.shape[0]} filas x "
@@ -1299,14 +1348,16 @@ def main():
         hist_csv[key] = hist_blocks[key]["data"]["Puntaje"].values
         recent_csv[key] = recent_blocks[key]["data"]["Puntaje"].values
 
+    output_dir.mkdir(parents=True, exist_ok=True)
+
     hist_csv.to_csv(
-        DATOS / "ranking_equipos_bloques_historico.csv",
+        output_hist_csv,
         index=False,
         encoding="utf-8-sig",
     )
 
     recent_csv.to_csv(
-        DATOS / "ranking_equipos_bloques_ultimos_5.csv",
+        output_recent_csv,
         index=False,
         encoding="utf-8-sig",
     )
@@ -1349,12 +1400,12 @@ def main():
     format_workbook(wb)
 
     wb.save(
-        OUTPUT_XLSX
+        output_xlsx
     )
 
     print()
     print(
-        f"OK Excel: {OUTPUT_XLSX}"
+        f"OK Excel: {output_xlsx}"
     )
     print(
         "OK CSV histórico: "
@@ -1384,4 +1435,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Ranking de equipos WINNING AI, actualizable por fecha.")
+    parser.add_argument("fecha", nargs="?", type=int, help="Fecha objetivo. Ej.: 12")
+    args = parser.parse_args()
+    main(args.fecha)
