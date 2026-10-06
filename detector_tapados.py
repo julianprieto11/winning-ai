@@ -4,6 +4,8 @@ import pandas as pd
 POSICIONES_TAPADO = ("DEF", "VOL", "DEL")
 MIN_POTENCIAL_PERCENTIL = 0.60
 TOP_TAPADOS_POR_POSICION = 10
+MAX_TITULARES_PARA_TAPADO = 3
+MAX_FLEX_PARA_TAPADO = 3
 
 # ============================================================
 # RECONOCIMIENTO HISTORICO DEL JUGADOR
@@ -62,6 +64,10 @@ def calcular_reconocimiento_historico(candidatos, fecha_objetivo=None, experienc
         df.at[idx,"penalizacion_tapado_historico"] = pa
         df.at[idx,"penalizacion_reconocimiento"] = p
         df.at[idx,"factor_reconocimiento_tapado"] = 1.0 - p
+        df.at[idx,"bloqueado_por_reconocimiento"] = bool(
+            nt > MAX_TITULARES_PARA_TAPADO
+            or nf > MAX_FLEX_PARA_TAPADO
+        )
     return df
 
 
@@ -276,6 +282,7 @@ def detectar_tapados(candidatos, historico=None, fecha_objetivo=None):
         grupo = df.loc[
             mask
             & mascara_tapado
+            & (~df["bloqueado_por_reconocimiento"].astype(bool))
             & df["tapado_potencial_suficiente"]
         ].copy()
 
