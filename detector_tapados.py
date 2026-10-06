@@ -213,6 +213,34 @@ def detectar_tapados(candidatos, historico=None, fecha_objetivo=None):
             df[col] = np.nan
         df[col] = pd.to_numeric(df[col], errors="coerce")
 
+    # El aprendizaje puede rescatar falsos negativos, pero de forma
+    # deliberadamente conservadora: solo corrige el P90 hasta +/-2 puntos
+    # y nunca reemplaza la simulacion base.
+    base_p90 = pd.to_numeric(
+        df["pre_sim_p90_ajustada"],
+        errors="coerce",
+    )
+    df["tapado_correccion_aprendizaje"] = 0.0
+    df["tapado_p90_aprendizaje"] = base_p90
+
+    if fecha_objetivo is not None:
+        aprendizaje = df.copy()
+        aprendizaje["score_seleccion"] = base_p90
+        aprendizaje = aplicar_correccion(
+            aprendizaje,
+            fecha_objetivo=int(fecha_objetivo),
+        )
+        correccion = pd.to_numeric(
+            aprendizaje["correccion_aprendizaje"],
+            errors="coerce",
+        ).fillna(0.0)
+        correccion = (correccion * 0.50).clip(-2.0, 2.0)
+
+        df["tapado_correccion_aprendizaje"] = correccion
+        df["tapado_p90_aprendizaje"] = (
+            base_p90 + correccion
+        ).clip(lower=0.0)
+
     mascara_tapado = (
         df.get("elegible_tapado", pd.Series(False, index=df.index))
         .fillna(False)
