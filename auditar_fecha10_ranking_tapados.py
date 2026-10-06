@@ -64,9 +64,9 @@ def main():
     escenarios = [
         ("ACTUAL", lambda s, f: s * f),
         ("SIN_PENALIZACION", lambda s, f: s),
-        ("PISO_070", lambda s, f: s * max(f, 0.70)),
-        ("PISO_080", lambda s, f: s * max(f, 0.80)),
-        ("PISO_090", lambda s, f: s * max(f, 0.90)),
+        ("PISO_070", lambda s, f: s * f.clip(lower=0.70)),
+        ("PISO_080", lambda s, f: s * f.clip(lower=0.80)),
+        ("PISO_090", lambda s, f: s * f.clip(lower=0.90)),
     ]
 
     resultados = []
