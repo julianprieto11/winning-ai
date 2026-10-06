@@ -225,6 +225,10 @@ def detectar_tapados(candidatos, historico=None, fecha_objetivo=None):
 
     if fecha_objetivo is not None:
         aprendizaje = df.copy()
+        # En TAPADOS la memoria debe aprender exclusivamente de
+        # experiencias TAPADO anteriores, no de TITULAR/FLEX ni del
+        # universo CANDIDATO.
+        aprendizaje["tipo_aprendizaje"] = "TAPADO"
         aprendizaje["score_seleccion"] = base_p90
         aprendizaje = aplicar_correccion(
             aprendizaje,
