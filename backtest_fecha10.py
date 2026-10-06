@@ -3387,27 +3387,31 @@ def construir_flex(
     # LÍMITE DE 3 JUGADORES POR CLUB
     #
     # La regla es sobre TITULARES + FLEX dentro de cada perfil.
-    # Partimos contando todos los titulares del perfil y luego
-    # consumimos los cupos restantes al seleccionar FLEX.
+    # Usamos team_name como clave principal porque es el identificador
+    # común que llega tanto en titulares como en candidatos FLEX.
+    # team_id queda como fallback cuando team_name no existe.
     # --------------------------------------------------------
+
+    def clave_club(jugador):
+        nombre = str(jugador.get("team_name", "") or "").strip().upper()
+        if nombre and nombre != "NAN":
+            return f"NOMBRE:{nombre}"
+
+        team_id = str(jugador.get("team_id", "") or "").strip()
+        if team_id and team_id != "nan":
+            return f"ID:{team_id}"
+
+        return ""
 
     clubes_usados = {}
 
-    # IMPORTANTE:
-    # Los cupos de club se inicializan a partir de los TITULARES
-    # reales ya seleccionados para este perfil.
-    #
-    # jugadores_titulares_equipo contiene solo IDs. Por eso usamos
-    # el detalle completo de los titulares para conocer su team_id.
-    # Esto evita depender de candidatos_flex, que puede no contener
-    # a los titulares ya seleccionados.
+    # Contar TODOS los titulares reales del perfil antes de elegir FLEX.
+    # Esto garantiza que 3 titulares de un club dejan CERO cupos para FLEX.
     if titulares_equipo_detalle is not None:
         for jugador in titulares_equipo_detalle:
-            team_id = str(jugador.get("team_id", "") or "")
-            if team_id:
-                clubes_usados[team_id] = (
-                    clubes_usados.get(team_id, 0) + 1
-                )
+            club = clave_club(jugador)
+            if club:
+                clubes_usados[club] = clubes_usados.get(club, 0) + 1
 
     # --------------------------------------------------------
     # CADA POSICIÓN
@@ -3573,8 +3577,18 @@ def construir_flex(
                 continue
 
             # Máximo 3 por club contando TITULARES + FLEX.
-            team_id = str(jugador["team_id"])
-            if clubes_usados.get(team_id, 0) >= 3:
+            # La comparación usa la misma clave para titulares y FLEX.
+            club = clave_club(jugador)
+            if not club:
+                print(
+                    "ADVERTENCIA FLEX:",
+                    perfil_equipo,
+                    "| jugador sin club identificable:",
+                    player_id
+                )
+                continue
+
+            if clubes_usados.get(club, 0) >= 3:
                 continue
 
             jugador_dict = (
@@ -3626,9 +3640,7 @@ def construir_flex(
             )
 
             # El FLEX recién agregado consume un cupo del club.
-            clubes_usados[team_id] = (
-                clubes_usados.get(team_id, 0) + 1
-            )
+            clubes_usados[club] = clubes_usados.get(club, 0) + 1
 
             seleccionados_posicion += 1
 
