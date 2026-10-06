@@ -311,6 +311,12 @@ def exportar_excel(equipos, flex_por_perfil, candidatos):
                 "Sim P75": j.get("pre_sim_p75_ajustada", ""),
                 "Sim P90": j.get("pre_sim_p90_ajustada", ""),
                 "Factor matchup": j.get("pre_sim_factor_matchup", ""),
+                "Veces titular histórico": j.get("veces_titular_historico", 0),
+                "Veces FLEX histórico": j.get("veces_flex_historico", 0),
+                "Veces TAPADO histórico": j.get("veces_tapado_historico", 0),
+                "Penalización reconocimiento": j.get("penalizacion_reconocimiento", 0),
+                "Penalización TAPADO histórico": j.get("penalizacion_tapado_historico", 0),
+                "Factor reconocimiento TAPADO": j.get("factor_reconocimiento_tapado", 1),
             })
 
     df = pd.DataFrame(filas)
@@ -460,7 +466,9 @@ def main():
     # Detector independiente de TAPADOS.
     # No modifica titulares ni el optimizador en esta etapa.
     candidatos_tapados = detector_tapados.detectar_tapados(
-        candidatos.copy(), historico
+        candidatos.copy(),
+        historico,
+        fecha_objetivo=FECHA_OBJETIVO,
     )
     candidatos_tapados.to_csv(
         SALIDA_TAPADOS, index=False, encoding="utf-8-sig"
@@ -496,7 +504,11 @@ def main():
                 "| gap:", round(float(j["tapado_gap"]), 3),
                 "| P90:", round(float(j["pre_sim_p90_ajustada"]), 2),
                 "| matchup:", round(float(j["matchup_score"]), 3)
-                if pd.notna(j["matchup_score"]) else "| matchup: N/D"
+                if pd.notna(j["matchup_score"]) else "| matchup: N/D",
+                "| titular:", int(j.get("veces_titular_historico", 0)),
+                "| flex:", int(j.get("veces_flex_historico", 0)),
+                "| tapado:", int(j.get("veces_tapado_historico", 0)),
+                "| penalización:", round(float(j.get("penalizacion_reconocimiento", 0)), 3),
             )
 
     print()
