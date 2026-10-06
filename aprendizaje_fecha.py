@@ -464,7 +464,15 @@ def construir_memoria(experiencia=None):
         fila_patrones = fila.copy()
         fila_patrones["tipo_aprendizaje"] = tipo_registro
         for tipo, clave in construir_patrones(fila_patrones):
-
+            filas.append(
+                {
+                    "patron_tipo": tipo,
+                    "patron": clave,
+                    "fecha_maxima": int(_float(fila.get("fecha"), 0)),
+                    "error_base": error,
+                    "error_abs": abs(error),
+                }
+            )
 
     if not filas:
         _guardar_memoria(pd.DataFrame())
