@@ -2721,6 +2721,12 @@ def construir_flex(
 
     clubes_usados = {}
 
+    titulares_clubes = set(
+        titulares[
+            "team_id"
+        ].astype(str)
+    )
+
     if (
         titulares is not None
         and not titulares.empty
@@ -2831,7 +2837,18 @@ def construir_flex(
                 ]
             )
 
+            team_id = str(
+                fila[
+                    "team_id"
+                ]
+            )
+
             if player_id in flex_global:
+                continue
+
+            # Bloqueo explícito: el máximo de 3 incluye
+            # titulares + FLEX del mismo perfil.
+            if clubes_usados.get(team_id, 0) >= 3:
                 continue
 
             fila = fila.copy()
