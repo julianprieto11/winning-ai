@@ -3383,6 +3383,25 @@ def construir_flex(
         return resultado
 
     # --------------------------------------------------------
+    # LÍMITE DE 3 JUGADORES POR CLUB
+    #
+    # La regla es sobre TITULARES + FLEX dentro de cada perfil.
+    # Partimos contando todos los titulares del perfil y luego
+    # consumimos los cupos restantes al seleccionar FLEX.
+    # --------------------------------------------------------
+
+    clubes_usados = {}
+
+    for jugador in candidatos_flex.itertuples(index=False):
+        player_id = str(getattr(jugador, "player_id", ""))
+        if player_id in jugadores_titulares_equipo:
+            team_id = str(getattr(jugador, "team_id", ""))
+            if team_id:
+                clubes_usados[team_id] = (
+                    clubes_usados.get(team_id, 0) + 1
+                )
+
+    # --------------------------------------------------------
     # CADA POSICIÓN
     # --------------------------------------------------------
 
@@ -3545,6 +3564,11 @@ def construir_flex(
             if player_id in ids_flex_usados:
                 continue
 
+            # Máximo 3 por club contando TITULARES + FLEX.
+            team_id = str(jugador["team_id"])
+            if clubes_usados.get(team_id, 0) >= 3:
+                continue
+
             jugador_dict = (
                 jugador.to_dict()
             )
@@ -3591,6 +3615,11 @@ def construir_flex(
 
             resultado.append(
                 jugador_dict
+            )
+
+            # El FLEX recién agregado consume un cupo del club.
+            clubes_usados[team_id] = (
+                clubes_usados.get(team_id, 0) + 1
             )
 
             seleccionados_posicion += 1
