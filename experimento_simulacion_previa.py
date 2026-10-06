@@ -226,6 +226,7 @@ def construir_flex(candidatos, equipos):
             candidatos.copy(), perfil, propios, otros,
             jugadores_titulares_global=titulares_global,
             flex_usados_global=flex_usados,
+            titulares_equipo_detalle=equipos.get(perfil, []),
         )
         flex_por_perfil[perfil] = flex
         flex_usados.update(str(j["player_id"]) for j in flex)
