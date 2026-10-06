@@ -3393,11 +3393,17 @@ def construir_flex(
     # --------------------------------------------------------
 
     def clave_club(jugador):
-        nombre = str(jugador.get("team_name", "") or "").strip().upper()
-        if nombre and nombre != "NAN":
+        # Clave canónica del club:
+        # - primero usamos team_name normalizado (acentos/mayúsculas/espacios);
+        # - team_id queda como fallback.
+        # Esto evita que "River Plate", "RIVER PLATE" o variantes
+        # con acentos/espacios se contabilicen como clubes distintos.
+        nombre = normalizar_texto(jugador.get("team_name", ""))
+        nombre = " ".join(nombre.split())
+        if nombre and nombre != "nan":
             return f"NOMBRE:{nombre}"
 
-        team_id = str(jugador.get("team_id", "") or "").strip()
+        team_id = str(jugador.get("team_id", "") or "").strip().lower()
         if team_id and team_id != "nan":
             return f"ID:{team_id}"
 
@@ -3666,12 +3672,72 @@ def construir_flex(
                 "| no se repitieron jugadores."
             )
 
+    # --------------------------------------------------------
+    # VALIDACIÓN FINAL ABSOLUTA: TITULARES + FLEX <= 3 POR CLUB
+    #
+    # Este control se ejecuta después de terminar todas las
+    # posiciones FLEX. Aunque alguna representación del club
+    # hubiera escapado al filtro anterior, NUNCA permitimos
+    # devolver un perfil inválido.
+    # --------------------------------------------------------
+
+    if resultado:
+        clubes_finales = {}
+
+        for titular in (titulares_equipo_detalle or []):
+            club = clave_club(titular)
+            if club:
+                clubes_finales[club] = clubes_finales.get(club, 0) + 1
+
+        resultado_valido = []
+
+        for jugador in resultado:
+            club = clave_club(jugador)
+
+            if not club:
+                # Un FLEX sin club identificable no puede formar parte
+                # de un resultado que deba cumplir el límite por club.
+                print(
+                    "ERROR FLEX:",
+                    perfil_equipo,
+                    "| se elimina jugador sin club identificable:",
+                    jugador.get("player_name", jugador.get("player_id", ""))
+                )
+                continue
+
+            cantidad_actual = clubes_finales.get(club, 0)
+
+            if cantidad_actual >= 3:
+                print(
+                    "ERROR FLEX:",
+                    perfil_equipo,
+                    "| se elimina FLEX que excedería el máximo de 3:",
+                    jugador.get("player_name", ""),
+                    "| club:",
+                    jugador.get("team_name", "")
+                )
+                continue
+
+            resultado_valido.append(jugador)
+            clubes_finales[club] = cantidad_actual + 1
+
+        resultado = resultado_valido
+
+        # Segundo pase de seguridad: si algo quedó inconsistente,
+        # fallamos explícitamente en lugar de devolver un equipo ilegal.
+        for club, cantidad in clubes_finales.items():
+            if cantidad > 3:
+                raise RuntimeError(
+                    f"REGLA MAX-3 VIOLADA en {perfil_equipo}: "
+                    f"{club} tiene {cantidad} jugadores entre TITULARES + FLEX."
+                )
+
     return resultado
 
 
 # ============================================================
 # CONTEXTO EXPLICATIVO PARA EXCEL
-# ============================================================
+# ============================================================""
 
 def _numero_contexto(valor):
     try:
