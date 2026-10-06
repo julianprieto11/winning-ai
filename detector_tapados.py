@@ -295,10 +295,42 @@ def detectar_tapados(candidatos, historico=None, fecha_objetivo=None):
 
     # La frecuencia histórica reduce el score, pero no elimina al jugador.
     # Un matchup/contexto excepcional puede volver a levantarlo.
-    df["score_tapado"] = (
+    # ------------------------------------------------------------
+    # VALOR FINAL DEL TAPADO
+    #
+    # score_tapado_base mide principalmente "sorpresa" respecto del
+    # reconocimiento historico. Eso sirve para DETECTAR, pero no es
+    # suficiente para decidir cual TAPADO conviene llevar finalmente.
+    #
+    # Una vez que titulares/FLEX quedan fuera del universo, necesitamos
+    # priorizar el valor de puntos potencial sin perder la condicion
+    # de TAPADO. Por eso combinamos:
+    #   50% P90 simulado ajustado
+    #   30% potencial TAPADO
+    #   20% sorpresa/reconocimiento
+    #
+    # La penalizacion historica sigue multiplicando el valor final.
+    # El score original se conserva como score_tapado_reconocimiento.
+    # ------------------------------------------------------------
+    df["score_tapado_reconocimiento"] = (
         df["score_tapado_base"]
         * df["factor_reconocimiento_tapado"].clip(0.40, 1.00)
     )
+
+    df["tapado_sorpresa_pct"] = _percentil_serie(
+        df["score_tapado_reconocimiento"].where(mascara_tapado)
+    )
+
+    df["tapado_valor_seleccion"] = (
+        df["tapado_p90_pct"] * 0.50
+        + df["tapado_potencial"] * 0.30
+        + df["tapado_sorpresa_pct"] * 0.20
+    ) * df["factor_reconocimiento_tapado"].clip(0.40, 1.00)
+
+    # Compatibilidad con el selector existente: score_tapado pasa a
+    # representar el valor FINAL de seleccion, mientras que el score
+    # puramente de reconocimiento queda preservado arriba.
+    df["score_tapado"] = df["tapado_valor_seleccion"]
 
     df["tapado_potencial_suficiente"] = (
         df["tapado_potencial"] >= MIN_POTENCIAL_PERCENTIL
