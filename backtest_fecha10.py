@@ -3313,7 +3313,8 @@ def construir_flex(
     jugadores_titulares_equipo,
     jugadores_titulares_otros,
     jugadores_titulares_global=None,
-    flex_usados_global=None
+    flex_usados_global=None,
+    titulares_equipo_detalle=None
 ):
 
     if jugadores_titulares_global is None:
@@ -3396,17 +3397,17 @@ def construir_flex(
     # Los cupos de club se inicializan a partir de los TITULARES
     # reales ya seleccionados para este perfil.
     #
-    # Antes se recorría candidatos_flex buscando esos titulares.
-    # Eso era incorrecto porque candidatos_flex puede no contener
-    # a todos los titulares. En consecuencia, un club con 3
-    # titulares podía quedar contabilizado como 0 y recibir un
-    # cuarto jugador en FLEX.
-    for jugador in jugadores_titulares_equipo:
-        team_id = str(jugador.get("team_id", "") or "")
-        if team_id:
-            clubes_usados[team_id] = (
-                clubes_usados.get(team_id, 0) + 1
-            )
+    # jugadores_titulares_equipo contiene solo IDs. Por eso usamos
+    # el detalle completo de los titulares para conocer su team_id.
+    # Esto evita depender de candidatos_flex, que puede no contener
+    # a los titulares ya seleccionados.
+    if titulares_equipo_detalle is not None:
+        for jugador in titulares_equipo_detalle:
+            team_id = str(jugador.get("team_id", "") or "")
+            if team_id:
+                clubes_usados[team_id] = (
+                    clubes_usados.get(team_id, 0) + 1
+                )
 
     # --------------------------------------------------------
     # CADA POSICIÓN
@@ -4677,6 +4678,10 @@ def main():
 
             flex_usados_global=(
                 flex_usados_global
+            ),
+
+            titulares_equipo_detalle=(
+                equipo
             )
         )
 
