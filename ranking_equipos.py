@@ -1409,11 +1409,11 @@ def main(fecha=None):
     )
     print(
         "OK CSV histórico: "
-        f"{DATOS / 'ranking_equipos_bloques_historico.csv'}"
+        f"{output_hist_csv}"
     )
     print(
         "OK CSV últimos 5: "
-        f"{DATOS / 'ranking_equipos_bloques_ultimos_5.csv'}"
+        f"{output_recent_csv}"
     )
     print()
     print("BLOQUES CALCULADOS:")
