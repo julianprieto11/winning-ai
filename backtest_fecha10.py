@@ -248,34 +248,94 @@ def calcular_matchup_directo(
             candidatos = exactas
 
     # --------------------------------------------------------
-    # Dentro del conjunto elegido, priorizamos registros con
-    # matchup_score disponible y luego el historial más reciente.
+    # AGREGACIÓN ROBUSTA DEL HISTORIAL
+    #
+    # NO tomamos el mejor partido histórico: eso introduce sesgo
+    # optimista y puede hacer que un único partido excepcional
+    # domine el matchup.
+    #
+    # Usamos una media ponderada por recencia. Si el registro es
+    # contra el mismo rival, recibe un peso adicional. De esta
+    # forma el matchup conserva señal histórica sin convertir un
+    # único partido en la predicción.
     # --------------------------------------------------------
-    if "matchup_score" in candidatos.columns:
-        score_numerico = pd.to_numeric(
-            candidatos["matchup_score"],
-            errors="coerce"
+
+    candidatos = candidatos.copy()
+
+    hoy = fecha
+    dias = (
+        hoy - candidatos["date"]
+    ).dt.days.clip(lower=0)
+
+    # Vida media aproximada de 180 días.
+    peso_recencia = np.power(
+        0.5,
+        dias / 180.0
+    )
+
+    if rival_objetivo and "rival_team_name" in candidatos.columns:
+        mismo_rival = (
+            candidatos["rival_team_name"]
+            .map(normalizar_texto)
+            == rival_objetivo
         )
-        candidatos = (
-            candidatos
-            .assign(_matchup_score_num=score_numerico)
-            .sort_values(
-                ["_matchup_score_num", "date"],
-                ascending=[False, False],
-                na_position="last"
-            )
+        peso_rival = np.where(
+            mismo_rival,
+            2.0,
+            1.0
         )
     else:
-        candidatos = candidatos.sort_values(
-            "date",
-            ascending=False
+        peso_rival = np.ones(len(candidatos))
+
+    candidatos["_peso_matchup"] = (
+        peso_recencia * peso_rival
+    )
+
+    peso_total = candidatos["_peso_matchup"].sum()
+
+    if peso_total <= 0:
+        return salida
+
+    # Variables de matchup que el motor puede consumir.
+    columnas_matchup = [
+        "matchup_arq",
+        "matchup_def",
+        "matchup_vol",
+        "matchup_del",
+        "matchup_score",
+        "matchup_variables_usadas",
+    ]
+
+    for columna in columnas_matchup:
+        if columna not in candidatos.columns:
+            continue
+
+        valores = pd.to_numeric(
+            candidatos[columna],
+            errors="coerce"
         )
 
-    fila = candidatos.iloc[0]
+        validos = valores.notna()
 
-    for columna in salida:
-        if columna in fila.index:
-            salida[columna] = fila[columna]
+        if not validos.any():
+            continue
+
+        pesos_validos = candidatos.loc[
+            validos,
+            "_peso_matchup"
+        ]
+
+        denominador = pesos_validos.sum()
+
+        if denominador <= 0:
+            continue
+
+        salida[columna] = float(
+            np.average(
+                valores.loc[validos],
+                weights=pesos_validos
+            )
+        )
 
     return salida
 
