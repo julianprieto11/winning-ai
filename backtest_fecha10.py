@@ -3392,14 +3392,21 @@ def construir_flex(
 
     clubes_usados = {}
 
-    for jugador in candidatos_flex.itertuples(index=False):
-        player_id = str(getattr(jugador, "player_id", ""))
-        if player_id in jugadores_titulares_equipo:
-            team_id = str(getattr(jugador, "team_id", ""))
-            if team_id:
-                clubes_usados[team_id] = (
-                    clubes_usados.get(team_id, 0) + 1
-                )
+    # IMPORTANTE:
+    # Los cupos de club se inicializan a partir de los TITULARES
+    # reales ya seleccionados para este perfil.
+    #
+    # Antes se recorría candidatos_flex buscando esos titulares.
+    # Eso era incorrecto porque candidatos_flex puede no contener
+    # a todos los titulares. En consecuencia, un club con 3
+    # titulares podía quedar contabilizado como 0 y recibir un
+    # cuarto jugador en FLEX.
+    for jugador in jugadores_titulares_equipo:
+        team_id = str(jugador.get("team_id", "") or "")
+        if team_id:
+            clubes_usados[team_id] = (
+                clubes_usados.get(team_id, 0) + 1
+            )
 
     # --------------------------------------------------------
     # CADA POSICIÓN
