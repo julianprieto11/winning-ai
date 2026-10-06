@@ -2087,7 +2087,9 @@ for match_id, partido in partidos.items():
             + puntos_arquero
             + goles_asistencias
             + puntos_disciplina
-            + resultado_puntos
+            # resultado_puntos es exclusivamente el bonus del DT
+            # (+3 victoria / +1 empate / 0 derrota). No se suma
+            # al puntaje individual de los jugadores.
             + bonus_resultado_jugador
             + puntos_valla
         )
