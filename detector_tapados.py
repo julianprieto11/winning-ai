@@ -37,6 +37,7 @@ def calcular_reconocimiento_historico(candidatos, fecha_objetivo=None, experienc
     columnas = ["veces_titular_historico","veces_flex_historico","veces_tapado_historico","penalizacion_titular_historico","penalizacion_flex_historico","penalizacion_tapado_historico","penalizacion_reconocimiento","factor_reconocimiento_tapado"]
     for c in columnas: df[c] = 0.0
     # Sin historial de reconocimiento = 0% de penalización.\n    # 1.0 es el factor neutro; no reconocer todavía a un jugador\n    # no debe castigarlo automáticamente.\n    df["factor_reconocimiento_tapado"] = 1.0
+    df["bloqueado_por_reconocimiento"] = False
     if df.empty: return df
     try: experiencia = pd.read_csv(experiencia_file, low_memory=False)
     except Exception: experiencia = pd.DataFrame()
