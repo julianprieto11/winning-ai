@@ -1,3 +1,4 @@
+import argparse
 import json
 from pathlib import Path
 
@@ -440,7 +441,7 @@ def construir_df_ultimos_5(
 
     return pd.concat(partes, ignore_index=True)
 
-def generar_excel(salida_historica, salida_ultimos_5):
+def generar_excel(salida_historica, salida_ultimos_5, output_xlsx=OUTPUT_XLSX):
     wb = Workbook()
 
     azul = "001E5F"
@@ -647,9 +648,36 @@ def generar_excel(salida_historica, salida_ultimos_5):
         info.row_dimensions[f].height = 42
         f += 1
 
-    wb.save(OUTPUT_XLSX)
+    output_xlsx.parent.mkdir(parents=True, exist_ok=True)
+    wb.save(output_xlsx)
 
-def main():
+def obtener_corte_fecha(fecha):
+    """Devuelve la fecha de inicio de la ronda Clausura indicada, si está disponible."""
+    if fecha is None:
+        return None
+    fechas = []
+    for ruta in (DATOS_DIR / "partidos").glob("*.json") if (DATOS_DIR / "partidos").exists() else []:
+        try:
+            with ruta.open("r", encoding="utf-8") as f:
+                payload = json.load(f)
+            evento = payload.get("event", {})
+            if isinstance(evento, dict) and "event" in evento:
+                evento = evento["event"]
+            round_info = evento.get("roundInfo", {}) or {}
+            season = evento.get("season", {}) or {}
+            ts = evento.get("startTimestamp")
+            if int(round_info.get("round", -1)) != int(fecha):
+                continue
+            if season.get("id") not in (None, 87913):
+                continue
+            if ts:
+                import datetime as _dt
+                fechas.append(_dt.datetime.fromtimestamp(int(ts), tz=_dt.timezone.utc).date())
+        except Exception:
+            continue
+    return min(fechas) if fechas else None
+
+def main(fecha=None):
     if not INPUT.exists():
         raise FileNotFoundError(f"No existe {INPUT}")
     if not PITCHAPI_PLAYERS_DIR.exists():
@@ -659,6 +687,24 @@ def main():
 
     df = pd.read_csv(INPUT)
     df, col_player, col_name, col_pos, col_minutes, col_club, col_team, col_date, col_match = preparar(df)
+
+    corte = obtener_corte_fecha(fecha)
+    if corte is not None:
+        df = df[df[col_date] < pd.Timestamp(corte)].copy()
+        print(f"Fecha objetivo: {fecha} | corte histórico: {corte}")
+    elif fecha is not None:
+        print(f"Fecha objetivo: {fecha} | no se encontró el calendario local de esa ronda; se usa todo el dataset disponible.")
+
+    if fecha is not None:
+        output_dir = Path("datos") / "rankings" / f"fecha_{int(fecha)}"
+        output_csv = output_dir / "rankings_jugadores.csv"
+        output_csv_ultimos_5 = output_dir / "rankings_jugadores_ultimos_5.csv"
+        output_xlsx = output_dir / "rankings_jugadores.xlsx"
+    else:
+        output_dir = OUTPUT_CSV.parent
+        output_csv = OUTPUT_CSV
+        output_csv_ultimos_5 = Path("datos/rankings_jugadores_ultimos_5.csv")
+        output_xlsx = OUTPUT_XLSX
 
     # Últimos 5 partidos de cada club. La actividad se mide contra estos
     # partidos, no contra los últimos 5 que haya jugado cada futbolista.
@@ -719,17 +765,15 @@ def main():
     salida_historica = pd.concat(resultados_historicos, ignore_index=True)
     salida_ultimos_5 = pd.concat(resultados_ultimos_5, ignore_index=True)
 
-    OUTPUT_CSV.parent.mkdir(parents=True, exist_ok=True)
-    salida_historica.to_csv(OUTPUT_CSV, index=False, encoding="utf-8-sig")
-
-    output_csv_ultimos_5 = Path("datos/rankings_jugadores_ultimos_5.csv")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    salida_historica.to_csv(output_csv, index=False, encoding="utf-8-sig")
     salida_ultimos_5.to_csv(output_csv_ultimos_5, index=False, encoding="utf-8-sig")
 
-    generar_excel(salida_historica, salida_ultimos_5)
+    generar_excel(salida_historica, salida_ultimos_5, output_xlsx)
 
-    print(f"CSV histórico generado: {OUTPUT_CSV}")
+    print(f"CSV histórico generado: {output_csv}")
     print(f"CSV últimos 5 generado: {output_csv_ultimos_5}")
-    print(f"Excel generado: {OUTPUT_XLSX}")
+    print(f"Excel generado: {output_xlsx}")
     print(f"Filas de ranking histórico: {len(salida_historica)}")
     print(f"Filas de ranking últimos 5: {len(salida_ultimos_5)}")
     print(f"Jugadores únicos en dataset: {df[col_player].nunique()}")
@@ -745,4 +789,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Ranking de jugadores WINNING AI, actualizable por fecha.")
+    parser.add_argument("fecha", nargs="?", type=int, help="Fecha objetivo. Ej.: 12")
+    args = parser.parse_args()
+    main(args.fecha)
