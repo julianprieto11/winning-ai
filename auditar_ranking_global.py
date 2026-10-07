@@ -24,20 +24,88 @@ def cargar_universo_candidatos(hasta):
             continue
         if bloque.empty or "player_id" not in bloque.columns:
             continue
+        bloque = bloque.copy()
         bloque["fecha"] = numero
-        bloque["tipo_registro"] = "CANDIDATO"
-        if "prediccion_base" not in bloque.columns:
-            bloque["prediccion_base"] = pd.to_numeric(
-                bloque.get("score_seleccion"), errors="coerce"
-            )
-        bloque["prediccion_final"] = pd.to_numeric(
-            bloque.get("prediccion_final", bloque["prediccion_base"]),
-            errors="coerce",
-        )
+        if "pre_sim_p90_ajustada" in bloque.columns:
+            bloque["prediccion_base"] = num(bloque["pre_sim_p90_ajustada"])
+        elif "score_pre_sim_ARRIESGADO" in bloque.columns:
+            bloque["prediccion_base"] = num(bloque["score_pre_sim_ARRIESGADO"])
+        else:
+            bloque["prediccion_base"] = np.nan
+        bloque["prediccion_final"] = bloque["prediccion_base"]
         filas.append(bloque)
     if not filas:
         return pd.DataFrame()
-    return pd.concat(filas, ignore_index=True, sort=False)
+    return pd.concat(filas, ignore_index=True, sort=False).copy()
+
+
+def normalizar_player_id(s):
+    s = s.astype(str).str.strip()
+    return s.str.replace(r"\.0$", "", regex=True)
+
+
+def cargar_puntos_reales(candidatos):
+    candidatos = candidatos.copy()
+    candidatos["player_id"] = normalizar_player_id(candidatos["player_id"])
+    candidatos["puntos_reales"] = np.nan
+
+    # Primero usamos el histórico principal PitchAPI: es la fuente real
+    # de puntos y contiene también jugadores que no fueron seleccionados.
+    historico = DATOS / "dataset_winning_pitchapi.csv"
+    if historico.exists():
+        try:
+            h = pd.read_csv(historico, low_memory=False)
+            col_fecha = next((c for c in ["date", "fecha_partido", "fecha"] if c in h.columns), None)
+            col_puntos = next((c for c in ["winning_total", "puntos_reales"] if c in h.columns), None)
+            if col_fecha and col_puntos and "player_id" in h.columns:
+                h = h[["player_id", col_fecha, col_puntos]].copy()
+                h["player_id"] = normalizar_player_id(h["player_id"])
+                h["_fecha"] = pd.to_datetime(h[col_fecha], errors="coerce").dt.normalize()
+                h["puntos_reales"] = num(h[col_puntos])
+                h = h.dropna(subset=["player_id", "_fecha", "puntos_reales"])
+                candidatos["_fecha"] = pd.to_datetime(
+                    candidatos.get("fecha_partido", pd.NaT), errors="coerce"
+                ).dt.normalize()
+                # Si el snapshot no tiene fecha calendario, usamos la fecha
+                # numérica para cruzar contra aprendizaje_predicciones.
+                if candidatos["_fecha"].notna().any():
+                    candidatos = candidatos.merge(
+                        h[["player_id", "_fecha", "puntos_reales"]].drop_duplicates(
+                            ["player_id", "_fecha"], keep="last"
+                        ),
+                        on=["player_id", "_fecha"],
+                        how="left",
+                        suffixes=("", "_hist"),
+                    )
+                    candidatos["puntos_reales"] = candidatos["puntos_reales_hist"].combine_first(
+                        candidatos["puntos_reales"]
+                    )
+                    candidatos = candidatos.drop(columns=["puntos_reales_hist"])
+        except Exception:
+            pass
+
+    # Fallback robusto: experiencia cerrada para los jugadores seleccionados.
+    if "puntos_reales" not in candidatos.columns or candidatos["puntos_reales"].isna().all():
+        reales = pd.read_csv(EXPERIENCIA, low_memory=False)
+        reales["player_id"] = normalizar_player_id(reales["player_id"])
+        reales["fecha"] = num(reales["fecha"])
+        reales["puntos_reales"] = num(reales["puntos_reales"])
+        reales = reales[["fecha", "player_id", "puntos_reales"]].drop_duplicates(
+            ["fecha", "player_id"], keep="last"
+        )
+        candidatos = candidatos.merge(
+            reales,
+            on=["fecha", "player_id"],
+            how="left",
+            suffixes=("", "_exp"),
+        )
+        if "puntos_reales_exp" in candidatos.columns:
+            candidatos["puntos_reales"] = candidatos["puntos_reales"].combine_first(
+                candidatos["puntos_reales_exp"]
+            )
+            candidatos = candidatos.drop(columns=["puntos_reales_exp"])
+
+    return candidatos.drop(columns=["_fecha"], errors="ignore")
 
 
 TIPOS_SELECCION = {"TITULAR", "FLEX", "TAPADO"}
@@ -102,22 +170,15 @@ def main():
     # No dependemos de que haya sido copiado a aprendizaje_predicciones.csv.
     candidatos = cargar_universo_candidatos(args.hasta)
     if not candidatos.empty:
-        candidatos["player_id"] = candidatos["player_id"].astype(str)
+        candidatos["player_id"] = normalizar_player_id(candidatos["player_id"])
         candidatos["position"] = candidatos["position"].astype(str).str.upper().str.strip()
-        candidatos["puntos_reales"] = num(candidatos.get("puntos_reales", np.nan))
-        # Recuperamos el resultado real desde la experiencia cerrada.
-        reales = df[["fecha", "player_id", "puntos_reales"]].drop_duplicates(
-            ["fecha", "player_id"]
-        )
-        candidatos = candidatos.drop(columns=["puntos_reales"], errors="ignore").merge(
-            reales, on=["fecha", "player_id"], how="left"
-        )
+        candidatos = cargar_puntos_reales(candidatos)
     else:
         candidatos = df.copy()
     seleccion = df[df["tipo_registro"].isin(TIPOS_SELECCION)].copy()
     seleccion["abs_final"] = (seleccion["puntos_reales"] - seleccion["prediccion_final"]).abs()
 
-    fuente_ranking = "PRE_SIMULACION_CANDIDATOS" if not candidatos.empty and not (len(candidatos) == len(df)) else "EXPERIENCIA_COMPLETA_FALLBACK"
+    fuente_ranking = "PRE_SIMULACION_CANDIDATOS" if not candidatos.empty else "EXPERIENCIA_COMPLETA_FALLBACK"
 
     print("=" * 110)
     print("WINNING AI — AUDITORÍA DEL RANKING GLOBAL")
