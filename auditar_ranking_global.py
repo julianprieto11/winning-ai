@@ -69,6 +69,7 @@ def main():
     # CANDIDATO es el universo de decisión antes del optimizador.
     candidatos = df[df["tipo_registro"] == "CANDIDATO"].copy()
     seleccion = df[df["tipo_registro"].isin(TIPOS_SELECCION)].copy()
+    seleccion["abs_final"] = (seleccion["puntos_reales"] - seleccion["prediccion_final"]).abs()
 
     # Si por alguna razón no existe snapshot CANDIDATO, usamos el resto
     # como fallback, pero lo dejamos explícito.
