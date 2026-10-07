@@ -1760,43 +1760,34 @@ def calcular_factor_contexto(
 
         ultimo = datos_forma.iloc[-1]
 
-        puntos = safe_float(
-            ultimo.get(
-                "forma_ultimos_5_puntos",
-                0
+        # Si una métrica no existe o está vacía, NO asumimos 0.
+        # Ausencia de dato = sin ajuste. 0 real = dato válido.
+        puntos_raw = ultimo.get("forma_ultimos_5_puntos", np.nan)
+        goles_favor_raw = ultimo.get("forma_ultimos_5_prom_goles_favor", np.nan)
+        goles_contra_raw = ultimo.get("forma_ultimos_5_prom_goles_contra", np.nan)
+
+        puntos = safe_float(puntos_raw, None)
+        goles_favor = safe_float(goles_favor_raw, None)
+        goles_contra = safe_float(goles_contra_raw, None)
+
+        if puntos is not None:
+            factor += np.clip(
+                (
+                    puntos - 7
+                ) * 0.015,
+                -0.08,
+                0.08
             )
-        )
 
-        goles_favor = safe_float(
-            ultimo.get(
-                "forma_ultimos_5_prom_goles_favor",
-                0
+        if goles_favor is not None and goles_contra is not None:
+            factor += np.clip(
+                (
+                    goles_favor
+                    - goles_contra
+                ) * 0.015,
+                -0.05,
+                0.05
             )
-        )
-
-        goles_contra = safe_float(
-            ultimo.get(
-                "forma_ultimos_5_prom_goles_contra",
-                0
-            )
-        )
-
-        factor += np.clip(
-            (
-                puntos - 7
-            ) * 0.015,
-            -0.08,
-            0.08
-        )
-
-        factor += np.clip(
-            (
-                goles_favor
-                - goles_contra
-            ) * 0.015,
-            -0.05,
-            0.05
-        )
 
     # --------------------------------------------------------
     # LOCAL / VISITANTE
@@ -1819,30 +1810,27 @@ def calcular_factor_contexto(
         ultimo = datos_lv.iloc[-1]
 
         if es_local:
-
-            puntos = safe_float(
-                ultimo.get(
-                    "local_ultimos_5_puntos",
-                    0
-                )
+            puntos_raw = ultimo.get(
+                "local_ultimos_5_puntos",
+                np.nan
             )
-
         else:
-
-            puntos = safe_float(
-                ultimo.get(
-                    "visitante_ultimos_5_puntos",
-                    0
-                )
+            puntos_raw = ultimo.get(
+                "visitante_ultimos_5_puntos",
+                np.nan
             )
 
-        factor += np.clip(
-            (
-                puntos - 7
-            ) * 0.01,
-            -0.05,
-            0.05
-        )
+        # Ausencia de dato = sin ajuste. No convertirla en 0.
+        puntos = safe_float(puntos_raw, None)
+
+        if puntos is not None:
+            factor += np.clip(
+                (
+                    puntos - 7
+                ) * 0.01,
+                -0.05,
+                0.05
+            )
 
     # --------------------------------------------------------
     # RENDIMIENTO RECIENTE
@@ -1864,35 +1852,36 @@ def calcular_factor_contexto(
 
         ultimo = datos_rend.iloc[-1]
 
-        shots = safe_float(
-            ultimo.get(
-                "prom_ultimos_5_shots_on_target",
-                0
+        shots_raw = ultimo.get(
+            "prom_ultimos_5_shots_on_target",
+            np.nan
+        )
+        chances_raw = ultimo.get(
+            "prom_ultimos_5_chances_created",
+            np.nan
+        )
+
+        # Ausencia de dato = sin ajuste. 0 real sigue siendo válido.
+        shots = safe_float(shots_raw, None)
+        chances = safe_float(chances_raw, None)
+
+        if shots is not None:
+            factor += np.clip(
+                (
+                    shots - 4
+                ) * 0.01,
+                -0.04,
+                0.04
             )
-        )
 
-        chances = safe_float(
-            ultimo.get(
-                "prom_ultimos_5_chances_created",
-                0
+        if chances is not None:
+            factor += np.clip(
+                (
+                    chances - 5
+                ) * 0.005,
+                -0.03,
+                0.03
             )
-        )
-
-        factor += np.clip(
-            (
-                shots - 4
-            ) * 0.01,
-            -0.04,
-            0.04
-        )
-
-        factor += np.clip(
-            (
-                chances - 5
-            ) * 0.005,
-            -0.03,
-            0.03
-        )
 
     return float(
         np.clip(
