@@ -8,6 +8,38 @@ import pandas as pd
 DATOS = Path("datos")
 EXPERIENCIA = DATOS / "aprendizaje_predicciones.csv"
 
+
+def cargar_universo_candidatos(hasta):
+    filas = []
+    for archivo in sorted(DATOS.glob("fecha*_pre_simulacion_candidatos.csv")):
+        try:
+            numero = int(archivo.stem.split("fecha", 1)[1].split("_", 1)[0])
+        except Exception:
+            continue
+        if hasta is not None and numero > hasta:
+            continue
+        try:
+            bloque = pd.read_csv(archivo, low_memory=False)
+        except Exception:
+            continue
+        if bloque.empty or "player_id" not in bloque.columns:
+            continue
+        bloque["fecha"] = numero
+        bloque["tipo_registro"] = "CANDIDATO"
+        if "prediccion_base" not in bloque.columns:
+            bloque["prediccion_base"] = pd.to_numeric(
+                bloque.get("score_seleccion"), errors="coerce"
+            )
+        bloque["prediccion_final"] = pd.to_numeric(
+            bloque.get("prediccion_final", bloque["prediccion_base"]),
+            errors="coerce",
+        )
+        filas.append(bloque)
+    if not filas:
+        return pd.DataFrame()
+    return pd.concat(filas, ignore_index=True, sort=False)
+
+
 TIPOS_SELECCION = {"TITULAR", "FLEX", "TAPADO"}
 POSICIONES = ["ARQ", "DEF", "VOL", "DEL"]
 
@@ -66,17 +98,26 @@ def main():
     if df.empty:
         raise SystemExit("No hay registros auditables.")
 
-    # CANDIDATO es el universo de decisión antes del optimizador.
-    candidatos = df[df["tipo_registro"] == "CANDIDATO"].copy()
+    # El snapshot CANDIDATO vive en un archivo separado por fecha.
+    # No dependemos de que haya sido copiado a aprendizaje_predicciones.csv.
+    candidatos = cargar_universo_candidatos(args.hasta)
+    if not candidatos.empty:
+        candidatos["player_id"] = candidatos["player_id"].astype(str)
+        candidatos["position"] = candidatos["position"].astype(str).str.upper().str.strip()
+        candidatos["puntos_reales"] = num(candidatos.get("puntos_reales", np.nan))
+        # Recuperamos el resultado real desde la experiencia cerrada.
+        reales = df[["fecha", "player_id", "puntos_reales"]].drop_duplicates(
+            ["fecha", "player_id"]
+        )
+        candidatos = candidatos.drop(columns=["puntos_reales"], errors="ignore").merge(
+            reales, on=["fecha", "player_id"], how="left"
+        )
+    else:
+        candidatos = df.copy()
     seleccion = df[df["tipo_registro"].isin(TIPOS_SELECCION)].copy()
     seleccion["abs_final"] = (seleccion["puntos_reales"] - seleccion["prediccion_final"]).abs()
 
-    # Si por alguna razón no existe snapshot CANDIDATO, usamos el resto
-    # como fallback, pero lo dejamos explícito.
-    fuente_ranking = "CANDIDATO"
-    if candidatos.empty:
-        candidatos = df.copy()
-        fuente_ranking = "EXPERIENCIA_COMPLETA_FALLBACK"
+    fuente_ranking = "PRE_SIMULACION_CANDIDATOS" if not candidatos.empty and not (len(candidatos) == len(df)) else "EXPERIENCIA_COMPLETA_FALLBACK"
 
     print("=" * 110)
     print("WINNING AI — AUDITORÍA DEL RANKING GLOBAL")
@@ -126,6 +167,10 @@ def main():
     # ------------------------------------------------------------------
     # 2. ¿El aprendizaje mueve a los jugadores en la dirección correcta?
     # ------------------------------------------------------------------
+    candidatos["prediccion_base"] = num(candidatos["prediccion_base"])
+    candidatos["prediccion_final"] = num(candidatos["prediccion_final"])
+    candidatos["puntos_reales"] = num(candidatos["puntos_reales"])
+    candidatos = candidatos.dropna(subset=["prediccion_base", "prediccion_final", "puntos_reales"])
     candidatos["abs_base"] = (candidatos["puntos_reales"] - candidatos["prediccion_base"]).abs()
     candidatos["abs_final"] = (candidatos["puntos_reales"] - candidatos["prediccion_final"]).abs()
 
