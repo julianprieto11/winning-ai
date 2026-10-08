@@ -652,6 +652,16 @@ def generar_excel(salida_historica, salida_ultimos_5, output_xlsx=OUTPUT_XLSX):
     output_xlsx.parent.mkdir(parents=True, exist_ok=True)
     wb.save(output_xlsx)
 
+def _normalizar_id_partido(valor):
+    """Normaliza IDs provenientes de CSV (p.ej. 16671619.0) y JSON."""
+    if pd.isna(valor):
+        return ""
+    texto = str(valor).strip()
+    if texto.endswith(".0"):
+        texto = texto[:-2]
+    return texto
+
+
 def _ids_partidos_clausura():
     """Devuelve los IDs de partidos pertenecientes al Clausura 2026."""
     ids = set()
@@ -667,7 +677,7 @@ def _ids_partidos_clausura():
                 evento=evento["event"]
             tournament=evento.get("tournament",{}) or {}
             if str(tournament.get("slug","")).strip().lower()=="primera-lpf-clausura":
-                ids.add(ruta.stem)
+                ids.add(_normalizar_id_partido(ruta.stem))
         except Exception:
             continue
     return ids
@@ -735,9 +745,9 @@ def main(fecha=None):
     # El histórico conserva Apertura + Clausura hasta el corte.
     # "Últimos 5" es EXCLUSIVAMENTE Clausura.
     ids_clausura = _ids_partidos_clausura()
-    df_clausura = df[df[col_match].astype(str).isin(ids_clausura)].copy()
+    df_clausura = df[df[col_match].map(_normalizar_id_partido).isin(ids_clausura)].copy()
 
-    print(f"Partidos Clausura identificados: {df_clausura[col_match].astype(str).nunique()}")
+    print(f"Partidos Clausura identificados: {df_clausura[col_match].map(_normalizar_id_partido).nunique()}")
 
     participaciones = cargar_participaciones_ultimos_5(
         df_clausura, col_player, col_team, col_date, col_match
