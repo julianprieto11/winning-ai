@@ -652,35 +652,33 @@ def generar_excel(salida_historica, salida_ultimos_5, output_xlsx=OUTPUT_XLSX):
     output_xlsx.parent.mkdir(parents=True, exist_ok=True)
     wb.save(output_xlsx)
 
-def _normalizar_id_partido(valor):
-    """Normaliza IDs provenientes de CSV (p.ej. 16671619.0) y JSON."""
-    if pd.isna(valor):
-        return ""
-    texto = str(valor).strip()
-    if texto.endswith(".0"):
-        texto = texto[:-2]
-    return texto
+def _fecha_inicio_clausura(df, col_date):
+    """
+    Detecta el inicio del Clausura a partir del calendario del propio dataset.
 
+    Apertura y Clausura están en el mismo dataset y el cambio de torneo queda
+    separado por el intervalo más grande entre fechas de partidos. No depende
+    de IDs ni de archivos auxiliares de SofaScore/PitchAPI.
+    """
+    fechas = (
+        pd.to_datetime(df[col_date], errors="coerce")
+        .dropna()
+        .dt.normalize()
+        .drop_duplicates()
+        .sort_values()
+    )
 
-def _ids_partidos_clausura():
-    """Devuelve los IDs de partidos pertenecientes al Clausura 2026."""
-    ids = set()
-    partidos_dir = DATOS_DIR / "partidos"
-    if not partidos_dir.exists():
-        return ids
-    for ruta in partidos_dir.glob("*.json"):
-        try:
-            with ruta.open("r", encoding="utf-8") as f:
-                payload=json.load(f)
-            evento=payload.get("event", {})
-            if isinstance(evento,dict) and "event" in evento:
-                evento=evento["event"]
-            tournament=evento.get("tournament",{}) or {}
-            if str(tournament.get("slug","")).strip().lower()=="primera-lpf-clausura":
-                ids.add(_normalizar_id_partido(ruta.stem))
-        except Exception:
-            continue
-    return ids
+    if len(fechas) < 2:
+        return None
+
+    diferencias = fechas.diff().dt.days
+    candidatos = diferencias[diferencias >= 14]
+    if candidatos.empty:
+        return None
+
+    # El mayor intervalo entre partidos de liga separa Apertura de Clausura.
+    return fechas.iloc[candidatos.argmax()]
+
 
 
 def obtener_corte_fecha(fecha):
@@ -744,10 +742,16 @@ def main(fecha=None):
 
     # El histórico conserva Apertura + Clausura hasta el corte.
     # "Últimos 5" es EXCLUSIVAMENTE Clausura.
-    ids_clausura = _ids_partidos_clausura()
-    df_clausura = df[df[col_match].map(_normalizar_id_partido).isin(ids_clausura)].copy()
+    # Se identifica el inicio del Clausura desde las fechas reales del dataset,
+    # sin depender de IDs/JSON externos.
+    inicio_clausura = _fecha_inicio_clausura(df, col_date)
+    if inicio_clausura is None:
+        raise RuntimeError("No se pudo identificar el inicio del Clausura en el dataset.")
 
-    print(f"Partidos Clausura identificados: {df_clausura[col_match].map(_normalizar_id_partido).nunique()}")
+    df_clausura = df[df[col_date] >= inicio_clausura].copy()
+
+    print(f"Inicio Clausura detectado: {inicio_clausura.date()}")
+    print(f"Partidos Clausura identificados: {df_clausura[col_match].nunique()}")
 
     participaciones = cargar_participaciones_ultimos_5(
         df_clausura, col_player, col_team, col_date, col_match
