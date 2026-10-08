@@ -599,7 +599,7 @@ def generar_excel(salida_historica, salida_ultimos_5, output_xlsx=OUTPUT_XLSX):
     preparar_hoja(
         ws2,
         "WINNING AI — TOP 5 ÚLTIMOS 5",
-        f"Top 5 GENERAL y Top 5 por posición | Solo últimos {ULTIMOS_PARTIDOS} partidos del club actual | "
+        f"Top 5 GENERAL y Top 5 por posición | Solo últimos {ULTIMOS_PARTIDOS} partidos del Clausura del club actual | "
         f"Mínimo {MIN_TITULARIDADES_ULTIMOS_5} titularidades y {MIN_MINUTOS_ULTIMOS_5} minutos jugados | Ranking por 90",
         [
             "Puesto", "Jugador", "Club", "Posición", "Minutos últimos 5",
@@ -623,7 +623,7 @@ def generar_excel(salida_historica, salida_ultimos_5, output_xlsx=OUTPUT_XLSX):
 
     explicaciones = [
         ("Ranking histórico", "La primera hoja acumula las estadísticas del período disponible y exige al menos 450 minutos acumulados."),
-        ("Ranking últimos 5", "La segunda hoja calcula los mismos rankings usando exclusivamente los últimos 5 partidos del club actual del jugador."),
+        ("Ranking últimos 5", "La segunda hoja calcula los mismos rankings usando exclusivamente los últimos 5 partidos del Clausura del club actual del jugador. Nunca mezcla partidos del Apertura."),
         ("Por 90", "Es la columna principal para ordenar. Normaliza la producción según 90 minutos jugados."),
         ("Actividad reciente", f"Para entrar en cualquiera de los rankings, el jugador debe figurar en la lista PitchAPI de al menos {MIN_TITULARIDADES_ULTIMOS_5} de los últimos {ULTIMOS_PARTIDOS} partidos de su club."),
         ("Minutos recientes", f"Además, debe haber jugado al menos {MIN_MINUTOS_ULTIMOS_5} minutos acumulados en esos últimos {ULTIMOS_PARTIDOS}. Esto evita considerar activo a alguien que solo estuvo en el banco."),
@@ -652,31 +652,56 @@ def generar_excel(salida_historica, salida_ultimos_5, output_xlsx=OUTPUT_XLSX):
     output_xlsx.parent.mkdir(parents=True, exist_ok=True)
     wb.save(output_xlsx)
 
-def obtener_corte_fecha(fecha):
-    """Devuelve la fecha de inicio de la ronda Clausura indicada, si está disponible."""
-    if fecha is None:
-        return None
-    fechas = []
-    for ruta in (DATOS_DIR / "partidos").glob("*.json") if (DATOS_DIR / "partidos").exists() else []:
+def _ids_partidos_clausura():
+    """Devuelve los IDs de partidos pertenecientes al Clausura 2026."""
+    ids = set()
+    partidos_dir = DATOS_DIR / "partidos"
+    if not partidos_dir.exists():
+        return ids
+    for ruta in partidos_dir.glob("*.json"):
         try:
             with ruta.open("r", encoding="utf-8") as f:
-                payload = json.load(f)
-            evento = payload.get("event", {})
-            if isinstance(evento, dict) and "event" in evento:
-                evento = evento["event"]
-            round_info = evento.get("roundInfo", {}) or {}
-            season = evento.get("season", {}) or {}
-            ts = evento.get("startTimestamp")
-            if int(round_info.get("round", -1)) != int(fecha):
+                payload=json.load(f)
+            evento=payload.get("event", {})
+            if isinstance(evento,dict) and "event" in evento:
+                evento=evento["event"]
+            tournament=evento.get("tournament",{}) or {}
+            if str(tournament.get("slug","")).strip().lower()=="primera-lpf-clausura":
+                ids.add(ruta.stem)
+        except Exception:
+            continue
+    return ids
+
+
+def obtener_corte_fecha(fecha):
+    """Devuelve la fecha de inicio de la ronda Clausura indicada."""
+    if fecha is None:
+        return None
+    fechas=[]
+    for ruta in (DATOS_DIR/"partidos").glob("*.json") if (DATOS_DIR/"partidos").exists() else []:
+        try:
+            with ruta.open("r",encoding="utf-8") as f:
+                payload=json.load(f)
+            evento=payload.get("event",{})
+            if isinstance(evento,dict) and "event" in evento:
+                evento=evento["event"]
+            round_info=evento.get("roundInfo",{}) or {}
+            season=evento.get("season",{}) or {}
+            tournament=evento.get("tournament",{}) or {}
+            if str(tournament.get("slug","")).strip().lower()!="primera-lpf-clausura":
                 continue
-            if season.get("id") not in (None, 87913):
+            if int(round_info.get("round",-1))!=int(fecha):
                 continue
+            if season.get("id") not in (None,87913):
+                continue
+            ts=evento.get("startTimestamp")
             if ts:
                 import datetime as _dt
-                fechas.append(_dt.datetime.fromtimestamp(int(ts), tz=_dt.timezone.utc).date())
+                fechas.append(_dt.datetime.fromtimestamp(int(ts),tz=_dt.timezone.utc).date())
         except Exception:
             continue
     return min(fechas) if fechas else None
+
 
 def main(fecha=None):
     if not INPUT.exists():
@@ -707,15 +732,22 @@ def main(fecha=None):
         output_csv_ultimos_5 = Path("datos/rankings_jugadores_ultimos_5.csv")
         output_xlsx = OUTPUT_XLSX
 
-    # Últimos 5 partidos de cada club. La actividad se mide contra estos
-    # partidos, no contra los últimos 5 que haya jugado cada futbolista.
+    # El histórico conserva Apertura + Clausura hasta el corte.
+    # "Últimos 5" es EXCLUSIVAMENTE Clausura.
+    ids_clausura = _ids_partidos_clausura()
+    df_clausura = df[df[col_match].astype(str).isin(ids_clausura)].copy()
+
+    print(f"Partidos Clausura identificados: {df_clausura[col_match].astype(str).nunique()}")
+
     participaciones = cargar_participaciones_ultimos_5(
-        df, col_player, col_team, col_date, col_match
+        df_clausura, col_player, col_team, col_date, col_match
     ).to_dict()
-    titularidades = cargar_titularidades_ultimos_5(df, col_player, col_team, col_date, col_match).to_dict()
+    titularidades = cargar_titularidades_ultimos_5(
+        df_clausura, col_player, col_team, col_date, col_match
+    ).to_dict()
 
     df_ultimos_5 = construir_df_ultimos_5(
-        df, col_player, col_team, col_date, col_match, col_minutes
+        df_clausura, col_player, col_team, col_date, col_match, col_minutes
     )
 
     # Se genera una columna auxiliar con los minutos acumulados del jugador
