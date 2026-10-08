@@ -243,9 +243,33 @@ def main(fecha):
     if partidos.empty:
         raise RuntimeError("No hay archivos válidos en datos/partidos. Ejecutá primero ejecutar_fecha.py N.")
 
-    objetivo = partidos[partidos["ronda"] == int(fecha)].copy()
+    # SOLO CLAUSURA 2026. La ronda por si sola no alcanza porque Apertura
+    # y Clausura pueden compartir el mismo numero de fecha.
+    objetivo = partidos[
+        (partidos["ronda"] == int(fecha))
+        & (partidos["fecha"] >= CLAUSURA_INICIO)
+    ].copy()
+
     if objetivo.empty:
-        raise RuntimeError(f"No se encontraron partidos de la Fecha {fecha} en datos/partidos.")
+        raise RuntimeError(
+            f"No se encontraron partidos del Clausura 2026 para la Fecha {fecha} "
+            f"en datos/partidos."
+        )
+
+    # La Liga Profesional 2026 tiene 15 partidos por fecha.
+    if len(objetivo) != 15:
+        raise RuntimeError(
+            f"Fecha {fecha}: se encontraron {len(objetivo)} partidos del Clausura. "
+            f"Se esperaban exactamente 15. No se generara una prediccion "
+            f"para evitar mezclar Apertura/Clausura o duplicados."
+        )
+
+    objetivo = objetivo.sort_values(["fecha", "local", "visitante"]).drop_duplicates("match_id")
+    if len(objetivo) != 15:
+        raise RuntimeError(
+            f"Fecha {fecha}: quedaron {len(objetivo)} partidos unicos despues "
+            f"de deduplicar. Se esperaban 15."
+        )
 
     inicio = objetivo["fecha"].min()
     historicos = partidos[
@@ -294,6 +318,7 @@ def main(fecha):
     print(f"PREDICCIÓN DE RESULTADOS — FECHA {fecha}")
     print("=" * 90)
     print(f"Partidos objetivo: {len(objetivo)}")
+    print("Competencia: Clausura 2026")
     print(f"Partidos históricos usados: {len(historicos)}")
     print(f"Corte histórico: {inicio.date()}")
     print(f"CSV: {csv}")
