@@ -434,6 +434,115 @@ def load_matchup(fecha):
     return df.sort_values("matchup_score", ascending=False)
 
 
+def load_last_match_activity(matchup_df):
+    """
+    Devuelve actividad del jugador en el partido anterior de su equipo
+    respecto de la fecha del partido objetivo:
+      - titular en ese partido, O
+      - más de 30 minutos jugados.
+    Se usan registros PitchAPI y alineaciones guardadas localmente.
+    """
+    historico_path = DATOS / "dataset_winning_pitchapi.csv"
+    lineups_dir = DATOS / "pitchapi" / "lineups"
+
+    if matchup_df.empty or not historico_path.exists():
+        print(
+            "AVISO: no se puede validar el último partido: "
+            f"falta {historico_path}"
+        )
+        return pd.DataFrame()
+
+    try:
+        historico = pd.read_csv(historico_path, low_memory=False)
+    except Exception as exc:
+        print(f"AVISO: no se pudo leer el histórico PitchAPI: {exc}")
+        return pd.DataFrame()
+
+    required = {"date", "match_id", "player_id", "team_name", "minutes_played"}
+    if not required.issubset(historico.columns):
+        print("AVISO: el histórico PitchAPI no tiene las columnas para validar actividad.")
+        return pd.DataFrame()
+
+    historico["date"] = pd.to_datetime(historico["date"], errors="coerce", utc=True)
+    historico["match_id"] = historico["match_id"].astype(str)
+    historico["player_id"] = historico["player_id"].astype(str)
+    historico["team_name"] = historico["team_name"].astype(str)
+    historico["minutes_played"] = pd.to_numeric(
+        historico["minutes_played"], errors="coerce"
+    )
+
+    titulares = set()
+    if lineups_dir.exists():
+        for path in lineups_dir.glob("*_lineups.json"):
+            try:
+                payload = json.loads(path.read_text(encoding="utf-8"))
+                data = payload.get("data", {}) or {}
+                match_id = path.name.replace("_lineups.json", "")
+                for side in ("home", "away"):
+                    side_data = data.get(side, {}) or {}
+                    for player in side_data.get("starters", []) or []:
+                        player_id = str(player.get("player_id", ""))
+                        if player_id:
+                            titulares.add((match_id, player_id))
+            except Exception:
+                continue
+
+    resultados = []
+    for _, candidato in matchup_df.iterrows():
+        team = str(candidato.get("team_name", ""))
+        player_id = str(candidato.get("player_id", ""))
+        fecha_objetivo = pd.to_datetime(
+            candidato.get("fecha_partido"), errors="coerce", utc=True
+        )
+
+        if not team or not player_id or pd.isna(fecha_objetivo):
+            resultados.append({
+                "ultimo_partido_titular": False,
+                "minutos_ultimo_partido": np.nan,
+                "elegible_matchup": False,
+            })
+            continue
+
+        partidos_equipo = historico[
+            (historico["team_name"] == team)
+            & historico["date"].notna()
+            & (historico["date"] < fecha_objetivo)
+        ][["match_id", "date"]].drop_duplicates()
+
+        if partidos_equipo.empty:
+            resultados.append({
+                "ultimo_partido_titular": False,
+                "minutos_ultimo_partido": np.nan,
+                "elegible_matchup": False,
+            })
+            continue
+
+        ultimo = partidos_equipo.sort_values("date").iloc[-1]
+        ultimo_id = str(ultimo["match_id"])
+        registro_jugador = historico[
+            (historico["match_id"] == ultimo_id)
+            & (historico["player_id"] == player_id)
+            & (historico["team_name"] == team)
+        ]
+
+        minutos = (
+            float(registro_jugador["minutes_played"].max())
+            if not registro_jugador.empty
+            and registro_jugador["minutes_played"].notna().any()
+            else 0.0
+        )
+        fue_titular = (ultimo_id, player_id) in titulares
+
+        resultados.append({
+            "ultimo_partido_titular": fue_titular,
+            "minutos_ultimo_partido": minutos,
+            "elegible_matchup": fue_titular or minutos > 30,
+        })
+
+    actividad = pd.DataFrame(resultados, index=matchup_df.index)
+    return actividad
+
+
 def matchup_for_game(matchup_df, home, away):
     if matchup_df.empty:
         return None
@@ -453,19 +562,15 @@ def matchup_for_game(matchup_df, home, away):
     if g.empty:
         return None
 
-    # Evita recomendar jugadores que dejaron de participar hace varias fechas.
-    # El candidato debe haber sumado minutos en al menos uno de los últimos
-    # tres partidos de su club. Si el archivo incluye minutos esperados,
-    # también exigimos que sean mayores que cero.
-    if "participaciones_ultimos_3" in g.columns:
-        participaciones = pd.to_numeric(
-            g["participaciones_ultimos_3"], errors="coerce"
-        ).fillna(0)
-        g = g[participaciones > 0].copy()
+    # Regla estricta: titular en el partido anterior de su equipo
+    # O más de 30 minutos jugados en ese partido. No se usan participaciones
+    # de fechas anteriores como sustituto de la actividad del último partido.
+    actividad = load_last_match_activity(g)
+    if actividad.empty:
+        return None
 
-    if "minutos_esperados" in g.columns:
-        minutos = pd.to_numeric(g["minutos_esperados"], errors="coerce")
-        g = g[minutos.notna() & (minutos > 0)].copy()
+    g = g.join(actividad)
+    g = g[g["elegible_matchup"] == True].copy()
 
     # Si no queda nadie que cumpla los criterios, no inventamos un matchup.
     if g.empty:
@@ -496,8 +601,9 @@ def matchup_explanation(m):
         return f"{name} ({team}) aparece como matchup favorable según los datos disponibles."
     return (
         f"{name} ({team}) aparece como el matchup más favorable de este partido "
-        f"entre candidatos con participación reciente y minutos esperados positivos, "
-        f"con un índice de {score:.2f}. El índice cruza su perfil con el rival; "
+        f"entre jugadores que fueron titulares o superaron los 30 minutos "
+        f"en el partido anterior de su equipo, con un índice de {score:.2f}. "
+        f"El índice cruza su perfil con el rival; "
         "no es una garantía de rendimiento."
     )
 
