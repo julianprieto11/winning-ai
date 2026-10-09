@@ -15,8 +15,8 @@ El motor:
   corners y tiros libres
 - calcula probabilidades 1X2 y resultados exactos más probables
 - intenta identificar la zona territorial dominante
-- usa candidatos_fechaN_final.csv cuando existe para informar el matchup
-  de jugador más favorable
+- usa datos/fechaN_pre_simulacion_candidatos.csv para informar el matchup
+  de jugador más favorable (y admite el nombre antiguo como alternativa)
 - no modifica el motor Winning ni ranking_equipos.py
 
 IMPORTANTE:
@@ -399,14 +399,27 @@ def simple_explanation(row):
 
 
 def load_matchup(fecha):
-    path = DATOS / f"candidatos_fecha{fecha}_final.csv"
-    if not path.exists():
+    # El motor de simulación genera este nombre actualmente.
+    # Se conserva el nombre anterior como fallback por compatibilidad.
+    posibles = [
+        DATOS / f"fecha{fecha}_pre_simulacion_candidatos.csv",
+        DATOS / f"candidatos_fecha{fecha}_final.csv",
+    ]
+    path = next((p for p in posibles if p.exists()), None)
+    if path is None:
+        print(
+            "AVISO: no se encontró el CSV de candidatos para el matchup. "
+            f"Se buscaron: {', '.join(str(p) for p in posibles)}"
+        )
         return pd.DataFrame()
 
     try:
         df = pd.read_csv(path, low_memory=False)
-    except Exception:
+    except Exception as exc:
+        print(f"AVISO: no se pudo leer el CSV de matchup {path}: {exc}")
         return pd.DataFrame()
+
+    print(f"Matchup: candidatos cargados desde {path}")
 
     needed = {"player_name", "team_name", "rival", "position", "matchup_score", "fecha_partido"}
     if not needed.issubset(df.columns):
@@ -683,7 +696,7 @@ def write_excel(pred, form, fecha, output):
         ["Probabilidades", "Se convierten los goles esperados en una distribución de resultados mediante un modelo Poisson."],
         ["Resultados", "Se muestran los cinco marcadores exactos con mayor probabilidad dentro de la distribución calculada."],
         ["Territorio", "Se compara la llegada esperada al último tercio para indicar dónde debería concentrarse el partido."],
-        ["Matchup", "Cuando existe candidatos_fechaN_final.csv, se usa su índice de matchup para buscar el cruce individual más favorable."],
+        ["Matchup", "Se usa el índice matchup_score del archivo fechaN_pre_simulacion_candidatos.csv generado por la simulación (o el nombre antiguo si existe) para buscar el cruce individual más favorable."],
         ["Fuente", "PitchAPI sigue siendo la fuente principal del proyecto. Los JSON de datos/partidos se usan como complemento para métricas de partido disponibles allí."],
         ["Importante", "Las probabilidades son estimaciones del modelo, no certezas. Si falta un dato, se deja vacío o se usa un fallback explícito."],
     ], columns=["Tema", "Explicación"])
