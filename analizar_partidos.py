@@ -428,7 +428,9 @@ def load_matchup(fecha):
     df["matchup_score"] = pd.to_numeric(df["matchup_score"], errors="coerce")
     df["fecha_partido"] = pd.to_datetime(df["fecha_partido"], errors="coerce")
 
-    # Para cada partido buscamos el jugador de campo con mayor matchup_score.
+    # El CSV contiene candidatos históricos, no todos están necesariamente
+    # activos para la fecha objetivo. La disponibilidad reciente se valida
+    # al elegir el jugador, no alcanza con tener un matchup_score alto.
     return df.sort_values("matchup_score", ascending=False)
 
 
@@ -448,6 +450,24 @@ def matchup_for_game(matchup_df, home, away):
         )
     ].copy()
 
+    if g.empty:
+        return None
+
+    # Evita recomendar jugadores que dejaron de participar hace varias fechas.
+    # El candidato debe haber sumado minutos en al menos uno de los últimos
+    # tres partidos de su club. Si el archivo incluye minutos esperados,
+    # también exigimos que sean mayores que cero.
+    if "participaciones_ultimos_3" in g.columns:
+        participaciones = pd.to_numeric(
+            g["participaciones_ultimos_3"], errors="coerce"
+        ).fillna(0)
+        g = g[participaciones > 0].copy()
+
+    if "minutos_esperados" in g.columns:
+        minutos = pd.to_numeric(g["minutos_esperados"], errors="coerce")
+        g = g[minutos.notna() & (minutos > 0)].copy()
+
+    # Si no queda nadie que cumpla los criterios, no inventamos un matchup.
     if g.empty:
         return None
 
@@ -476,8 +496,9 @@ def matchup_explanation(m):
         return f"{name} ({team}) aparece como matchup favorable según los datos disponibles."
     return (
         f"{name} ({team}) aparece como el matchup más favorable de este partido "
-        f"entre los jugadores disponibles, con un índice de {score:.2f}. "
-        "El índice cruza su perfil reciente con el rival; no es una garantía de rendimiento."
+        f"entre candidatos con participación reciente y minutos esperados positivos, "
+        f"con un índice de {score:.2f}. El índice cruza su perfil con el rival; "
+        "no es una garantía de rendimiento."
     )
 
 
