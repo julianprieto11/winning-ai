@@ -271,16 +271,28 @@ def partidos_previos(df, team, fecha_corte):
 
 
 def validar_titularidad_2de2(df, player, team, fecha_corte, cache):
-    """Exige titularidad comprobada en los dos últimos partidos del equipo.
+    """Exige titularidad comprobada y correspondencia de identidad en ambos partidos.
 
-    El ID de jugador puede diferir entre el CSV estadístico y el lineup. Por eso
-    se permite validar por nombre normalizado solo si coincide exactamente con
-    un único titular de ese equipo en ese partido. Nunca se infiere titularidad
-    a partir de minutos jugados o de la mera presencia en el histórico.
+    No acepta un ID del lineup por sí solo: primero verifica que el nombre de ese
+    titular corresponda al jugador del histórico. Si el ID difiere entre fuentes,
+    solo permite una coincidencia exacta y única por nombre normalizado.
     """
     previos = partidos_previos(df, team, fecha_corte)
     if len(previos) != 2:
         return False, [], "No hay exactamente dos partidos previos identificables del equipo"
+
+    filas_identidad = df[
+        (df["player_id"].astype(str) == str(player)) &
+        (df["equipo"].map(normalizar) == normalizar(team)) &
+        (df["fecha"] < fecha_corte)
+    ]
+    nombres_historicos = {
+        normalizar(n) for n in filas_identidad["nombre"].dropna().astype(str)
+        if normalizar(n)
+    }
+    if not nombres_historicos:
+        return False, [], "No hay nombre verificable del jugador en el histórico"
+
     datos_jugador = []
     for _, row in previos.iterrows():
         mid = str(row["partido"])
@@ -293,29 +305,24 @@ def validar_titularidad_2de2(df, player, team, fecha_corte, cache):
         if players is None:
             return False, [], f"No se pudo verificar equipo/titulares en {mid}"
 
+        # El ID solo vale si también coincide la identidad por nombre.
         titular = players.get(str(player))
+        if titular is not None and normalizar(titular.get("name", "")) not in nombres_historicos:
+            titular = None
+
         if titular is None:
-            # Algunos archivos históricos usan IDs distintos para el mismo jugador.
-            # Solo aceptar coincidencia exacta de nombre contra la lista de TITULARES.
-            filas_jugador = df[
-                (df["player_id"].astype(str) == str(player)) &
-                (df["partido"].astype(str) == mid) &
-                (df["equipo"].map(normalizar) == normalizar(team))
-            ]
-            nombres = {
-                normalizar(n) for n in filas_jugador["nombre"].dropna().astype(str)
-                if normalizar(n)
-            }
             coincidencias = [
                 p for p in players.values()
-                if normalizar(p.get("name", "")) in nombres
+                if normalizar(p.get("name", "")) in nombres_historicos
             ]
-            if len(coincidencias) == 1:
-                titular = coincidencias[0]
+            # Un nombre debe identificar a un único titular en este equipo/partido.
+            unicas = {p["id"]: p for p in coincidencias}
+            if len(unicas) == 1:
+                titular = next(iter(unicas.values()))
             else:
                 return False, [], (
-                    f"No se confirmó como titular en el partido previo {mid} "
-                    "(ID/nombre no coincide de forma única con los titulares)"
+                    f"No se confirmó como titular en el partido previo {mid}: "
+                    "el ID no coincide con el nombre y no hay coincidencia única"
                 )
         datos_jugador.append(titular)
 
@@ -323,8 +330,7 @@ def validar_titularidad_2de2(df, player, team, fecha_corte, cache):
         return False, datos_jugador, "No se pudo confirmar titularidad en los dos partidos previos"
     if any(not np.isfinite(p["x"]) or not np.isfinite(p["y"]) for p in datos_jugador):
         return False, datos_jugador, "Titular 2/2 pero sin coordenadas válidas en ambos lineups"
-    return True, datos_jugador, "Titular confirmado 2/2 con coordenadas"
-
+    return True, datos_jugador, "Titular confirmado 2/2 por ID y nombre"
 
 def coordenadas_normalizadas(item):
     x, y = item.get("x"), item.get("y")
@@ -337,7 +343,7 @@ def coordenadas_normalizadas(item):
     return x, y
 
 
-def rol_por_coordenadas(lineup, club, player, eje_largo, sofa_map):
+def rol_por_coordenadas(lineup, club, player, eje_largo, sofa_map, nombres_historicos=None):
     """Infiere central/lateral/extremo usando el arquero identificado en SofaScore."""
     side = side_for_team(lineup, club)
     if not side or eje_largo not in ("x", "y"):
@@ -347,6 +353,7 @@ def rol_por_coordenadas(lineup, club, player, eje_largo, sofa_map):
     puntos = []
     arquero = None
     objetivo = None
+    nombres_historicos = set(nombres_historicos or [])
     for p in starters:
         if not isinstance(p, dict):
             continue
@@ -360,7 +367,8 @@ def rol_por_coordenadas(lineup, club, player, eje_largo, sofa_map):
         nombre = normalizar(p.get("name") or p.get("player_name"))
         if str(p.get("position_id", "")) == "11" or sofa_map.get(nombre) == "G":
             arquero = (longitud, banda)
-        if str(pid) == str(player):
+        nombre_jugador = normalizar(p.get("name") or p.get("player_name"))
+        if nombre_jugador and nombre_jugador in nombres_historicos:
             objetivo = (longitud, banda, str(p.get("name") or p.get("player_name") or ""))
     if not objetivo or len(puntos) < 7:
         return None
@@ -531,7 +539,13 @@ def main():
                         prev_lineup = cache.get(prev_mid_role)
                         prev_side = side_for_team(prev_lineup, team) if prev_lineup else None
                         sofa_map = sofa.get(prev_mid_role, {}).get(f"__{prev_side}__", {}) if prev_side else {}
-                        roles_previos.append(rol_por_coordenadas(cache.get(prev_mid_role), team, pid, eje_largo, sofa_map))
+                        nombres_jugador = {
+                            normalizar(n) for n in rows.loc[rows["player_id"].astype(str) == str(pid), "nombre"].dropna().astype(str)
+                            if normalizar(n)
+                        }
+                        roles_previos.append(rol_por_coordenadas(
+                            cache.get(prev_mid_role), team, pid, eje_largo, sofa_map, nombres_jugador
+                        ))
                     role = roles_previos[0] if roles_previos else None
                     if len(roles_previos) != 2 or any(r is None for r in roles_previos):
                         descartes.append({"Partido": f"{home} vs {away}", "Equipo": team,
