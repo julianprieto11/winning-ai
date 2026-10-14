@@ -290,8 +290,11 @@ def validar_titularidad_2de2(df, player, team, fecha_corte, cache):
         normalizar(n) for n in filas_identidad["nombre"].dropna().astype(str)
         if normalizar(n)
     }
-    if not nombres_historicos:
-        return False, [], "No hay nombre verificable del jugador en el histórico"
+    if len(nombres_historicos) != 1:
+        return False, [], (
+            "La identidad del jugador no es inequívoca en el histórico "
+            "(nombre ausente o varios nombres para el mismo ID)"
+        )
 
     datos_jugador = []
     for _, row in previos.iterrows():
