@@ -190,6 +190,7 @@ def sofa_posiciones_por_partido():
                     mapping[name] = pos
             if team_name:
                 por_equipo[normalizar(team_name)] = mapping
+            por_equipo[f"__{side}__"] = mapping
         if por_equipo:
             resultado[mid] = por_equipo
     return resultado
@@ -205,7 +206,7 @@ def calibrar_eje_largo(cache_lineups, sofa):
         for side in ("home", "away"):
             team_data = lineup.get(side) or {}
             team_name = normalizar(lineup_side_name(lineup, side))
-            sofa_map = sofa.get(str(mid), {}).get(team_name, {})
+            sofa_map = sofa.get(str(mid), {}).get(f"__{side}__", {})
             starters = team_data.get("starters") or []
             puntos = []
             arquero = None
@@ -402,7 +403,7 @@ def main():
     # Cargar lineups históricos disponibles para calibrar el eje y la orientación.
     for p in LINEUPS_DIR.glob("*_lineups.json"):
         mid = p.name.replace("_lineups.json", "")
-        cache[mid] = cargar_lineup(Path(p.stem + ".json")) if False else cargar_lineup(mid)
+        cache[mid] = cargar_lineup(mid)
     sofa = sofa_posiciones_por_partido()
     eje_largo, separaciones, muestras_calibracion = calibrar_eje_largo(cache, sofa)
     if eje_largo is None:
@@ -434,7 +435,9 @@ def main():
                         prev_mid_role = str(prev_row.partido)
                         if prev_mid_role not in cache:
                             cache[prev_mid_role] = cargar_lineup(prev_mid_role)
-                        sofa_map = sofa.get(prev_mid_role, {}).get(normalizar(team), {})
+                        prev_lineup = cache.get(prev_mid_role)
+                        prev_side = side_for_team(prev_lineup, team) if prev_lineup else None
+                        sofa_map = sofa.get(prev_mid_role, {}).get(f"__{prev_side}__", {}) if prev_side else {}
                         roles_previos.append(rol_por_coordenadas(cache.get(prev_mid_role), team, pid, eje_largo, sofa_map))
                     role = roles_previos[0] if roles_previos else None
                     if len(roles_previos) != 2 or any(r is None for r in roles_previos):
