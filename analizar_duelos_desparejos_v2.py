@@ -303,8 +303,8 @@ def coordenadas_normalizadas(item):
     return x, y
 
 
-def rol_por_coordenadas(lineup, club, player, eje_largo):
-    """Infere central/lateral/extremo solo si las coordenadas del equipo são suficientes."""
+def rol_por_coordenadas(lineup, club, player, eje_largo, sofa_map):
+    """Infiere central/lateral/extremo usando el arquero identificado en SofaScore."""
     side = side_for_team(lineup, club)
     if not side or eje_largo not in ("x", "y"):
         return None
@@ -323,18 +323,25 @@ def rol_por_coordenadas(lineup, club, player, eje_largo):
         x, y = coords
         longitud, banda = (x, y) if eje_largo == "x" else (y, x)
         puntos.append((longitud, banda))
+        nombre = normalizar(p.get("name") or p.get("player_name"))
+        if sofa_map.get(nombre) == "G":
+            arquero = (longitud, banda)
         if str(pid) == str(player):
             objetivo = (longitud, banda, str(p.get("name") or p.get("player_name") or ""))
     if not objetivo or len(puntos) < 7:
         return None
-    # El portero suele ser el punto extremo en el eje longitudinal. El equipo ataca alejándose de él.
-    arquero = min(puntos, key=lambda p: p[0])
-    if abs(max(p[0] for p in puntos) - arquero[0]) < abs(min(p[0] for p in puntos) - arquero[0]):
-        arquero = max(puntos, key=lambda p: p[0])
+    # La orientación se obtiene del arquero identificado por posición G en SofaScore; no se adivina el extremo.
+    if arquero is None:
+        return None
     # Orientar profundidad desde la propia portería hacia el campo rival.
     extremos = [p[0] for p in puntos]
     mediana_banda = float(np.median([p[1] for p in puntos]))
-    profundidad = abs(objetivo[0] - arquero[0]) / max(abs(max(extremos) - min(extremos)), 0.25)
+    span = max(abs(max(extremos) - min(extremos)), 0.25)
+    profundidad = (objetivo[0] - arquero[0]) / span
+    # Si el arquero está en el extremo alto, invertir la profundidad para que propia área sea 0.
+    if arquero[0] > float(np.median(extremos)):
+        profundidad = -profundidad
+    profundidad = max(0.0, min(1.0, profundidad))
     ancho = objetivo[1]
     distancia_centro = abs(ancho - mediana_banda)
     # Central: eje central. Banda: lejos del centro. Umbrales conservadores.
@@ -408,11 +415,6 @@ def main():
     for _, fx in fixtures.iterrows():
         home, away, fecha_corte = fx["local"], fx["visitante"], fx["fecha_partido"]
         for team_attack, team_defend in ((home, away), (away, home)):
-            lineup_target = cargar_lineup(fx["match_id"])
-            if not lineup_target:
-                descartes.append({"Partido": f"{home} vs {away}", "Equipo": team_attack,
-                                  "Jugador": "", "Motivo": "No hay alineación confirmada del partido objetivo"})
-                continue
             del_list, def_list = [], []
             for team, grupo, lista in ((team_attack, "DEL", del_list), (team_defend, "DEF", def_list)):
                 rows = historico[(historico["equipo"].map(normalizar) == normalizar(team)) &
@@ -427,10 +429,22 @@ def main():
                                           "Jugador": name_rows.iloc[-1] if len(name_rows) else pid, "Motivo": reason})
                         continue
                     # Para el rol táctico usamos la alineación más reciente previa, no el partido futuro.
-                    prev_mid = str(partidos_previos(historico, team, fecha_corte).iloc[0]["partido"])
-                    if prev_mid not in cache:
-                        cache[prev_mid] = cargar_lineup(prev_mid)
-                    role = rol_por_coordenadas(cache.get(prev_mid), team, pid, eje_largo)
+                    roles_previos = []
+                    for prev_row in partidos_previos(historico, team, fecha_corte).itertuples(index=False):
+                        prev_mid_role = str(prev_row.partido)
+                        if prev_mid_role not in cache:
+                            cache[prev_mid_role] = cargar_lineup(prev_mid_role)
+                        sofa_map = sofa.get(prev_mid_role, {}).get(normalizar(team), {})
+                        roles_previos.append(rol_por_coordenadas(cache.get(prev_mid_role), team, pid, eje_largo, sofa_map))
+                    role = roles_previos[0] if roles_previos else None
+                    if len(roles_previos) != 2 or any(r is None for r in roles_previos):
+                        descartes.append({"Partido": f"{home} vs {away}", "Equipo": team,
+                                          "Jugador": pid, "Motivo": "No se pudo inferir el sector en ambos lineups previos"})
+                        continue
+                    if roles_previos[0]["sector"] != roles_previos[1]["sector"]:
+                        descartes.append({"Partido": f"{home} vs {away}", "Equipo": team,
+                                          "Jugador": pid, "Motivo": "Cambió de sector entre los dos lineups previos"})
+                        continue
                     stats = metricas_por90(historico, pid, team, fecha_corte)
                     if stats is None:
                         descartes.append({"Partido": f"{home} vs {away}", "Equipo": team,
