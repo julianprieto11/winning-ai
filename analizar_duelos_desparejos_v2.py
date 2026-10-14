@@ -317,6 +317,25 @@ def validar_titularidad_2de2(df, player, team, fecha_corte, cache):
     datos_jugador = []
     for _, row in previos.iterrows():
         mid = str(row["partido"])
+
+        # Exigir también evidencia del jugador en el histórico de ESE partido.
+        # Evita validar a alguien por un nombre/ID visto únicamente en otros encuentros.
+        filas_partido = df[
+            (df["partido"].astype(str) == mid) &
+            (df["equipo"].map(normalizar) == normalizar(team)) &
+            (df["fecha"] < fecha_corte)
+        ]
+        filas_pid = filas_partido[filas_partido["player_id"].astype(str) == str(player)]
+        if filas_pid.empty:
+            nombres_en_partido = {
+                normalizar(n) for n in filas_partido["nombre"].dropna().astype(str)
+                if normalizar(n)
+            }
+            if len(nombres_historicos) != 1 or next(iter(nombres_historicos)) not in nombres_en_partido:
+                return False, [], (
+                    f"No hay evidencia del jugador en el histórico del partido previo {mid}"
+                )
+
         if mid not in cache:
             cache[mid] = cargar_lineup(mid)
         lineup = cache[mid]
