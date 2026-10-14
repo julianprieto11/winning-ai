@@ -386,6 +386,66 @@ def detalle(datos, metricas):
                      if c in datos and pd.notna(datos[c]))
 
 
+def justificar_duelo(defensor, atacante, diferencia):
+    """Explica en lenguaje sencillo qué inclina la comparación estadística."""
+
+    def estadisticas_destacadas(datos, metricas, limite=2):
+        valores = []
+        for clave, (nombre, _) in metricas.items():
+            valor = datos.get(clave)
+            if valor is not None and pd.notna(valor):
+                valores.append((nombre.lower(), float(valor)))
+        valores.sort(key=lambda par: par[1], reverse=True)
+        return ", ".join(
+            f"{nombre} ({valor:.2f} por 90 min)"
+            for nombre, valor in valores[:limite]
+        )
+
+    nombre_def = defensor.get("nombre", "El defensor")
+    nombre_del = atacante.get("nombre", "El atacante")
+    brecha = abs(float(diferencia))
+
+    if diferencia > 0:
+        inicio = (
+            f"{nombre_def} sale favorecido en esta comparación frente a {nombre_del}: "
+            f"su índice defensivo supera al índice ofensivo del atacante por "
+            f"{brecha:.3f} puntos."
+        )
+        lectura = (
+            "Dicho en criollo, los números recientes inclinan el cruce del lado "
+            "del defensor: dentro de este modelo, sus estadísticas defensivas "
+            "pesan más que las ofensivas del rival."
+        )
+    else:
+        inicio = (
+            f"{nombre_del} sale favorecido en esta comparación frente a {nombre_def}: "
+            f"su índice ofensivo supera al índice defensivo del defensor por "
+            f"{brecha:.3f} puntos."
+        )
+        lectura = (
+            "Dicho en criollo, los números recientes inclinan el cruce del lado "
+            "del atacante: dentro de este modelo, sus estadísticas ofensivas "
+            f"pesan más que las defensivas de {nombre_def}."
+        )
+
+    detalles = []
+    def_top = estadisticas_destacadas(defensor, METRICAS_DEF)
+    del_top = estadisticas_destacadas(atacante, METRICAS_DEL)
+    if def_top:
+        detalles.append(f"En defensa, {nombre_def} destaca en {def_top}.")
+    if del_top:
+        detalles.append(f"En ataque, {nombre_del} destaca en {del_top}.")
+
+    cierre = (
+        "El cruce se seleccionó porque ambos jugadores encajan en sectores "
+        "compatibles según las coordenadas y la diferencia entre sus índices "
+        "supera el umbral del análisis. Es una estimación basada en partidos "
+        "anteriores: no confirma un marcaje individual ni garantiza lo que "
+        "pasará durante el partido."
+    )
+    return " ".join([inicio, lectura] + detalles + [cierre])
+
+
 def banda_fisica(valor, centro):
     return "BANDA_A" if valor < centro else "BANDA_B"
 
@@ -515,12 +575,13 @@ def main():
                         "Stats defensor por 90": detalle(fs, METRICAS_DEF),
                         "Stats atacante por 90": detalle(ds, METRICAS_DEL),
                         "Advertencia": "DUELO ESTIMADO por coordenadas; no confirma marcaje individual",
+                        "Justificacion": justificar_duelo(fs, ds, diff),
                     })
 
-    columnas = ["Fecha", "Partido", "Fecha partido", "Equipo defensor", "Defensor", "Rol defensor",
-                "Equipo atacante", "Atacante", "Rol atacante", "Sector compatible", "Ventaja",
-                "Jugador favorecido", "Índice defensor", "Índice atacante", "Diferencia índice",
-                "Muestra defensor", "Muestra atacante", "Stats defensor por 90", "Stats atacante por 90", "Advertencia"]
+    columnas = [
+        "Fecha", "Partido", "Equipo defensor", "Defensor", "Equipo atacante",
+        "Atacante", "Jugador favorecido", "Diferencia índice", "Justificacion"
+    ]
     resultado = pd.DataFrame(salidas, columns=columnas)
     if not resultado.empty:
         resultado["_abs"] = resultado["Diferencia índice"].abs()
@@ -552,8 +613,18 @@ def main():
             cell.alignment = Alignment(vertical="center", wrap_text=True)
         ws.row_dimensions[1].height = 32
         for col in ws.columns:
+            encabezado = str(col[0].value or "")
             max_len = max((len(str(c.value)) if c.value is not None else 0) for c in col)
-            ws.column_dimensions[col[0].column_letter].width = min(max(max_len + 2, 12), 55)
+            if encabezado == "Justificacion":
+                ws.column_dimensions[col[0].column_letter].width = 75
+                for fila in range(2, ws.max_row + 1):
+                    celda = ws.cell(fila, col[0].column)
+                    celda.alignment = Alignment(vertical="top", wrap_text=True)
+                    texto_celda = str(celda.value or "")
+                    lineas = max(1, (len(texto_celda) // 90) + 1)
+                    ws.row_dimensions[fila].height = min(max(lineas * 30, 60), 150)
+            else:
+                ws.column_dimensions[col[0].column_letter].width = min(max(max_len + 2, 12), 55)
     wb.save(salida)
     print(f"Fecha {args.fecha}: {len(fixtures)} partidos, {len(resultado)} duelos compatibles")
     print(f"Eje longitudinal inferido: {eje_largo}; separaciones medianas: {separaciones}; muestras: {muestras_calibracion}")
