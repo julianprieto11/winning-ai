@@ -271,9 +271,16 @@ def partidos_previos(df, team, fecha_corte):
 
 
 def validar_titularidad_2de2(df, player, team, fecha_corte, cache):
+    """Exige titularidad comprobada en los dos últimos partidos del equipo.
+
+    El ID de jugador puede diferir entre el CSV estadístico y el lineup. Por eso
+    se permite validar por nombre normalizado solo si coincide exactamente con
+    un único titular de ese equipo en ese partido. Nunca se infiere titularidad
+    a partir de minutos jugados o de la mera presencia en el histórico.
+    """
     previos = partidos_previos(df, team, fecha_corte)
-    if len(previos) < 2:
-        return False, [], "No hay dos partidos previos del equipo antes del partido objetivo"
+    if len(previos) != 2:
+        return False, [], "No hay exactamente dos partidos previos identificables del equipo"
     datos_jugador = []
     for _, row in previos.iterrows():
         mid = str(row["partido"])
@@ -285,9 +292,35 @@ def validar_titularidad_2de2(df, player, team, fecha_corte, cache):
         players = lineup_players(lineup, team)
         if players is None:
             return False, [], f"No se pudo verificar equipo/titulares en {mid}"
-        if str(player) not in players:
-            return False, [], f"No fue titular en ambos partidos previos ({mid})"
-        datos_jugador.append(players[str(player)])
+
+        titular = players.get(str(player))
+        if titular is None:
+            # Algunos archivos históricos usan IDs distintos para el mismo jugador.
+            # Solo aceptar coincidencia exacta de nombre contra la lista de TITULARES.
+            filas_jugador = df[
+                (df["player_id"].astype(str) == str(player)) &
+                (df["partido"].astype(str) == mid) &
+                (df["equipo"].map(normalizar) == normalizar(team))
+            ]
+            nombres = {
+                normalizar(n) for n in filas_jugador["nombre"].dropna().astype(str)
+                if normalizar(n)
+            }
+            coincidencias = [
+                p for p in players.values()
+                if normalizar(p.get("name", "")) in nombres
+            ]
+            if len(coincidencias) == 1:
+                titular = coincidencias[0]
+            else:
+                return False, [], (
+                    f"No se confirmó como titular en el partido previo {mid} "
+                    "(ID/nombre no coincide de forma única con los titulares)"
+                )
+        datos_jugador.append(titular)
+
+    if len(datos_jugador) != 2:
+        return False, datos_jugador, "No se pudo confirmar titularidad en los dos partidos previos"
     if any(not np.isfinite(p["x"]) or not np.isfinite(p["y"]) for p in datos_jugador):
         return False, datos_jugador, "Titular 2/2 pero sin coordenadas válidas en ambos lineups"
     return True, datos_jugador, "Titular confirmado 2/2 con coordenadas"
