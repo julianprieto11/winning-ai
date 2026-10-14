@@ -222,7 +222,7 @@ def calibrar_eje_largo(cache_lineups, sofa):
                 if max(abs(x), abs(y)) > 1.5:
                     x, y = x / 100.0, y / 100.0
                 puntos.append((x, y))
-                if sofa_map.get(name) == "G":
+                if str(p.get("position_id", "")) == "11" or sofa_map.get(name) == "G":
                     arquero = (x, y)
             if arquero and len(puntos) >= 6:
                 otros = [p for p in puntos if p != arquero]
@@ -325,7 +325,7 @@ def rol_por_coordenadas(lineup, club, player, eje_largo, sofa_map):
         longitud, banda = (x, y) if eje_largo == "x" else (y, x)
         puntos.append((longitud, banda))
         nombre = normalizar(p.get("name") or p.get("player_name"))
-        if sofa_map.get(nombre) == "G":
+        if str(p.get("position_id", "")) == "11" or sofa_map.get(nombre) == "G":
             arquero = (longitud, banda)
         if str(pid) == str(player):
             objetivo = (longitud, banda, str(p.get("name") or p.get("player_name") or ""))
