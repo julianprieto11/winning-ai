@@ -106,14 +106,32 @@ def cargar_json(path):
     return data if isinstance(data, dict) else None
 
 
+def _confirmado(valor):
+    """Interpreta solo indicadores explícitos de confirmación; ausencia equivale a no confirmado."""
+    if valor is True or valor == 1:
+        return True
+    if isinstance(valor, str):
+        return valor.strip().lower() in ("true", "1", "yes", "si", "sí", "confirmed", "confirmado")
+    return False
+
+
 def cargar_lineup(match_id):
     data = cargar_json(LINEUPS_DIR / f"{match_id}_lineups.json")
     if not data:
         return None
-    if data.get("confirmed") is False:
-        home_ok = bool((data.get("home") or {}).get("confirmed"))
-        away_ok = bool((data.get("away") or {}).get("confirmed"))
-        if not (home_ok and away_ok):
+
+    # No aceptar alineaciones probables ni archivos sin estado de confirmación.
+    # Se admite confirmación global explícita o confirmación explícita de ambos equipos.
+    global_ok = _confirmado(data.get("confirmed"))
+    home_ok = _confirmado((data.get("home") or {}).get("confirmed"))
+    away_ok = _confirmado((data.get("away") or {}).get("confirmed"))
+    if not (global_ok or (home_ok and away_ok)):
+        return None
+
+    # Además del estado confirmado, ambos lados deben tener listas reales de titulares.
+    for side in ("home", "away"):
+        starters = (data.get(side) or {}).get("starters")
+        if not isinstance(starters, list) or len(starters) < 7:
             return None
     return data
 
@@ -567,12 +585,19 @@ def main():
                         descartes.append({"Partido": f"{home} vs {away}", "Equipo": team,
                                           "Jugador": stats["nombre"], "Motivo": "No se pudo inferir rol con coordenadas válidas"})
                         continue
+                    previos_auditoria = partidos_previos(historico, team, fecha_corte)
+                    ids_previos = [str(v) for v in previos_auditoria["partido"].tolist()]
+                    nombres_previos = [str(p.get("name") or "") for p in previous]
                     audit_row = {"Partido": f"{home} vs {away}", "Equipo": team, "Jugador": stats["nombre"],
                                  "Player ID": pid, "Grupo evaluado": grupo, "Eje longitudinal": eje_largo,
+                                 "Partido previo 1 ID": ids_previos[0] if len(ids_previos) > 0 else "",
+                                 "Titular previo 1": nombres_previos[0] if len(nombres_previos) > 0 else "",
+                                 "Partido previo 2 ID": ids_previos[1] if len(ids_previos) > 1 else "",
+                                 "Titular previo 2": nombres_previos[1] if len(nombres_previos) > 1 else "",
                                  "Rol inferido": role["rol"], "Sector": role["sector"],
                                  "Profundidad normalizada": round(role["profundidad"], 3),
                                  "Coordenada lateral": round(role["banda"], 3),
-                                 "Titularidad 2/2": "Sí"}
+                                 "Titularidad 2/2": "Sí — lineup confirmado + identidad"}
                     auditoria.append(audit_row)
                     if grupo == "DEL":
                         if role["sector"] in ("CENTRAL_DEL", "EXTREMO"):
